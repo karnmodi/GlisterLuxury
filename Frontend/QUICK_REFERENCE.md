@@ -52,7 +52,7 @@ OUR MISSION
 • Foster a culture of continuous innovation...
 • Maintain ethical business practices...
 
-"Crafting excellence since 1929"
+"Crafting excellence since 2025"
 ```
 
 ### 4. Core Values Section (Dark)
@@ -188,7 +188,7 @@ npm run lint
 - **Language:** Timeless, craftsmanship, heritage, excellence
 - **Values:** Quality, Innovation, Integrity, Customer Focus
 - **Tagline:** "The Soul of Interior"
-- **Established:** Since 1929
+- **Established:** Since 2025
 - **Origin:** Made in England
 
 ## 📝 Content Sources

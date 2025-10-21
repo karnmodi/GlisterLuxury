@@ -36,7 +36,7 @@ export default function LuxuryFooter() {
               </div>
             </div>
             <p className="text-ivory/70 leading-relaxed mb-6">
-              Crafting the finest solid brass hardware and interior accessories since 1929.
+              Crafting the finest solid brass hardware and interior accessories since 2025.
             </p>
             
             {/* Social Media */}

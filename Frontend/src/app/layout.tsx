@@ -23,7 +23,7 @@ const crimson = Crimson_Text({
 
 export const metadata: Metadata = {
   title: 'Glister London - The Soul of Interior',
-  description: 'Crafting the finest solid brass cabinet hardware and interior accessories since 1929. Premium hardware for discerning customers.',
+  description: 'Crafting the finest solid brass cabinet hardware and interior accessories since 2025. Premium hardware for discerning customers.',
   icons: {
     icon: '/images/business/Logo.png',
     shortcut: '/images/business/Logo.png',

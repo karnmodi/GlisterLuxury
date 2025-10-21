@@ -78,7 +78,7 @@ Features:
 - Mission as bullet points with staggered fade + slide animations
 - Decorative background blur elements
 - Brass divider lines and accents
-- Quote section: "Crafting excellence since 1929"
+- Quote section: "Crafting excellence since 2025"
 - Scroll-triggered animations using intersection observer
 
 #### 4. CoreValuesCarousel Component
@@ -207,7 +207,7 @@ Kept components:
 When users visit the homepage, they experience:
 - ✅ **Calm luxury** - through elegant animations and refined color palette
 - ✅ **Connection to craftsmanship** - via detailed descriptions and quality imagery
-- ✅ **Heritage** - "Made in England since 1929" messaging
+- ✅ **Heritage** - "Made in England since 2025" messaging
 - ✅ **Desire to explore** - through interactive elements and strategic CTAs
 
 ## Technical Implementation
