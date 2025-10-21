@@ -11,13 +11,11 @@ export default function CinematicHero() {
 
   // Optimized images for faster loading
   const images = [
-    'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=75&w=2000&auto=format&fit=crop', // Luxury door handle
-    'https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?q=75&w=2000&auto=format&fit=crop', // Modern interior
-    '/images/gallery/Knowb.jpg', // Brass knob
-    'https://images.unsplash.com/photo-1697374981314-6bdaa638e379?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=1332', // Brass fixtures
-    'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=75&w=2000&auto=format&fit=crop', // Luxury bathroom
-    'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?q=75&w=2000&auto=format&fit=crop', // Modern kitchen
-    'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?q=75&w=2000&auto=format&fit=crop', // Gold hardware
+    '/images/gallery/Door handle photo/London View.png', // London View
+    '/images/gallery/Door handle photo/DOOR HANDLE.png', // Door handle 1
+    '/images/gallery/Door handle photo/DOOR HANDLE (2).png', // Door handle 2
+    '/images/gallery/Door handle photo/DOOR HANDLE (3).png', // Door handle 3
+    '/images/gallery/Door handle photo/NOOB.png', // Noob design
   ]
 
   // Preload first image for instant display
