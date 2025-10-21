@@ -25,7 +25,7 @@ export default function CinematicHero() {
     const img = new window.Image()
     img.src = images[0]
     img.onload = () => setImagesLoaded(true)
-  }, [])
+  }, [images])
 
   useEffect(() => {
     const interval = setInterval(() => {

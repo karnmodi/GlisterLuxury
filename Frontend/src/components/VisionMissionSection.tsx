@@ -186,7 +186,7 @@ export default function VisionMissionSection() {
         >
           <div className="inline-block relative">
             <p className="font-serif text-2xl lg:text-3xl text-brass/80 italic">
-              "Crafting excellence since 1929"
+              &ldquo;Crafting excellence since 1929&rdquo;
             </p>
             <div className="absolute -bottom-2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brass/50 to-transparent" />
           </div>
