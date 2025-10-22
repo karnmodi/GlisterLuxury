@@ -61,8 +61,8 @@ export default function NotFound() {
               </h2>
               <div className="w-24 h-1 bg-brass mx-auto" />
               <p className="text-lg sm:text-xl text-charcoal/70 max-w-2xl mx-auto leading-relaxed font-crimson">
-                The page you're looking for seems to have wandered into uncharted territory. 
-                Like our craftsmen shaping brass into perfection, we're constantly crafting new experiences.
+                The page you&apos;re looking for seems to have wandered into uncharted territory. 
+                Like our craftsmen shaping brass into perfection, we&apos;re constantly crafting new experiences.
               </p>
             </motion.div>
 

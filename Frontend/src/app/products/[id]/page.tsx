@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { productsApi, finishesApi } from '@/lib/api'
@@ -29,13 +29,7 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
-  useEffect(() => {
-    if (params.id) {
-      fetchProduct()
-    }
-  }, [params.id])
-
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
     try {
       setLoading(true)
       const [productData, finishesData] = await Promise.all([
@@ -55,7 +49,13 @@ export default function ProductDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [params.id])
+
+  useEffect(() => {
+    if (params.id) {
+      fetchProduct()
+    }
+  }, [params.id, fetchProduct])
 
   const handleAddToCart = async () => {
     if (!product || !selectedMaterial) {
