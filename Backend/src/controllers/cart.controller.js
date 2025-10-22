@@ -24,6 +24,7 @@ async function addToCart(req, res, next) {
 			selectedSize,
 			selectedFinish,
 			quantity = 1,
+			includePackaging = true,
 		} = req.body;
 
 		if (!sessionID) {
@@ -46,6 +47,7 @@ async function addToCart(req, res, next) {
 			selectedSize,
 			selectedFinishes,
 			quantity,
+			includePackaging,
 		});
 
 		const { product, breakdown, unitPrice, totalAmount } = priceData;

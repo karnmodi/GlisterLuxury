@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { Inter, Playfair_Display, Crimson_Text } from 'next/font/google'
 import './globals.css'
+import { CartProvider } from '@/contexts/CartContext'
+import { LoadingProvider } from '@/contexts/LoadingContext'
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -25,9 +27,9 @@ export const metadata: Metadata = {
   title: 'Glister London - The Soul of Interior',
   description: 'Crafting the finest solid brass cabinet hardware and interior accessories since 2025. Premium hardware for discerning customers.',
   icons: {
-    icon: '/images/business/Logo.png',
-    shortcut: '/images/business/Logo.png',
-    apple: '/images/business/Logo.png',
+    icon: '/images/business/G.png',
+    shortcut: '/images/business/G.png',
+    apple: '/images/business/G.png',
   },
 }
 
@@ -39,7 +41,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable} ${crimson.variable}`}>
       <body className={`${inter.className} antialiased`}>
-        {children}
+        <LoadingProvider>
+          <CartProvider>
+            {children}
+          </CartProvider>
+        </LoadingProvider>
       </body>
     </html>
   )

@@ -62,7 +62,7 @@ export default function MobileNavigation() {
                     <div className="flex items-center space-x-3">
                       <div className="relative w-10 h-10 flex-shrink-0">
                         <Image
-                          src="/images/business/Logo.png"
+                          src="/images/business/G.png"
                           alt="Glister London"
                           fill
                           className="object-contain"

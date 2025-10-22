@@ -1,0 +1,284 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import { useCart } from '@/contexts/CartContext'
+import { toNumber, formatCurrency } from '@/lib/utils'
+import LuxuryNavigation from '@/components/LuxuryNavigation'
+import LuxuryFooter from '@/components/LuxuryFooter'
+import Button from '@/components/ui/Button'
+import { motion } from 'framer-motion'
+import type { CartItem, Product } from '@/types'
+
+export default function CartPage() {
+  const router = useRouter()
+  const { cart, loading, updateQuantity, removeItem, clearCart, refreshCart } = useCart()
+
+  useEffect(() => {
+    refreshCart()
+  }, [refreshCart])
+
+  const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
+    if (newQuantity < 1) return
+    try {
+      await updateQuantity(itemId, newQuantity)
+    } catch (error) {
+      console.error('Failed to update quantity:', error)
+    }
+  }
+
+  const handleRemoveItem = async (itemId: string) => {
+    if (!confirm('Remove this item from cart?')) return
+    try {
+      await removeItem(itemId)
+    } catch (error) {
+      console.error('Failed to remove item:', error)
+    }
+  }
+
+  const handleClearCart = async () => {
+    if (!confirm('Clear entire cart?')) return
+    try {
+      await clearCart()
+    } catch (error) {
+      console.error('Failed to clear cart:', error)
+    }
+  }
+
+  const getProductFromItem = (item: CartItem): Product | null => {
+    if (typeof item.productID === 'string') return null
+    return item.productID
+  }
+
+  if (loading && !cart) {
+    return (
+      <div className="min-h-screen bg-ivory">
+        <LuxuryNavigation />
+        <div className="pt-24 flex items-center justify-center h-96">
+          <div className="text-charcoal/60 text-lg">Loading cart...</div>
+        </div>
+        <LuxuryFooter />
+      </div>
+    )
+  }
+
+  const isEmpty = !cart || cart.items.length === 0
+
+  return (
+    <div className="min-h-screen bg-ivory">
+      <LuxuryNavigation />
+      
+      <main className="pt-24 pb-16">
+        {/* Header Section */}
+        <section className="bg-gradient-charcoal text-ivory py-16">
+          <div className="container mx-auto px-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="text-center"
+            >
+              <h1 className="text-5xl font-serif font-bold mb-4 tracking-wide">
+                Shopping Cart
+              </h1>
+              <p className="text-xl text-brass tracking-luxury">
+                Review Your Selection
+              </p>
+            </motion.div>
+          </div>
+        </section>
+
+        <div className="container mx-auto px-6 py-12">
+          {isEmpty ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-16"
+            >
+              <svg className="w-24 h-24 text-brass/30 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <h2 className="text-3xl font-serif font-bold text-charcoal mb-4">
+                Your cart is empty
+              </h2>
+              <p className="text-charcoal/60 mb-8">
+                Discover our premium collection of products
+              </p>
+              <Button onClick={() => router.push('/products')} size="lg">
+                Browse Products
+              </Button>
+            </motion.div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Cart Items */}
+              <div className="lg:col-span-2 space-y-4">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-serif font-bold text-charcoal">
+                    Cart Items ({cart.items.length})
+                  </h2>
+                  {cart.items.length > 0 && (
+                    <Button variant="ghost" size="sm" onClick={handleClearCart}>
+                      Clear All
+                    </Button>
+                  )}
+                </div>
+
+                {cart.items.map((item, index) => {
+                  const product = getProductFromItem(item)
+                  
+                  return (
+                    <motion.div
+                      key={item._id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: index * 0.1 }}
+                      className="bg-white rounded-lg shadow-md border border-brass/20 p-6"
+                    >
+                      <div className="flex gap-6">
+                        {/* Product Image */}
+                        <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-gradient-ivory flex-shrink-0">
+                          {product && product.imageURLs && product.imageURLs.length > 0 ? (
+                            <Image
+                              src={product.imageURLs[0]}
+                              alt={item.productName}
+                              fill
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <svg className="w-10 h-10 text-brass/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Product Details */}
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <p className="text-xs text-brass tracking-luxury">
+                                {item.productCode}
+                              </p>
+                              <h3 className="text-lg font-serif font-bold text-charcoal">
+                                {item.productName}
+                              </h3>
+                            </div>
+                            <button
+                              onClick={() => handleRemoveItem(item._id)}
+                              className="text-charcoal/40 hover:text-red-600 transition-colors"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+
+                          <div className="space-y-1 text-sm text-charcoal/70 mb-4">
+                            <p>Material: <span className="font-medium text-charcoal">{item.selectedMaterial.name}</span></p>
+                            {item.selectedSize && (
+                              <p>Size: <span className="font-medium text-charcoal">{item.selectedSize}mm</span></p>
+                            )}
+                            {item.selectedFinish && (
+                              <p>Finish: <span className="font-medium text-charcoal">{item.selectedFinish.name}</span></p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            {/* Quantity Controls */}
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => handleUpdateQuantity(item._id, item.quantity - 1)}
+                                disabled={item.quantity <= 1}
+                                className="w-8 h-8 rounded border-2 border-brass/30 hover:border-brass hover:bg-brass/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                              >
+                                -
+                              </button>
+                              <span className="text-lg font-semibold text-charcoal w-8 text-center">
+                                {item.quantity}
+                              </span>
+                              <button
+                                onClick={() => handleUpdateQuantity(item._id, item.quantity + 1)}
+                                className="w-8 h-8 rounded border-2 border-brass/30 hover:border-brass hover:bg-brass/10 transition-all"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            {/* Price */}
+                            <div className="text-right">
+                              <p className="text-xs text-charcoal/60">
+                                {formatCurrency(item.unitPrice)} × {item.quantity}
+                              </p>
+                              <p className="text-xl font-bold text-brass">
+                                {formatCurrency(item.totalPrice)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )
+                })}
+              </div>
+
+              {/* Order Summary */}
+              <div className="lg:col-span-1">
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.6 }}
+                  className="bg-white rounded-lg shadow-xl border border-brass/20 p-6 sticky top-24"
+                >
+                  <h2 className="text-2xl font-serif font-bold text-charcoal mb-6">
+                    Order Summary
+                  </h2>
+
+                  <div className="space-y-4 mb-6">
+                    {cart.items.map((item) => (
+                      <div key={item._id} className="flex justify-between text-sm">
+                        <span className="text-charcoal/70">
+                          {item.productName} × {item.quantity}
+                        </span>
+                        <span className="font-medium text-charcoal">
+                          {formatCurrency(item.totalPrice)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-brass/20 pt-4 mb-6">
+                    <div className="flex justify-between text-lg font-bold">
+                      <span className="text-charcoal">Subtotal</span>
+                      <span className="text-brass">{formatCurrency(cart.subtotal)}</span>
+                    </div>
+                    <p className="text-xs text-charcoal/60 mt-2">
+                      Shipping and taxes calculated at checkout
+                    </p>
+                  </div>
+
+                  <Button size="lg" className="w-full mb-3">
+                    Proceed to Checkout
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    size="lg"
+                    className="w-full"
+                    onClick={() => router.push('/products')}
+                  >
+                    Continue Shopping
+                  </Button>
+                </motion.div>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      <LuxuryFooter />
+    </div>
+  )
+}
+

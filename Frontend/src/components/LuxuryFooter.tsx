@@ -24,7 +24,7 @@ export default function LuxuryFooter() {
             <div className="flex items-center space-x-3 mb-6 group">
               <div className="relative w-12 h-12 transition-transform duration-300 group-hover:scale-110">
                 <Image
-                  src="/images/business/Logo.png"
+                  src="/images/business/G.png"
                   alt="Glister London Logo"
                   fill
                   className="object-contain"

@@ -8,7 +8,7 @@ function toNumber(decimal128) {
 }
 
 async function computePriceAndValidate(payload) {
-	const { productID, selectedMaterial, selectedSize, selectedFinishes = [], quantity = 1 } = payload;
+	const { productID, selectedMaterial, selectedSize, selectedFinishes = [], quantity = 1, includePackaging = true } = payload;
 
 	const product = await Product.findById(productID).lean();
 	if (!product) {
@@ -46,7 +46,7 @@ async function computePriceAndValidate(payload) {
 		finishTotalCost += toNumber(finishOption.priceAdjustment);
 	}
 
-	const packagingPrice = toNumber(product.packagingPrice);
+	const packagingPrice = includePackaging ? toNumber(product.packagingPrice) : 0;
 	const unitPrice = materialCost + sizeCost + finishTotalCost + packagingPrice;
 	const totalAmount = unitPrice * Number(quantity || 1);
 
@@ -60,7 +60,8 @@ async function computePriceAndValidate(payload) {
 		},
 		unitPrice,
 		totalAmount,
-		resolved: { materialMatch }
+		resolved: { materialMatch },
+		includePackaging
 	};
 }
 
