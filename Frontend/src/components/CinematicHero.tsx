@@ -1,65 +1,27 @@
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
-import { useState, useEffect } from 'react'
-import Image from 'next/image'
+import { motion } from 'framer-motion'
 import Link from 'next/link'
 
 export default function CinematicHero() {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0)
-  const [imagesLoaded, setImagesLoaded] = useState(false)
-
-  // Optimized images for faster loading
-  const images = [
-    '/images/gallery/Door handle photo/London View.png', // London View
-    '/images/gallery/Door handle photo/DOOR HANDLE.png', // Door handle 1
-    '/images/gallery/Door handle photo/DOOR HANDLE (2).png', // Door handle 2
-    '/images/gallery/Door handle photo/DOOR HANDLE (3).png', // Door handle 3
-    '/images/gallery/Door handle photo/NOOB.png', // Noob design
-  ]
-
-  // Preload first image for instant display
-  useEffect(() => {
-    const img = new window.Image()
-    img.src = images[0]
-    img.onload = () => setImagesLoaded(true)
-  }, [images])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % images.length)
-    }, 4000)
-
-    return () => clearInterval(interval)
-  }, [images.length])
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-charcoal">
-      {/* Image Carousel with Animations */}
-      <AnimatePresence>
-        <motion.div
-          key={currentImageIndex}
-          initial={{ opacity: 0, scale: 1.05 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.98 }}
-          transition={{ duration: 0.6, ease: 'easeOut' }}
-          className="absolute inset-0"
+      {/* Video Background */}
+      <div className="absolute inset-0">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover"
         >
-          <Image
-            src={images[currentImageIndex]}
-            alt={`Luxury interior ${currentImageIndex + 1}`}
-            fill
-            className="object-cover"
-            priority={currentImageIndex === 0}
-            quality={75}
-            loading={currentImageIndex === 0 ? "eager" : "lazy"}
-            placeholder="blur"
-            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwABmQAAA/9k="
-          />
-          {/* Dark overlay for better readability */}
-          <div className="absolute inset-0 bg-gradient-to-b from-charcoal/60 via-charcoal/40 to-charcoal/70" />
-        </motion.div>
-      </AnimatePresence>
+          <source src="/images/gallery/Hero Video.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+        {/* Dark overlay for better readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-charcoal/60 via-charcoal/40 to-charcoal/70" />
+      </div>
 
       {/* Brass texture overlay */}
       <div
@@ -136,21 +98,6 @@ export default function CinematicHero() {
           />
         </motion.div>
       </motion.div>
-
-      {/* Image indicators */}
-      <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 z-20 flex gap-2">
-        {images.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => setCurrentImageIndex(index)}
-            className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentImageIndex
-              ? 'bg-brass w-8'
-              : 'bg-ivory/40 hover:bg-ivory/60'
-              }`}
-            aria-label={`Go to image ${index + 1}`}
-          />
-        ))}
-      </div>
 
       {/* Unique transition design - Brass wave separator */}
       <div className="absolute bottom-0 left-0 right-0 overflow-hidden pointer-events-none">
