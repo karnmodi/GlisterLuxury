@@ -5,7 +5,12 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "seed:finishes": "node src/utils/seedFinishes.js",
+    "seed:materials": "node src/utils/seedMaterials.js",
+    "seed:categories": "node src/utils/seedCategories.js",
+    "seed:products": "node src/utils/seedProducts.js",
+    "seed:all": "npm run seed:finishes && npm run seed:materials && npm run seed:categories && npm run seed:products"
   },
   "keywords": [],
   "author": "",
