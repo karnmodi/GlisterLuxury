@@ -283,6 +283,37 @@ async function getCheckoutSummary(req, res, next) {
 	}
 }
 
+/**
+ * Link cart to user account (on login)
+ * POST /api/cart/link
+ */
+async function linkCartToUser(req, res, next) {
+	try {
+		const { sessionID } = req.body;
+		const userId = req.user.userId;
+
+		if (!sessionID) {
+			return res.status(400).json({ error: 'sessionID is required' });
+		}
+
+		const cart = await Cart.findOne({ sessionID });
+		
+		if (cart) {
+			cart.userID = userId;
+			await cart.save();
+			
+			return res.json({
+				message: 'Cart linked to user account',
+				cart: await Cart.findById(cart._id).populate('items.productID')
+			});
+		}
+
+		res.json({ message: 'No cart to link' });
+	} catch (error) {
+		next(error);
+	}
+}
+
 module.exports = {
 	addToCart,
 	getCart,
@@ -290,5 +321,6 @@ module.exports = {
 	removeCartItem,
 	clearCart,
 	getCheckoutSummary,
+	linkCartToUser,
 };
 

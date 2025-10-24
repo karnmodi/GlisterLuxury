@@ -1,19 +1,22 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useCart } from '@/contexts/CartContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { toNumber, formatCurrency } from '@/lib/utils'
 import LuxuryNavigation from '@/components/LuxuryNavigation'
 import LuxuryFooter from '@/components/LuxuryFooter'
 import Button from '@/components/ui/Button'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { CartItem, Product } from '@/types'
 
 export default function CartPage() {
   const router = useRouter()
   const { cart, loading, updateQuantity, removeItem, clearCart, refreshCart } = useCart()
+  const { isAuthenticated } = useAuth()
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     refreshCart()
@@ -44,6 +47,18 @@ export default function CartPage() {
     } catch (error) {
       console.error('Failed to clear cart:', error)
     }
+  }
+
+  const toggleBreakdown = (itemId: string) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId)
+      } else {
+        newSet.add(itemId)
+      }
+      return newSet
+    })
   }
 
   const getProductFromItem = (item: CartItem): Product | null => {
@@ -137,16 +152,16 @@ export default function CartPage() {
                     >
                       <div className="flex gap-6">
                         {/* Product Image */}
-                        <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-gradient-ivory flex-shrink-0">
+                        <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-white border border-brass/10 flex-shrink-0">
                           {product && product.imageURLs && product.imageURLs.length > 0 ? (
                             <Image
                               src={product.imageURLs[0]}
                               alt={item.productName}
                               fill
-                              className="object-cover"
+                              className="object-contain p-2"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center">
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-ivory">
                               <svg className="w-10 h-10 text-brass/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                               </svg>
@@ -183,6 +198,90 @@ export default function CartPage() {
                             {item.selectedFinish && (
                               <p>Finish: <span className="font-medium text-charcoal">{item.selectedFinish.name}</span></p>
                             )}
+                          </div>
+
+                          {/* Price Breakdown Toggle */}
+                          <div className="mb-4">
+                            <button
+                              onClick={() => toggleBreakdown(item._id)}
+                              className="flex items-center justify-between w-full bg-gradient-ivory rounded-md px-3 py-2 text-sm hover:bg-brass/10 transition-all group"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-charcoal/90">Unit Price:</span>
+                                <span className="text-brass font-bold">{formatCurrency(item.unitPrice)}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-xs text-charcoal/60 group-hover:text-brass transition-colors">
+                                <span>{expandedItems.has(item._id) ? 'Hide' : 'View'} Breakdown</span>
+                                <svg 
+                                  className={`w-4 h-4 transition-transform ${expandedItems.has(item._id) ? 'rotate-180' : ''}`} 
+                                  fill="none" 
+                                  stroke="currentColor" 
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </div>
+                            </button>
+
+                            {/* Collapsible Breakdown */}
+                            <AnimatePresence>
+                              {expandedItems.has(item._id) && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="bg-gradient-ivory/50 rounded-b-md px-3 py-3 text-xs space-y-2 border-t border-charcoal/10">
+                                    <p className="font-semibold text-charcoal mb-2 text-xs uppercase tracking-wide">Price Components:</p>
+                                    
+                                    <div className="flex justify-between text-charcoal/70">
+                                      <span className="flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-brass"></span>
+                                        Material ({item.selectedMaterial.name})
+                                      </span>
+                                      <span className="font-medium text-charcoal">{formatCurrency(item.priceBreakdown.material)}</span>
+                                    </div>
+
+                                    <div className="flex justify-between text-charcoal/70">
+                                      <span className="flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-brass"></span>
+                                        Size {item.selectedSize ? `(${item.selectedSize}mm)` : 'Adjustment'}
+                                      </span>
+                                      <span className="font-medium text-charcoal">
+                                        {toNumber(item.priceBreakdown.size) > 0 ? `+${formatCurrency(item.priceBreakdown.size)}` : formatCurrency(0)}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex justify-between text-charcoal/70">
+                                      <span className="flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-brass"></span>
+                                        Finish {item.selectedFinish ? `(${item.selectedFinish.name})` : 'Cost'}
+                                      </span>
+                                      <span className="font-medium text-charcoal">
+                                        {toNumber(item.priceBreakdown.finishes) > 0 ? `+${formatCurrency(item.priceBreakdown.finishes)}` : formatCurrency(0)}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex justify-between text-charcoal/70">
+                                      <span className="flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-brass"></span>
+                                        Premium Packaging
+                                      </span>
+                                      <span className="font-medium text-charcoal">
+                                        {toNumber(item.priceBreakdown.packaging) > 0 ? `+${formatCurrency(item.priceBreakdown.packaging)}` : formatCurrency(0)}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex justify-between text-charcoal font-bold border-t border-charcoal/20 pt-2 mt-2">
+                                      <span>Total Unit Price</span>
+                                      <span className="text-brass">{formatCurrency(item.unitPrice)}</span>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </div>
 
                           <div className="flex items-center justify-between">
@@ -258,14 +357,30 @@ export default function CartPage() {
                     </p>
                   </div>
 
-                  <Button size="lg" className="w-full mb-3">
+                  <Button 
+                    size="lg" 
+                    className="w-full mb-3"
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        router.push('/login?returnUrl=/checkout')
+                      } else {
+                        router.push('/checkout')
+                      }
+                    }}
+                  >
                     Proceed to Checkout
                   </Button>
                   
+                  {!isAuthenticated && (
+                    <p className="text-xs text-charcoal/60 text-center mb-3">
+                      You'll need to sign in to complete your purchase
+                    </p>
+                  )}
+                  
                   <Button
-                    variant="ghost"
+                    variant="secondary"
                     size="lg"
-                    className="w-full"
+                    className="w-full border-2 font-semibold"
                     onClick={() => router.push('/products')}
                   >
                     Continue Shopping

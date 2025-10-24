@@ -6,6 +6,7 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "seed:admin": "node src/utils/seedAdmin.js",
     "seed:finishes": "node src/utils/seedFinishes.js",
     "seed:materials": "node src/utils/seedMaterials.js",
     "seed:categories": "node src/utils/seedCategories.js",
@@ -17,10 +18,15 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.8.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "mongoose": "^8.19.2"
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.19.2",
+    "multer": "^2.0.2",
+    "nodemailer": "^6.9.7"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

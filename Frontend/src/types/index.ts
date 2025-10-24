@@ -23,6 +23,7 @@ export interface Finish {
   description?: string
   color?: string
   imageURL?: string
+  photoURL?: string
   createdAt?: string
   updatedAt?: string
 }
@@ -114,5 +115,166 @@ export interface MaterialMaster {
 export interface ApiError {
   message: string
   error?: string
+}
+
+// Auth types
+export interface Address {
+  _id: string
+  label: string
+  addressLine1: string
+  addressLine2?: string
+  city: string
+  county?: string
+  postcode: string
+  country: string
+  isDefault: boolean
+  createdAt: string
+}
+
+export interface User {
+  id: string
+  name: string
+  email: string
+  role: 'customer' | 'admin'
+  phone?: string
+  addresses: Address[]
+  isActive: boolean
+  lastLogin?: string
+  createdAt?: string
+}
+
+export interface AuthResponse {
+  success: boolean
+  message: string
+  token: string
+  user: User
+}
+
+// Order types
+export type OrderStatus = 
+  | 'pending' 
+  | 'confirmed' 
+  | 'processing' 
+  | 'shipped' 
+  | 'delivered'
+  | 'refund_requested'
+  | 'refund_processing'
+  | 'refund_completed'
+  | 'cancelled'
+
+export interface OrderItem {
+  _id: string
+  productID: string | Product
+  productName: string
+  productCode: string
+  selectedMaterial: {
+    materialID?: string
+    name: string
+    basePrice: number
+  }
+  selectedSize?: number
+  sizeCost: number
+  selectedFinish?: {
+    finishID: string
+    name: string
+    priceAdjustment: number
+  }
+  finishCost: number
+  packagingPrice: number
+  quantity: number
+  unitPrice: number
+  totalPrice: number
+  priceBreakdown: {
+    material: number
+    size: number
+    finishes: number
+    packaging: number
+  }
+}
+
+export interface Order {
+  _id: string
+  orderNumber: string
+  userID: string
+  sessionID?: string
+  items: OrderItem[]
+  customerInfo: {
+    name: string
+    email: string
+    phone?: string
+  }
+  deliveryAddress: {
+    label?: string
+    addressLine1: string
+    addressLine2?: string
+    city: string
+    county?: string
+    postcode: string
+    country: string
+  }
+  orderNotes?: string
+  pricing: {
+    subtotal: number
+    shipping: number
+    tax: number
+    total: number
+  }
+  status: OrderStatus
+  statusHistory: Array<{
+    status: OrderStatus
+    note?: string
+    updatedAt: string
+    updatedBy?: string
+  }>
+  refundInfo?: {
+    reason?: string
+    requestedAt?: string
+    processedAt?: string
+    completedAt?: string
+    refundAmount?: number
+    notes?: string
+  }
+  paymentInfo?: {
+    method?: string
+    status: 'pending' | 'awaiting_payment' | 'paid' | 'refunded'
+    paidAt?: string
+    transactionId?: string
+  }
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OrderStats {
+  totalOrders: number
+  totalSpent: number
+  ordersByStatus: {
+    pending: number
+    confirmed: number
+    processing: number
+    shipped: number
+    delivered: number
+    refund_requested: number
+    refund_processing: number
+    refund_completed: number
+    cancelled: number
+  }
+  recentOrders: Order[]
+}
+
+// Wishlist types
+export interface WishlistItem {
+  _id: string
+  productID: string | Product
+  addedAt: string
+}
+
+export interface Wishlist {
+  _id: string
+  sessionID?: string
+  userID?: string
+  items: WishlistItem[]
+  count?: number
+  createdAt: string
+  updatedAt: string
 }
 

@@ -1,4 +1,4 @@
-import type { Product, Category, Finish, MaterialMaster, Cart, CartItem } from '@/types'
+import type { Product, Category, Finish, MaterialMaster, Cart, CartItem, Order, OrderStats, Wishlist } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
@@ -49,6 +49,31 @@ export const productsApi = {
   delete: (id: string) =>
     apiCall<{ message: string }>(`/products/${id}`, {
       method: 'DELETE',
+    }),
+
+  uploadImages: async (id: string, files: File[]) => {
+    const formData = new FormData()
+    files.forEach((file) => {
+      formData.append('images', file)
+    })
+
+    const response = await fetch(`${API_BASE_URL}/products/${id}/images`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Upload failed' }))
+      throw new Error(error.message || `HTTP error! status: ${response.status}`)
+    }
+
+    return response.json()
+  },
+
+  deleteImage: (id: string, imageUrl: string) =>
+    apiCall<{ message: string; product: Product }>(`/products/${id}/images`, {
+      method: 'DELETE',
+      body: JSON.stringify({ imageUrl }),
     }),
 }
 
@@ -118,6 +143,28 @@ export const finishesApi = {
 
   delete: (id: string) =>
     apiCall<{ message: string }>(`/finishes/${id}`, {
+      method: 'DELETE',
+    }),
+
+  uploadImage: async (id: string, file: File) => {
+    const formData = new FormData()
+    formData.append('image', file)
+
+    const response = await fetch(`${API_BASE_URL}/finishes/${id}/image`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Upload failed' }))
+      throw new Error(error.message || `HTTP error! status: ${response.status}`)
+    }
+
+    return response.json()
+  },
+
+  deleteImage: (id: string) =>
+    apiCall<{ message: string; finish: Finish }>(`/finishes/${id}/image`, {
       method: 'DELETE',
     }),
 }
@@ -191,5 +238,135 @@ export const cartApi = {
       currency: string
       timestamp: string
     }>(`/cart/${sessionID}/checkout`),
+
+  linkToUser: (sessionID: string, token: string) =>
+    apiCall<{ message: string; cart?: Cart }>('/cart/link', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ sessionID }),
+    }),
+}
+
+// Orders API
+export const ordersApi = {
+  create: (data: {
+    sessionID: string
+    deliveryAddressId?: string
+    orderNotes?: string
+  }, token: string) =>
+    apiCall<{ success: boolean; message: string; order: Order }>('/orders', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  getAll: (params: { status?: string; page?: number; limit?: number }, token: string) => {
+    const queryParams = new URLSearchParams()
+    if (params.status) queryParams.append('status', params.status)
+    if (params.page) queryParams.append('page', params.page.toString())
+    if (params.limit) queryParams.append('limit', params.limit.toString())
+    
+    const query = queryParams.toString()
+    return apiCall<{
+      success: boolean
+      orders: Order[]
+      pagination: {
+        total: number
+        page: number
+        limit: number
+        pages: number
+      }
+    }>(`/orders${query ? `?${query}` : ''}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+  },
+
+  getById: (orderId: string, token: string) =>
+    apiCall<{ success: boolean; order: Order }>(`/orders/${orderId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  requestRefund: (orderId: string, reason: string, token: string) =>
+    apiCall<{ success: boolean; message: string; order: Order }>(`/orders/${orderId}/refund`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ reason }),
+    }),
+
+  getStats: (token: string) =>
+    apiCall<{ success: boolean; stats: OrderStats }>('/orders/stats', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  updateStatus: (orderId: string, status: string, note: string | undefined, token: string) =>
+    apiCall<{ success: boolean; message: string; order: Order }>(`/orders/${orderId}/status`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ status, note }),
+    }),
+}
+
+// Wishlist API
+export const wishlistApi = {
+  get: (sessionID: string, token?: string) => {
+    const queryParams = new URLSearchParams()
+    queryParams.append('sessionID', sessionID)
+    
+    return apiCall<{ success: boolean; wishlist: Wishlist }>(`/wishlist?${queryParams.toString()}`, {
+      headers: token ? {
+        Authorization: `Bearer ${token}`
+      } : {}
+    })
+  },
+
+  add: (productID: string, sessionID: string, token?: string) =>
+    apiCall<{ success: boolean; message: string; wishlist: Wishlist }>('/wishlist', {
+      method: 'POST',
+      headers: token ? {
+        Authorization: `Bearer ${token}`
+      } : {},
+      body: JSON.stringify({ productID, sessionID }),
+    }),
+
+  remove: (productId: string, sessionID: string, token?: string) =>
+    apiCall<{ success: boolean; message: string; wishlist: Wishlist }>(`/wishlist/item/${productId}`, {
+      method: 'DELETE',
+      headers: token ? {
+        Authorization: `Bearer ${token}`
+      } : {},
+      body: JSON.stringify({ sessionID }),
+    }),
+
+  sync: (sessionID: string, token: string) =>
+    apiCall<{ success: boolean; message: string; wishlist: Wishlist }>('/wishlist/sync', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ sessionID }),
+    }),
+
+  clear: (sessionID: string, token?: string) =>
+    apiCall<{ success: boolean; message: string; wishlist: Wishlist }>('/wishlist', {
+      method: 'DELETE',
+      headers: token ? {
+        Authorization: `Bearer ${token}`
+      } : {},
+      body: JSON.stringify({ sessionID }),
+    }),
 }
 

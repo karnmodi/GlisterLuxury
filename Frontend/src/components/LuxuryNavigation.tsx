@@ -6,11 +6,16 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import MobileNavigation from './MobileNavigation'
 import { useCart } from '@/contexts/CartContext'
+import { useWishlist } from '@/contexts/WishlistContext'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function LuxuryNavigation() {
   const [scrolled, setScrolled] = useState(false)
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
+  const [showUserMenu, setShowUserMenu] = useState(false)
   const { itemCount } = useCart()
+  const { itemCount: wishlistCount } = useWishlist()
+  const { user, isAuthenticated, logout } = useAuth()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -179,26 +184,94 @@ export default function LuxuryNavigation() {
               </svg>
             </button>
 
-            {/* Profile Icon */}
-            <Link 
-              href="/profile"
-              className="text-ivory hover:text-brass transition-colors duration-300"
-              aria-label="Profile"
+            {/* Profile Icon with Dropdown */}
+            <div 
+              className="relative"
+              onMouseEnter={() => isAuthenticated && setShowUserMenu(true)}
+              onMouseLeave={() => setShowUserMenu(false)}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </Link>
+              <Link 
+                href={isAuthenticated ? "/profile" : "/login"}
+                className="text-ivory hover:text-brass transition-colors duration-300 flex items-center gap-2"
+                aria-label="Profile"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </Link>
+              
+              {/* User Dropdown Menu */}
+              {isAuthenticated && (
+                <AnimatePresence>
+                  {showUserMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute top-full right-0 mt-2 w-56 bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg shadow-2xl overflow-hidden"
+                    >
+                      <div className="px-4 py-3 border-b border-brass/20">
+                        <p className="text-ivory text-sm font-medium">{user?.name}</p>
+                        <p className="text-brass/70 text-xs">{user?.email}</p>
+                      </div>
+                      
+                      <Link
+                        href="/profile"
+                        className="block px-4 py-3 text-sm text-ivory hover:text-brass hover:bg-brass/10 transition-all duration-300 border-b border-brass/10"
+                      >
+                        My Account
+                      </Link>
+                      
+                      <Link
+                        href="/orders"
+                        className="block px-4 py-3 text-sm text-ivory hover:text-brass hover:bg-brass/10 transition-all duration-300 border-b border-brass/10"
+                      >
+                        My Orders
+                      </Link>
+                      
+                      <Link
+                        href="/favorites"
+                        className="block px-4 py-3 text-sm text-ivory hover:text-brass hover:bg-brass/10 transition-all duration-300 border-b border-brass/10"
+                      >
+                        My Favorites
+                      </Link>
+                      
+                      {user?.role === 'admin' && (
+                        <Link
+                          href="/admin/products"
+                          className="block px-4 py-3 text-sm text-ivory hover:text-brass hover:bg-brass/10 transition-all duration-300 border-b border-brass/10"
+                        >
+                          Admin Panel
+                        </Link>
+                      )}
+                      
+                      <button
+                        onClick={logout}
+                        className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-900/20 transition-all duration-300"
+                      >
+                        Logout
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              )}
+            </div>
 
-            {/* Favourites Icon */}
+            {/* Favorites Icon with Badge */}
             <Link 
-              href="/favourites"
-              className="text-ivory hover:text-brass transition-colors duration-300"
-              aria-label="Favourites"
+              href="/favorites"
+              className="text-ivory hover:text-brass transition-colors duration-300 relative"
+              aria-label="Favorites"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
+              {wishlistCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-brass text-charcoal text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                  {wishlistCount}
+                </span>
+              )}
             </Link>
 
             {/* Cart Icon */}
@@ -244,7 +317,7 @@ export default function LuxuryNavigation() {
 
             {/* Profile Icon - Mobile */}
             <Link 
-              href="/profile"
+              href={isAuthenticated ? "/profile" : "/login"}
               className="text-ivory hover:text-brass transition-colors duration-300"
               aria-label="Profile"
             >

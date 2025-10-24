@@ -1,4 +1,5 @@
 const express = require('express');
+const { protect } = require('../middleware/auth');
 const {
 	addToCart,
 	getCart,
@@ -6,12 +7,16 @@ const {
 	removeCartItem,
 	clearCart,
 	getCheckoutSummary,
+	linkCartToUser,
 } = require('../controllers/cart.controller');
 
 const router = express.Router();
 
 // Add item to cart
 router.post('/add', addToCart);
+
+// Link cart to user (protected)
+router.post('/link', protect, linkCartToUser);
 
 // Get cart by sessionID
 router.get('/:sessionID', getCart);

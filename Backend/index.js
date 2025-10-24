@@ -31,12 +31,15 @@ app.get('/', (req, res) => {
 });
 
 // API routes
+app.use('/api/auth', require('./src/routes/auth.routes'));
 app.use('/api/categories', require('./src/routes/categories.routes'));
 app.use('/api/products', require('./src/routes/products.routes'));
 app.use('/api/finishes', require('./src/routes/finishes.routes'));
 app.use('/api/materials', require('./src/routes/materials.routes'));
 app.use('/api/configurations', require('./src/routes/configurations.routes'));
 app.use('/api/cart', require('./src/routes/cart.routes'));
+app.use('/api/orders', require('./src/routes/orders.routes'));
+app.use('/api/wishlist', require('./src/routes/wishlist.routes'));
 
 // Error handler (must be last)
 app.use(require('./src/middleware/errorHandler'));

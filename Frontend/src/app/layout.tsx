@@ -1,8 +1,11 @@
 import type { Metadata } from 'next'
 import { Inter, Playfair_Display, Crimson_Text } from 'next/font/google'
 import './globals.css'
+import { AuthProvider } from '@/contexts/AuthContext'
 import { CartProvider } from '@/contexts/CartContext'
+import { WishlistProvider } from '@/contexts/WishlistContext'
 import { LoadingProvider } from '@/contexts/LoadingContext'
+import { ToastProvider } from '@/contexts/ToastContext'
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -41,11 +44,17 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable} ${crimson.variable}`}>
       <body className={`${inter.className} antialiased`}>
+      <ToastProvider>
         <LoadingProvider>
-          <CartProvider>
-            {children}
-          </CartProvider>
+          <AuthProvider>
+            <CartProvider>
+              <WishlistProvider>
+                {children}
+              </WishlistProvider>
+            </CartProvider>
+          </AuthProvider>
         </LoadingProvider>
+      </ToastProvider>
       </body>
     </html>
   )
