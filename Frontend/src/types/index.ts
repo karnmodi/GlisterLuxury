@@ -45,6 +45,11 @@ export interface Category {
   updatedAt?: string
 }
 
+export interface ProductImage {
+  url: string
+  mappedFinishID?: string
+}
+
 export interface Product {
   _id: string
   productID: string
@@ -57,7 +62,7 @@ export interface Product {
   packagingUnit: string
   materials: Material[]
   finishes: FinishOption[]
-  imageURLs: string[]
+  imageURLs: Record<string, ProductImage> // Object with keys as image IDs and values as image data
   createdAt?: string
   updatedAt?: string
 }

@@ -23,19 +23,19 @@ export default function DataTable<T extends { _id: string }>({
 }: DataTableProps<T>) {
   return (
     <div className="w-full overflow-x-auto bg-white rounded-lg shadow-md border border-brass/20">
-      <table className="w-full">
+      <table className="w-full min-w-[800px]">
         <thead className="bg-charcoal text-ivory">
           <tr>
             {columns.map((column, index) => (
               <th
                 key={index}
-                className="px-6 py-4 text-left text-sm font-semibold tracking-wide"
+                className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold tracking-wide"
               >
                 {column.header}
               </th>
             ))}
             {actions && (
-              <th className="px-6 py-4 text-left text-sm font-semibold tracking-wide">
+              <th className="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold tracking-wide">
                 Actions
               </th>
             )}
@@ -63,7 +63,7 @@ export default function DataTable<T extends { _id: string }>({
                 {columns.map((column, index) => (
                   <td
                     key={index}
-                    className={`px-6 py-4 text-sm text-charcoal ${column.className || ''}`}
+                    className={`px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-charcoal ${column.className || ''}`}
                   >
                     {typeof column.accessor === 'function'
                       ? column.accessor(item)
@@ -71,8 +71,8 @@ export default function DataTable<T extends { _id: string }>({
                   </td>
                 ))}
                 {actions && (
-                  <td className="px-6 py-4 text-sm">
-                    <div className="flex items-center gap-2">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm">
+                    <div className="flex items-center gap-1 sm:gap-2">
                       {actions(item)}
                     </div>
                   </td>

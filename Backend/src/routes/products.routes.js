@@ -12,6 +12,7 @@ router.delete('/:id', ctrl.deleteProduct);
 // Image upload routes
 router.post('/:id/images', uploadMultiple, handleMulterError, ctrl.uploadProductImages);
 router.delete('/:id/images', ctrl.deleteProductImage);
+router.put('/:id/images/mapping', ctrl.updateImageFinishMapping);
 
 module.exports = router;
 

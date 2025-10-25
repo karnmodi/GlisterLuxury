@@ -1,11 +1,109 @@
 const Product = require('../models/Product');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 
+/**
+ * Transform MongoDB types to JSON-serializable types
+ * Handles: ObjectId → string, Decimal128 → number, Map → object
+ */
+function transformMongoTypes(obj) {
+	if (!obj) return obj;
+
+	// Handle ObjectId - check for _bsontype or constructor name
+	if (obj._bsontype === 'ObjectId' || obj.constructor?.name === 'ObjectId') {
+		return obj.toString();
+	}
+
+	// Handle Decimal128
+	if (obj.constructor?.name === 'Decimal128') {
+		return parseFloat(obj.toString());
+	}
+
+	// Handle Arrays
+	if (Array.isArray(obj)) {
+		return obj.map(transformMongoTypes);
+	}
+
+	// Handle Map
+	if (obj instanceof Map) {
+		const plain = {};
+		for (const [key, value] of obj.entries()) {
+			plain[key] = transformMongoTypes(value);
+		}
+		return plain;
+	}
+
+	// Handle plain objects (but not Date, Buffer, etc.)
+	if (typeof obj === 'object' && obj.constructor?.name === 'Object') {
+		const transformed = {};
+		for (const key in obj) {
+			if (obj.hasOwnProperty(key)) {
+				transformed[key] = transformMongoTypes(obj[key]);
+			}
+		}
+		return transformed;
+	}
+
+	return obj;
+}
+
 async function createProduct(req, res) {
 	try {
+		// Ensure materials have proper ObjectId conversion
+		if (req.body.materials && Array.isArray(req.body.materials)) {
+			req.body.materials = req.body.materials.map(material => {
+				// Handle materialID conversion - it might be an object or string
+				let materialID = material.materialID;
+				if (typeof materialID === 'object' && materialID !== null) {
+					materialID = materialID._id || materialID.toString();
+				}
+				if (typeof materialID !== 'string') {
+					materialID = String(materialID);
+				}
+				
+				return {
+					...material,
+					materialID: materialID,
+					basePrice: parseFloat(material.basePrice) || 0,
+					sizeOptions: (material.sizeOptions || []).map(size => ({
+						sizeMM: parseInt(size.sizeMM) || 0,
+						additionalCost: parseFloat(size.additionalCost) || 0,
+						isOptional: Boolean(size.isOptional)
+					}))
+				};
+			});
+		}
+
+		// Ensure finishes have proper ObjectId conversion
+		if (req.body.finishes && Array.isArray(req.body.finishes)) {
+			req.body.finishes = req.body.finishes.map(finish => {
+				// Handle finishID conversion - it might be an object or string
+				let finishID = finish.finishID;
+				if (typeof finishID === 'object' && finishID !== null) {
+					finishID = finishID._id || finishID.toString();
+				}
+				if (typeof finishID !== 'string') {
+					finishID = String(finishID);
+				}
+				
+				return {
+					...finish,
+					finishID: finishID,
+					priceAdjustment: parseFloat(finish.priceAdjustment) || 0
+				};
+			});
+		}
+
+		// Ensure packagingPrice is properly converted
+		if (req.body.packagingPrice !== undefined) {
+			req.body.packagingPrice = parseFloat(req.body.packagingPrice) || 0;
+		}
+
 		const product = await Product.create(req.body);
-		return res.status(201).json(product);
+
+		const transformedProduct = transformMongoTypes(product.toObject());
+		return res.status(201).json(transformedProduct);
 	} catch (err) {
+		console.error('Product creation error:', err);
 		return res.status(400).json({ message: err.message });
 	}
 }
@@ -25,7 +123,9 @@ async function listProducts(req, res) {
 		if (category) filter.category = category;
 		if (subcategoryId) filter.subcategoryId = subcategoryId;
 		const items = await Product.find(filter).populate('category', 'name slug').lean();
-		return res.json(items);
+
+		const transformedItems = items.map(item => transformMongoTypes(item));
+		return res.json(transformedItems);
 	} catch (err) {
 		return res.status(500).json({ message: err.message });
 	}
@@ -33,20 +133,78 @@ async function listProducts(req, res) {
 
 async function getProduct(req, res) {
 	try {
-		const item = await Product.findById(req.params.id).lean();
+		const item = await Product.findById(req.params.id)
+			.populate('category', 'name slug')
+			.lean();
 		if (!item) return res.status(404).json({ message: 'Not found' });
-		return res.json(item);
+
+		const transformedItem = transformMongoTypes(item);
+		return res.json(transformedItem);
 	} catch (err) {
+		console.error('Product fetch error:', err);
 		return res.status(400).json({ message: err.message });
 	}
 }
 
 async function updateProduct(req, res) {
 	try {
+		// Ensure materials have proper ObjectId conversion
+		if (req.body.materials && Array.isArray(req.body.materials)) {
+			req.body.materials = req.body.materials.map(material => {
+				// Handle materialID conversion - it might be an object or string
+				let materialID = material.materialID;
+				if (typeof materialID === 'object' && materialID !== null) {
+					materialID = materialID._id || materialID.toString();
+				}
+				if (typeof materialID !== 'string') {
+					materialID = String(materialID);
+				}
+				
+				return {
+					...material,
+					materialID: materialID,
+					basePrice: parseFloat(material.basePrice) || 0,
+					sizeOptions: (material.sizeOptions || []).map(size => ({
+						sizeMM: parseInt(size.sizeMM) || 0,
+						additionalCost: parseFloat(size.additionalCost) || 0,
+						isOptional: Boolean(size.isOptional)
+					}))
+				};
+			});
+		}
+
+		// Ensure finishes have proper ObjectId conversion
+		if (req.body.finishes && Array.isArray(req.body.finishes)) {
+			req.body.finishes = req.body.finishes.map(finish => {
+				// Handle finishID conversion - it might be an object or string
+				let finishID = finish.finishID;
+				if (typeof finishID === 'object' && finishID !== null) {
+					finishID = finishID._id || finishID.toString();
+				}
+				if (typeof finishID !== 'string') {
+					finishID = String(finishID);
+				}
+				
+				return {
+					...finish,
+					finishID: finishID,
+					priceAdjustment: parseFloat(finish.priceAdjustment) || 0
+				};
+			});
+		}
+
+		// Ensure packagingPrice is properly converted
+		if (req.body.packagingPrice !== undefined) {
+			req.body.packagingPrice = parseFloat(req.body.packagingPrice) || 0;
+		}
+
 		const item = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
 		if (!item) return res.status(404).json({ message: 'Not found' });
-		return res.json(item);
+
+		const transformedItem = transformMongoTypes(item.toObject());
+		return res.json(transformedItem);
 	} catch (err) {
+		console.error('Product update error:', err);
 		return res.status(400).json({ message: err.message });
 	}
 }
@@ -88,14 +246,23 @@ async function uploadProductImages(req, res) {
 		// Extract secure URLs from upload results
 		const imageUrls = uploadResults.map((result) => result.secure_url);
 
-		// Add new image URLs to the product
-		product.imageURLs.push(...imageUrls);
+		// Add new image URLs to the product as Map entries
+		imageUrls.forEach((url, index) => {
+			const imageKey = `image_${Date.now()}_${index}`;
+			product.imageURLs.set(imageKey, {
+				url: url,
+				mappedFinishID: null
+			});
+		});
+		
 		await product.save();
+
+		const transformedProduct = transformMongoTypes(product.toObject());
 
 		return res.status(200).json({
 			message: 'Images uploaded successfully',
 			images: imageUrls,
-			product: product,
+			product: transformedProduct,
 		});
 	} catch (err) {
 		return res.status(500).json({ message: err.message });
@@ -119,9 +286,16 @@ async function deleteProductImage(req, res) {
 			return res.status(404).json({ message: 'Product not found' });
 		}
 
-		// Check if the image exists in the product
-		const imageIndex = product.imageURLs.indexOf(imageUrl);
-		if (imageIndex === -1) {
+		// Find the image key in the product's imageURLs Map
+		let imageKeyToDelete = null;
+		for (const [key, imageData] of product.imageURLs.entries()) {
+			if (imageData.url === imageUrl) {
+				imageKeyToDelete = key;
+				break;
+			}
+		}
+
+		if (!imageKeyToDelete) {
 			return res.status(404).json({ message: 'Image not found in product' });
 		}
 
@@ -134,13 +308,63 @@ async function deleteProductImage(req, res) {
 		// Delete from Cloudinary
 		await deleteFromCloudinary(publicId);
 
-		// Remove from product
-		product.imageURLs.splice(imageIndex, 1);
+		// Remove from product's imageURLs Map
+		product.imageURLs.delete(imageKeyToDelete);
+		
 		await product.save();
+
+		const transformedProduct = transformMongoTypes(product.toObject());
 
 		return res.status(200).json({
 			message: 'Image deleted successfully',
-			product: product,
+			product: transformedProduct,
+		});
+	} catch (err) {
+		return res.status(500).json({ message: err.message });
+	}
+}
+
+/**
+ * Update image-finish mapping for a product
+ * PUT /api/products/:id/images/mapping
+ */
+async function updateImageFinishMapping(req, res) {
+	try {
+		const { imageUrl, mappedFinishID } = req.body;
+		
+		if (!imageUrl) {
+			return res.status(400).json({ message: 'Image URL is required' });
+		}
+
+		const product = await Product.findById(req.params.id);
+		if (!product) {
+			return res.status(404).json({ message: 'Product not found' });
+		}
+
+		// Find the image key in the product's imageURLs Map
+		let imageKeyToUpdate = null;
+		for (const [key, imageData] of product.imageURLs.entries()) {
+			if (imageData.url === imageUrl) {
+				imageKeyToUpdate = key;
+				break;
+			}
+		}
+
+		if (!imageKeyToUpdate) {
+			return res.status(404).json({ message: 'Image not found in product' });
+		}
+
+		// Update the mapping
+		const imageData = product.imageURLs.get(imageKeyToUpdate);
+		imageData.mappedFinishID = mappedFinishID || null;
+		product.imageURLs.set(imageKeyToUpdate, imageData);
+		await product.save();
+
+		const transformedProduct = transformMongoTypes(product.toObject());
+
+		return res.status(200).json({
+			message: 'Image-finish mapping updated successfully',
+			product: transformedProduct,
 		});
 	} catch (err) {
 		return res.status(500).json({ message: err.message });
@@ -155,6 +379,7 @@ module.exports = {
 	deleteProduct,
 	uploadProductImages,
 	deleteProductImage,
+	updateImageFinishMapping,
 };
 
 

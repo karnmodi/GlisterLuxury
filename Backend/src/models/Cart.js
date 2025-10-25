@@ -36,7 +36,7 @@ const CartItemSchema = new Schema(
 
 const CartSchema = new Schema(
 	{
-		sessionID: { type: String, required: true, unique: true, index: true },
+		sessionID: { type: String, required: true, unique: true },
 		userID: { type: Schema.Types.ObjectId, ref: 'User' }, // Optional for guest checkout
 		items: [CartItemSchema],
 		subtotal: { type: Schema.Types.Decimal128, default: 0 },

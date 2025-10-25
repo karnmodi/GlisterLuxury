@@ -14,7 +14,7 @@ const SubcategorySchema = new Schema(
 const CategorySchema = new Schema(
 	{
 		name: { type: String, required: true, unique: true },
-		slug: { type: String, unique: true, index: true },
+		slug: { type: String, unique: true },
 		description: { type: String },
 		subcategories: { type: [SubcategorySchema], default: [] },
 	},

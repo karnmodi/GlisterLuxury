@@ -98,7 +98,11 @@ async function addToCart(req, res, next) {
 
 		res.status(201).json({
 			message: 'Item added to cart',
-			cart: await Cart.findById(cart._id).populate('items.productID'),
+			cart: await Cart.findById(cart._id).populate({
+				path: 'items.productID',
+				model: 'Product',
+				select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
+			}),
 		});
 	} catch (error) {
 		next(error);
@@ -114,7 +118,11 @@ async function getCart(req, res, next) {
 		const { sessionID } = req.params;
 
 		const cart = await Cart.findOne({ sessionID })
-			.populate('items.productID')
+			.populate({
+				path: 'items.productID',
+				model: 'Product',
+				select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
+			})
 			.populate('items.selectedFinish.finishID');
 
 		if (!cart) {
@@ -164,7 +172,11 @@ async function updateCartItem(req, res, next) {
 
 		res.json({
 			message: 'Cart item updated',
-			cart: await Cart.findById(cart._id).populate('items.productID'),
+			cart: await Cart.findById(cart._id).populate({
+				path: 'items.productID',
+				model: 'Product',
+				select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
+			}),
 		});
 	} catch (error) {
 		next(error);
@@ -195,7 +207,11 @@ async function removeCartItem(req, res, next) {
 
 		res.json({
 			message: 'Item removed from cart',
-			cart: await Cart.findById(cart._id).populate('items.productID'),
+			cart: await Cart.findById(cart._id).populate({
+				path: 'items.productID',
+				model: 'Product',
+				select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
+			}),
 		});
 	} catch (error) {
 		next(error);
@@ -233,7 +249,11 @@ async function getCheckoutSummary(req, res, next) {
 		const { sessionID } = req.params;
 
 		const cart = await Cart.findOne({ sessionID })
-			.populate('items.productID')
+			.populate({
+				path: 'items.productID',
+				model: 'Product',
+				select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
+			})
 			.populate('items.selectedFinish.finishID');
 
 		if (!cart) {
@@ -304,7 +324,11 @@ async function linkCartToUser(req, res, next) {
 			
 			return res.json({
 				message: 'Cart linked to user account',
-				cart: await Cart.findById(cart._id).populate('items.productID')
+				cart: await Cart.findById(cart._id).populate({
+					path: 'items.productID',
+					model: 'Product',
+					select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
+				})
 			});
 		}
 

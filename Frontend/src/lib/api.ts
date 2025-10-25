@@ -75,6 +75,12 @@ export const productsApi = {
       method: 'DELETE',
       body: JSON.stringify({ imageUrl }),
     }),
+
+  updateImageFinishMapping: (id: string, imageUrl: string, mappedFinishID?: string) =>
+    apiCall<{ message: string; product: Product }>(`/products/${id}/images/mapping`, {
+      method: 'PUT',
+      body: JSON.stringify({ imageUrl, mappedFinishID }),
+    }),
 }
 
 // Categories API

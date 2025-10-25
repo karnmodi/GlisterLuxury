@@ -31,7 +31,7 @@ const FinishOptionSchema = new Schema(
 
 const ProductSchema = new Schema(
 	{
-		productID: { type: String, required: true, unique: true, index: true },
+		productID: { type: String, required: true, unique: true },
 		productUID: { type: String, index: true },
 		name: { type: String, required: true },
 		description: { type: String },
@@ -41,7 +41,14 @@ const ProductSchema = new Schema(
 		packagingUnit: { type: String, default: 'Set' },
 		materials: { type: [MaterialSchema], default: [] },
 		finishes: { type: [FinishOptionSchema], default: [] },
-		imageURLs: { type: [String], default: [] },
+		imageURLs: { 
+			type: Map, 
+			of: {
+				url: { type: String, required: true },
+				mappedFinishID: { type: Schema.Types.ObjectId, ref: 'Finish' }
+			},
+			default: new Map()
+		},
 	},
 	{ timestamps: true }
 );

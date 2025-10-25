@@ -2,6 +2,69 @@ const Wishlist = require('../models/Wishlist');
 const Product = require('../models/Product');
 
 /**
+ * Transform MongoDB types to JSON-serializable types
+ * Handles: ObjectId → string, Decimal128 → number, Map → object
+ */
+function transformMongoTypes(obj) {
+	if (!obj) return obj;
+
+	// Handle ObjectId - check for _bsontype or constructor name
+	if (obj._bsontype === 'ObjectId' || obj.constructor?.name === 'ObjectId') {
+		return obj.toString();
+	}
+
+	// Handle Decimal128
+	if (obj.constructor?.name === 'Decimal128') {
+		return parseFloat(obj.toString());
+	}
+
+	// Handle Arrays
+	if (Array.isArray(obj)) {
+		return obj.map(transformMongoTypes);
+	}
+
+	// Handle Map (including MongoDB Maps)
+	if (obj instanceof Map || (obj && obj.constructor && obj.constructor.name === 'Map')) {
+		const plain = {};
+		for (const [key, value] of obj.entries()) {
+			plain[key] = transformMongoTypes(value);
+		}
+		return plain;
+	}
+
+	// Handle MongoDB Map-like objects that might be serialized differently
+	if (obj && typeof obj === 'object' && obj.constructor?.name === 'Object' && 
+		Object.keys(obj).some(key => key.startsWith('image_') || key.includes('image'))) {
+		// This might be a serialized Map, check if it has Map-like structure
+		const hasMapStructure = Object.values(obj).some(value => 
+			value && typeof value === 'object' && 
+			(value.url || value.mappedFinishID || value._id)
+		);
+		if (hasMapStructure) {
+			// Transform each value in the Map-like object
+			const transformed = {};
+			for (const [key, value] of Object.entries(obj)) {
+				transformed[key] = transformMongoTypes(value);
+			}
+			return transformed;
+		}
+	}
+
+	// Handle plain objects (but not Date, Buffer, etc.)
+	if (typeof obj === 'object' && obj.constructor?.name === 'Object') {
+		const transformed = {};
+		for (const key in obj) {
+			if (obj.hasOwnProperty(key)) {
+				transformed[key] = transformMongoTypes(obj[key]);
+			}
+		}
+		return transformed;
+	}
+
+	return obj;
+}
+
+/**
  * Add item to wishlist
  * POST /api/wishlist
  */
@@ -64,10 +127,18 @@ exports.addToWishlist = async (req, res, next) => {
 
 		await wishlist.save();
 
+		// Get the updated wishlist with proper transformation
+		const updatedWishlist = await Wishlist.findById(wishlist._id).populate({
+			path: 'items.productID',
+			model: 'Product',
+			select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
+		});
+		const wishlistObj = transformMongoTypes(updatedWishlist.toJSON());
+
 		res.status(201).json({
 			success: true,
 			message: 'Product added to wishlist',
-			wishlist: await Wishlist.findById(wishlist._id).populate('items.productID')
+			wishlist: wishlistObj
 		});
 	} catch (error) {
 		console.error('Add to wishlist error:', error);
@@ -96,7 +167,11 @@ exports.getWishlist = async (req, res, next) => {
 		}
 
 		const query = userID ? { userID } : { sessionID, userID: null };
-		const wishlist = await Wishlist.findOne(query).populate('items.productID');
+		const wishlist = await Wishlist.findOne(query).populate({
+			path: 'items.productID',
+			model: 'Product',
+			select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
+		});
 
 		if (!wishlist) {
 			return res.json({
@@ -108,10 +183,19 @@ exports.getWishlist = async (req, res, next) => {
 			});
 		}
 
+		// Convert the wishlist to object and transform all MongoDB types
+		// Use toJSON() instead of toObject() to ensure Maps are properly serialized
+		const wishlistObj = transformMongoTypes(wishlist.toJSON());
+		
+		// Debug: Log imageURLs to verify they're being populated
+		if (wishlistObj.items && wishlistObj.items.length > 0) {
+			console.log('Debug - First item imageURLs:', JSON.stringify(wishlistObj.items[0].productID?.imageURLs, null, 2));
+		}
+
 		res.json({
 			success: true,
 			wishlist: {
-				...wishlist.toObject(),
+				...wishlistObj,
 				count: wishlist.items.length
 			}
 		});
@@ -166,10 +250,18 @@ exports.removeFromWishlist = async (req, res, next) => {
 
 		await wishlist.save();
 
+		// Get the updated wishlist with proper transformation
+		const updatedWishlist = await Wishlist.findById(wishlist._id).populate({
+			path: 'items.productID',
+			model: 'Product',
+			select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
+		});
+		const wishlistObj = transformMongoTypes(updatedWishlist.toJSON());
+
 		res.json({
 			success: true,
 			message: 'Product removed from wishlist',
-			wishlist: await Wishlist.findById(wishlist._id).populate('items.productID')
+			wishlist: wishlistObj
 		});
 	} catch (error) {
 		console.error('Remove from wishlist error:', error);
@@ -238,10 +330,18 @@ exports.syncWishlist = async (req, res, next) => {
 		// Delete guest wishlist
 		await Wishlist.deleteOne({ _id: guestWishlist._id });
 
+		// Get the updated wishlist with proper transformation
+		const updatedWishlist = await Wishlist.findById(userWishlist._id).populate({
+			path: 'items.productID',
+			model: 'Product',
+			select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
+		});
+		const wishlistObj = transformMongoTypes(updatedWishlist.toJSON());
+
 		res.json({
 			success: true,
 			message: 'Wishlist synced successfully',
-			wishlist: await Wishlist.findById(userWishlist._id).populate('items.productID')
+			wishlist: wishlistObj
 		});
 	} catch (error) {
 		console.error('Sync wishlist error:', error);

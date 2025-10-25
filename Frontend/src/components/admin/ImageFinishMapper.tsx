@@ -1,0 +1,499 @@
+'use client'
+
+import { useState, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import Image from 'next/image'
+import { productsApi } from '@/lib/api'
+import { useToast } from '@/contexts/ToastContext'
+import type { Finish } from '@/types'
+import Button from '@/components/ui/Button'
+
+interface ImageData {
+  url: string
+  file?: File
+  mappedFinishID?: string
+}
+
+interface ImageFinishMapperProps {
+  images: ImageData[]
+  onChange: (images: ImageData[]) => void
+  availableFinishes: Finish[]
+  selectedFinishes: Array<{finishID: string, priceAdjustment: number}>
+  productId: string
+}
+
+export default function ImageFinishMapper({ 
+  images, 
+  onChange, 
+  availableFinishes, 
+  selectedFinishes,
+  productId 
+}: ImageFinishMapperProps) {
+  const toast = useToast()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+
+  const handleFileSelect = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+
+    const newImages: ImageData[] = []
+    const maxFiles = 10
+    const remainingSlots = maxFiles - images.length
+
+    for (let i = 0; i < Math.min(files.length, remainingSlots); i++) {
+      const file = files[i]
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not an image file`)
+        continue
+      }
+
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`${file.name} is too large. Maximum size is 5MB`)
+        continue
+      }
+
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file)
+      newImages.push({
+        url: previewUrl,
+        file,
+        mappedFinishID: undefined
+      })
+    }
+
+    if (newImages.length > 0) {
+      onChange([...images, ...newImages])
+      toast.success(`${newImages.length} image(s) added`)
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const handleUpload = async () => {
+    if (images.length === 0) return
+
+    const filesToUpload = images.filter(img => img.file).map(img => img.file!)
+    if (filesToUpload.length === 0) return
+
+    // Check if productId is a valid ObjectId (24 character hex string)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(productId)
+    
+    if (!isValidObjectId) {
+      // For new products, we'll handle the upload after product creation
+      // Just show a success message for now
+      toast.success('Images will be uploaded after product creation')
+      
+      // Keep file references for later upload
+      onChange(images)
+      return
+    }
+
+    try {
+      setUploading(true)
+      const uploadResult = await productsApi.uploadImages(productId, filesToUpload)
+      
+      // Update image URLs with the actual uploaded URLs
+      const uploadedImages = images.map((img, index) => {
+        if (img.file) {
+          // Use the uploaded URL from the server response
+          const uploadedUrl = uploadResult.images?.[index] || img.url
+          return {
+            url: uploadedUrl,
+            mappedFinishID: img.mappedFinishID
+          }
+        }
+        return img
+      })
+      
+      onChange(uploadedImages)
+      toast.success('Images uploaded successfully!')
+    } catch (error) {
+      console.error('Upload failed:', error)
+      toast.error('Failed to upload images')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const removeImage = (index: number) => {
+    const newImages = images.filter((_, i) => i !== index)
+    onChange(newImages)
+  }
+
+  const updateFinishMapping = async (index: number, finishID: string) => {
+    const newImages = [...images]
+    
+    // If selecting a finish, remove it from other images first
+    if (finishID) {
+      newImages.forEach((img, i) => {
+        if (i !== index && img.mappedFinishID === finishID) {
+          img.mappedFinishID = undefined
+        }
+      })
+    }
+    
+    newImages[index].mappedFinishID = finishID || undefined
+    onChange(newImages)
+    
+    // Update mapping on server if product exists
+    if (productId && images[index].url && !images[index].file) {
+      try {
+        await productsApi.updateImageFinishMapping(productId, images[index].url, finishID)
+      } catch (error) {
+        console.error('Failed to update image-finish mapping:', error)
+        toast.error('Failed to update image-finish mapping')
+      }
+    }
+  }
+
+  const moveImage = (fromIndex: number, toIndex: number) => {
+    const newImages = [...images]
+    const [movedImage] = newImages.splice(fromIndex, 1)
+    newImages.splice(toIndex, 0, movedImage)
+    onChange(newImages)
+  }
+
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+  }
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+    if (draggedIndex !== null && draggedIndex !== dropIndex) {
+      moveImage(draggedIndex, dropIndex)
+    }
+    setDraggedIndex(null)
+  }
+
+  const getFinishDetails = (finishID: string) => {
+    return availableFinishes.find(f => f._id === finishID)
+  }
+
+  const mappedImages = images.filter(img => img.mappedFinishID)
+  const unmappedImages = images.filter(img => !img.mappedFinishID)
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-charcoal">Product Images</h3>
+          <p className="text-sm text-charcoal/60">Upload images and map them to specific finishes</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={(e) => handleFileSelect(e.target.files)}
+            className="hidden"
+          />
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={images.length >= 10}
+            size="sm"
+          >
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Images
+            </span>
+          </Button>
+          {images.some(img => img.file) && (
+            <Button
+              onClick={handleUpload}
+              disabled={uploading}
+              variant="primary"
+              size="sm"
+            >
+              {uploading ? 'Uploading...' : (productId ? 'Upload to Server' : 'Prepare Images')}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Upload Progress */}
+      {uploading && (
+        <div className="bg-gradient-to-r from-brass/10 to-cream/20 rounded-lg p-4 border border-brass/20">
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-brass border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-sm text-charcoal">Uploading images to server...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Info for new products */}
+      {!productId && images.some(img => img.file) && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-sm text-blue-800">Images will be uploaded automatically when you save the product</span>
+          </div>
+        </div>
+      )}
+
+      {/* Images Grid */}
+      {images.length > 0 && (
+        <div className="space-y-6">
+          {/* Default Images (Unmapped) */}
+          {unmappedImages.length > 0 && (
+            <div>
+              <h4 className="font-medium text-charcoal mb-3 flex items-center gap-2">
+                <svg className="w-4 h-4 text-brass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Default Images ({unmappedImages.length})
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {unmappedImages.map((image, index) => (
+                  <ImageCard
+                    key={`unmapped-${index}`}
+                    image={image}
+                    index={images.indexOf(image)}
+                    images={images}
+                    availableFinishes={availableFinishes}
+                    selectedFinishes={selectedFinishes}
+                    onRemove={removeImage}
+                    onFinishChange={updateFinishMapping}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    isDefault={true}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Finish-Mapped Images */}
+          {mappedImages.length > 0 && (
+            <div>
+              <h4 className="font-medium text-charcoal mb-3 flex items-center gap-2">
+                <svg className="w-4 h-4 text-olive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                </svg>
+                Finish-Specific Images ({mappedImages.length})
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {mappedImages.map((image, index) => (
+                  <ImageCard
+                    key={`mapped-${index}`}
+                    image={image}
+                    index={images.indexOf(image)}
+                    images={images}
+                    availableFinishes={availableFinishes}
+                    selectedFinishes={selectedFinishes}
+                    onRemove={removeImage}
+                    onFinishChange={updateFinishMapping}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    isDefault={false}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {images.length === 0 && (
+        <div className="text-center py-12 bg-gradient-to-br from-cream/30 to-white rounded-lg border-2 border-dashed border-brass/30">
+          <svg className="w-16 h-16 mx-auto mb-4 text-brass/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <h3 className="text-lg font-medium text-charcoal mb-2">No Images Added</h3>
+          <p className="text-charcoal/60 mb-4">Upload product images and optionally map them to specific finishes</p>
+          <Button onClick={() => fileInputRef.current?.click()}>
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Upload Images
+            </span>
+          </Button>
+        </div>
+      )}
+
+      {/* Summary */}
+      {images.length > 0 && (
+        <div className="bg-gradient-to-r from-brass/5 to-cream/20 rounded-lg p-4 border border-brass/20">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-4">
+              <span className="text-charcoal/60">Total images:</span>
+              <span className="font-medium text-charcoal">{images.length}</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-charcoal/60">Default images:</span>
+              <span className="font-medium text-charcoal">{unmappedImages.length}</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-charcoal/60">Finish-mapped:</span>
+              <span className="font-medium text-charcoal">{mappedImages.length}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface ImageCardProps {
+  image: ImageData
+  index: number
+  images: ImageData[]
+  availableFinishes: Finish[]
+  selectedFinishes: Array<{finishID: string, priceAdjustment: number}>
+  onRemove: (index: number) => void
+  onFinishChange: (index: number, finishID: string) => void
+  onDragStart: (index: number) => void
+  onDragOver: (e: React.DragEvent) => void
+  onDrop: (e: React.DragEvent, dropIndex: number) => void
+  isDefault: boolean
+}
+
+function ImageCard({
+  image,
+  index,
+  images,
+  availableFinishes,
+  selectedFinishes,
+  onRemove,
+  onFinishChange,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  isDefault
+}: ImageCardProps) {
+  const [isHovered, setIsHovered] = useState(false)
+
+  const getFinishDetails = (finishID: string) => {
+    return availableFinishes.find(f => f._id === finishID)
+  }
+
+  // Only show finishes that are selected for this product and not already mapped to other images
+  const availableFinishesForMapping = availableFinishes.filter(finish => 
+    selectedFinishes.some(sf => sf.finishID === finish._id)
+  ).filter(finish => {
+    // Check if this finish is already mapped to another image
+    const isAlreadyMapped = images.some((img, imgIndex) => 
+      imgIndex !== index && img.mappedFinishID === finish._id
+    )
+    return !isAlreadyMapped
+  })
+
+  const mappedFinish = image.mappedFinishID ? getFinishDetails(image.mappedFinishID) : null
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      draggable
+      onDragStart={() => onDragStart(index)}
+      onDragOver={onDragOver}
+      onDrop={(e) => onDrop(e, index)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`relative rounded-lg border-2 overflow-hidden cursor-move transition-all duration-300 ${
+        isDefault 
+          ? 'border-brass/30 bg-gradient-to-br from-brass/5 to-cream/20' 
+          : 'border-olive/30 bg-gradient-to-br from-olive/5 to-cream/20'
+      }`}
+    >
+      {/* Image */}
+      <div className="relative aspect-square">
+        <Image
+          src={image.url}
+          alt={`Product image ${index + 1}`}
+          fill
+          className="object-cover"
+        />
+        
+        {/* Overlay */}
+        <AnimatePresence>
+          {isHovered && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/50 flex items-center justify-center"
+            >
+              <Button
+                onClick={() => onRemove(index)}
+                variant="danger"
+                size="sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Finish Badge */}
+        {mappedFinish && (
+          <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 text-xs font-medium text-charcoal flex items-center gap-1">
+            {mappedFinish.photoURL && (
+              <img
+                src={mappedFinish.photoURL}
+                alt={mappedFinish.name}
+                className="w-3 h-3 rounded-full object-cover"
+              />
+            )}
+            {mappedFinish.color && !mappedFinish.photoURL && (
+              <div
+                className="w-3 h-3 rounded-full border border-charcoal/20"
+                style={{ backgroundColor: mappedFinish.color }}
+              />
+            )}
+            <span className="truncate max-w-20">{mappedFinish.name}</span>
+          </div>
+        )}
+
+        {/* Default Badge */}
+        {isDefault && (
+          <div className="absolute top-2 right-2 bg-brass/90 text-white rounded-full px-2 py-1 text-xs font-medium">
+            Default
+          </div>
+        )}
+      </div>
+
+      {/* Finish Mapping */}
+      <div className="p-3 border-t border-brass/20">
+        <label className="block text-xs font-medium text-charcoal mb-1">
+          Map to Finish
+        </label>
+        <select
+          value={image.mappedFinishID || ''}
+          onChange={(e) => onFinishChange(index, e.target.value)}
+          className="w-full text-xs px-2 py-1 bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+        >
+          <option value="">Default (No Finish)</option>
+          {availableFinishesForMapping.map((finish) => (
+            <option key={finish._id} value={finish._id}>
+              {finish.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    </motion.div>
+  )
+}

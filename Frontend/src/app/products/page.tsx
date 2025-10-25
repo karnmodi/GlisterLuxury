@@ -3,20 +3,22 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { productsApi, categoriesApi } from '@/lib/api'
-import type { Product, Category } from '@/types'
+import { productsApi, categoriesApi, finishesApi } from '@/lib/api'
+import type { Product, Category, Finish } from '@/types'
 import LuxuryNavigation from '@/components/LuxuryNavigation'
 import LuxuryFooter from '@/components/LuxuryFooter'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [finishes, setFinishes] = useState<Finish[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [hoveredProduct, setHoveredProduct] = useState<string | null>(null)
 
   useEffect(() => {
     fetchData()
@@ -25,12 +27,14 @@ export default function ProductsPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [productsData, categoriesData] = await Promise.all([
+      const [productsData, categoriesData, finishesData] = await Promise.all([
         productsApi.getAll(),
         categoriesApi.getAll(),
+        finishesApi.getAll(),
       ])
       setProducts(productsData)
       setCategories(categoriesData)
+      setFinishes(finishesData)
     } catch (error) {
       console.error('Failed to fetch data:', error)
     } finally {
@@ -57,6 +61,31 @@ export default function ProductsPage() {
     setSearchQuery('')
     setSelectedCategory('')
     fetchData()
+  }
+
+  // Get the default image (mappedFinishID: null)
+  const getDefaultImage = (product: Product) => {
+    const images = Object.values(product.imageURLs || {})
+    const defaultImage = images.find(img => img.mappedFinishID === null)
+    return defaultImage?.url || images[0]?.url
+  }
+
+  // Get the first finish-specific image for hover effect
+  const getHoverImage = (product: Product) => {
+    const images = Object.values(product.imageURLs || {})
+    const finishImage = images.find(img => img.mappedFinishID !== null)
+    return finishImage?.url
+  }
+
+  // Get the finish name for the hover image
+  const getHoverFinishName = (product: Product) => {
+    const images = Object.values(product.imageURLs || {})
+    const finishImage = images.find(img => img.mappedFinishID !== null)
+    if (finishImage?.mappedFinishID) {
+      const finish = finishes.find(f => f._id === finishImage.mappedFinishID)
+      return finish?.name || 'Custom Finish'
+    }
+    return null
   }
 
   return (
@@ -144,16 +173,129 @@ export default function ProductsPage() {
                   transition={{ duration: 0.4, delay: index * 0.1 }}
                 >
                   <Link href={`/products/${product._id}`}>
-                    <div className="bg-white rounded-lg overflow-hidden shadow-md border border-brass/20 hover:shadow-xl transition-all duration-300 group">
+                    <motion.div 
+                      className="bg-white rounded-lg overflow-hidden shadow-md border border-brass/20 hover:shadow-xl transition-all duration-300 group relative"
+                      onMouseEnter={() => setHoveredProduct(product._id)}
+                      onMouseLeave={() => setHoveredProduct(null)}
+                      whileHover={{ 
+                        scale: 1.02,
+                        transition: { duration: 0.3, ease: "easeOut" }
+                      }}
+                    >
                       {/* Product Image */}
                       <div className="relative h-64 bg-white overflow-hidden">
-                        {product.imageURLs && product.imageURLs.length > 0 ? (
-                          <Image
-                            src={product.imageURLs[0]}
-                            alt={product.name}
-                            fill
-                            className="object-contain p-4 group-hover:scale-105 transition-transform duration-500"
-                          />
+                        {/* Subtle Glow Effect */}
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-br from-brass/5 to-transparent pointer-events-none"
+                          initial={{ opacity: 0 }}
+                          animate={{ 
+                            opacity: hoveredProduct === product._id ? 1 : 0 
+                          }}
+                          transition={{ duration: 0.4 }}
+                        />
+                        {product.imageURLs && Object.keys(product.imageURLs).length > 0 ? (
+                          <>
+                            {/* Default Image with Smooth Transition */}
+                            <motion.div
+                              key={`default-${product._id}`}
+                              initial={{ opacity: 1, scale: 1 }}
+                              animate={{ 
+                                opacity: hoveredProduct === product._id ? 0 : 1,
+                                scale: hoveredProduct === product._id ? 1.05 : 1
+                              }}
+                              transition={{ 
+                                duration: 0.6, 
+                                ease: [0.25, 0.46, 0.45, 0.94] // Custom easing for smoothness
+                              }}
+                              className="absolute inset-0"
+                            >
+                              <Image
+                                src={getDefaultImage(product)}
+                                alt={product.name}
+                                fill
+                                className="object-contain p-4"
+                              />
+                            </motion.div>
+                            
+                            {/* Hover Image with Smooth Transition */}
+                            <AnimatePresence>
+                              {hoveredProduct === product._id && getHoverImage(product) && (
+                                <motion.div
+                                  key={`hover-${product._id}`}
+                                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                  animate={{ 
+                                    opacity: 1, 
+                                    scale: 1,
+                                    y: 0
+                                  }}
+                                  exit={{ 
+                                    opacity: 0, 
+                                    scale: 1.05,
+                                    y: -10
+                                  }}
+                                  transition={{ 
+                                    duration: 0.6,
+                                    ease: [0.25, 0.46, 0.45, 0.94],
+                                    delay: 0.1
+                                  }}
+                                  className="absolute inset-0"
+                                >
+                                  <Image
+                                    src={getHoverImage(product)!}
+                                    alt={`${product.name} - ${getHoverFinishName(product)}`}
+                                    fill
+                                    className="object-contain p-4"
+                                  />
+                                  
+                                  {/* Finish Caption Overlay with Enhanced Animation */}
+                                  <motion.div
+                                    initial={{ opacity: 0, y: 30, scale: 0.9, rotateX: 15 }}
+                                    animate={{ 
+                                      opacity: 1, 
+                                      y: 0,
+                                      scale: 1,
+                                      rotateX: 0
+                                    }}
+                                    exit={{ 
+                                      opacity: 0, 
+                                      y: 20,
+                                      scale: 0.95,
+                                      rotateX: -10
+                                    }}
+                                    transition={{ 
+                                      duration: 0.6, 
+                                      delay: 0.2,
+                                      ease: [0.25, 0.46, 0.45, 0.94]
+                                    }}
+                                    className="absolute bottom-4 left-4 right-4 bg-charcoal/90 backdrop-blur-md text-ivory px-3 py-2 rounded-lg border border-brass/40 shadow-lg"
+                                    style={{ transformStyle: 'preserve-3d' }}
+                                  >
+                                    <motion.div 
+                                      className="flex items-center gap-2"
+                                      initial={{ x: -10 }}
+                                      animate={{ x: 0 }}
+                                      transition={{ delay: 0.3, duration: 0.4 }}
+                                    >
+                                      <motion.div 
+                                        className="w-2 h-2 bg-brass rounded-full"
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        transition={{ delay: 0.4, duration: 0.3 }}
+                                      ></motion.div>
+                                      <motion.span 
+                                        className="text-sm font-medium"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: 0.5, duration: 0.3 }}
+                                      >
+                                        {getHoverFinishName(product)}
+                                      </motion.span>
+                                    </motion.div>
+                                  </motion.div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-gradient-ivory">
                             <svg className="w-20 h-20 text-brass/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,7 +326,7 @@ export default function ProductsPage() {
                           </span>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   </Link>
                 </motion.div>
               ))}

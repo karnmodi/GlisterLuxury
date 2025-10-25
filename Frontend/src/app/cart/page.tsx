@@ -153,9 +153,9 @@ export default function CartPage() {
                       <div className="flex gap-6">
                         {/* Product Image */}
                         <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-white border border-brass/10 flex-shrink-0">
-                          {product && product.imageURLs && product.imageURLs.length > 0 ? (
+                          {product && product.imageURLs && Object.keys(product.imageURLs).length > 0 ? (
                             <Image
-                              src={product.imageURLs[0]}
+                              src={Object.values(product.imageURLs)[0].url}
                               alt={item.productName}
                               fill
                               className="object-contain p-2"

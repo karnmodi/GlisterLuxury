@@ -39,8 +39,7 @@ const OrderSchema = new Schema(
 		orderNumber: { 
 			type: String, 
 			required: true, 
-			unique: true, 
-			index: true 
+			unique: true
 		},
 		userID: { 
 			type: Schema.Types.ObjectId, 
