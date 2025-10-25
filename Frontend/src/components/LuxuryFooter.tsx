@@ -104,7 +104,7 @@ export default function LuxuryFooter() {
               {['Contact Us', 'FAQs', 'Finishes & Samples', 'Delivery', 'Returns', 'Care Guide'].map((item) => (
                 <li key={item}>
                   <Link 
-                    href={`/${item.toLowerCase().replace(/\s+/g, '-')}`}
+                    href={item === 'FAQs' ? '/faqs' : `/${item.toLowerCase().replace(/\s+/g, '-')}`}
                     className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
                   >
                     {item}

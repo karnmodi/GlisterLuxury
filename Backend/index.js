@@ -40,6 +40,7 @@ app.use('/api/configurations', require('./src/routes/configurations.routes'));
 app.use('/api/cart', require('./src/routes/cart.routes'));
 app.use('/api/orders', require('./src/routes/orders.routes'));
 app.use('/api/wishlist', require('./src/routes/wishlist.routes'));
+app.use('/api/faqs', require('./src/routes/faq.routes'));
 
 // Error handler (must be last)
 app.use(require('./src/middleware/errorHandler'));

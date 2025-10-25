@@ -1,4 +1,4 @@
-import type { Product, Category, Finish, MaterialMaster, Cart, CartItem, Order, OrderStats, Wishlist } from '@/types'
+import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, CartItem, Order, OrderStats, Wishlist } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
@@ -367,6 +367,39 @@ export const wishlistApi = {
         Authorization: `Bearer ${token}`
       } : {},
       body: JSON.stringify({ sessionID }),
+    }),
+}
+
+
+// FAQ API
+export const faqApi = {
+  getAll: (params?: { q?: string; isActive?: boolean; sortBy?: string }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.q) queryParams.append('q', params.q)
+    if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString())
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+    
+    const query = queryParams.toString()
+    return apiCall<FAQ[]>(`/faqs${query ? `?${query}` : ''}`)
+  },
+
+  getById: (id: string) => apiCall<FAQ>(`/faqs/${id}`),
+
+  create: (data: Partial<FAQ>) =>
+    apiCall<FAQ>('/faqs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: Partial<FAQ>) =>
+    apiCall<FAQ>(`/faqs/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    apiCall<{ message: string }>(`/faqs/${id}`, {
+      method: 'DELETE',
     }),
 }
 

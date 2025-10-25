@@ -30,6 +30,36 @@ function validatePreviewPrice(req, res, next) {
 	return next();
 }
 
-module.exports = { validateCreateProduct, validateCreateFinish, validateCreateMaterial, validatePreviewPrice };
+function validateCreateFAQ(req, res, next) {
+	const { question, answer, linkType, linkUrl, order } = req.body || {};
+	
+	// Required fields
+	if (!question || !answer) {
+		return res.status(400).json({ message: 'question and answer are required' });
+	}
+	
+	// Validate linkType enum
+	if (linkType && !['internal', 'external', 'none'].includes(linkType)) {
+		return res.status(400).json({ message: 'linkType must be one of: internal, external, none' });
+	}
+	
+	// Validate linkUrl based on linkType
+	if (linkType === 'internal' && linkUrl && !linkUrl.startsWith('/')) {
+		return res.status(400).json({ message: 'Internal links must start with "/"' });
+	}
+	
+	if (linkType === 'external' && linkUrl && !linkUrl.startsWith('http')) {
+		return res.status(400).json({ message: 'External links must start with "http" or "https"' });
+	}
+	
+	// Validate order is a number
+	if (order != null && (!Number.isInteger(order) || order < 0)) {
+		return res.status(400).json({ message: 'order must be a non-negative integer' });
+	}
+	
+	return next();
+}
+
+module.exports = { validateCreateProduct, validateCreateFinish, validateCreateMaterial, validatePreviewPrice, validateCreateFAQ };
 
 
