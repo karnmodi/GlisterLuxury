@@ -110,6 +110,19 @@ export interface MaterialMaster {
   updatedAt?: string
 }
 
+export interface FAQ {
+  _id: string
+  question: string
+  answer: string
+  linkType: 'internal' | 'external' | 'none'
+  linkUrl?: string
+  linkText?: string
+  order: number
+  isActive: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
 // API Response types
 export interface ApiError {
   message: string

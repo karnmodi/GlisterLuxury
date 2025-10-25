@@ -160,6 +160,13 @@ export default function LuxuryNavigation() {
             </Link>
 
             <Link 
+              href="/faqs" 
+              className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline"
+            >
+              FAQs
+            </Link>
+
+            <Link 
               href="/contact" 
               className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline"
             >
