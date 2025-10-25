@@ -15,6 +15,7 @@ export default function AdminLayout({
     { name: 'Categories', href: '/admin/categories' },
     { name: 'Materials', href: '/admin/materials' },
     { name: 'Finishes', href: '/admin/finishes' },
+    { name: 'FAQs', href: '/admin/faqs' },
   ]
 
   return (

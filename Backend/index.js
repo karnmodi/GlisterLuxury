@@ -37,6 +37,7 @@ app.use('/api/finishes', require('./src/routes/finishes.routes'));
 app.use('/api/materials', require('./src/routes/materials.routes'));
 app.use('/api/configurations', require('./src/routes/configurations.routes'));
 app.use('/api/cart', require('./src/routes/cart.routes'));
+app.use('/api/faqs', require('./src/routes/faq.routes'));
 
 // Error handler (must be last)
 app.use(require('./src/middleware/errorHandler'));
