@@ -184,14 +184,11 @@ export default function ImageFinishMapper({
   const unmappedImages = images.filter(img => !img.mappedFinishID)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-charcoal">Product Images</h3>
-          <p className="text-sm text-charcoal/60">Upload images and map them to specific finishes</p>
-        </div>
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold text-charcoal">Product Images</h3>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <input
             ref={fileInputRef}
             type="file"
@@ -200,154 +197,89 @@ export default function ImageFinishMapper({
             onChange={(e) => handleFileSelect(e.target.files)}
             className="hidden"
           />
-          <Button
+          <button
             onClick={() => fileInputRef.current?.click()}
             disabled={images.length >= 10}
-            size="sm"
+            className="flex-1 sm:flex-none px-2 py-1 text-xs bg-brass text-white hover:bg-brass/90 disabled:opacity-50 rounded inline-flex items-center justify-center gap-1"
           >
-            <span className="flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Images
-            </span>
-          </Button>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add
+          </button>
           {images.some(img => img.file) && (
-            <Button
+            <button
               onClick={handleUpload}
               disabled={uploading}
-              variant="primary"
-              size="sm"
+              className="flex-1 sm:flex-none px-2 py-1 text-xs bg-olive text-white hover:bg-olive/90 disabled:opacity-50 rounded"
             >
-              {uploading ? 'Uploading...' : (productId ? 'Upload to Server' : 'Prepare Images')}
-            </Button>
+              {uploading ? 'Uploading...' : (productId ? 'Upload' : 'Prepare')}
+            </button>
           )}
         </div>
       </div>
 
       {/* Upload Progress */}
       {uploading && (
-        <div className="bg-gradient-to-r from-brass/10 to-cream/20 rounded-lg p-4 border border-brass/20">
-          <div className="flex items-center gap-3">
-            <div className="w-5 h-5 border-2 border-brass border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-sm text-charcoal">Uploading images to server...</span>
+        <div className="bg-brass/10 rounded-md p-2 border border-brass/20">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 border-2 border-brass border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-xs text-charcoal">Uploading images...</span>
           </div>
         </div>
       )}
 
       {/* Info for new products */}
       {!productId && images.some(img => img.file) && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
-          <div className="flex items-center gap-3">
-            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-blue-50 rounded-md p-2 border border-blue-200">
+          <div className="flex items-center gap-2">
+            <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="text-sm text-blue-800">Images will be uploaded automatically when you save the product</span>
+            <span className="text-[10px] text-blue-800">Images will be uploaded when you save the product</span>
           </div>
         </div>
       )}
 
-      {/* Images Grid */}
+      {/* Images Grid - Combined */}
       {images.length > 0 && (
-        <div className="space-y-6">
-          {/* Default Images (Unmapped) */}
-          {unmappedImages.length > 0 && (
-            <div>
-              <h4 className="font-medium text-charcoal mb-3 flex items-center gap-2">
-                <svg className="w-4 h-4 text-brass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                Default Images ({unmappedImages.length})
-              </h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {unmappedImages.map((image, index) => (
-                  <ImageCard
-                    key={`unmapped-${index}`}
-                    image={image}
-                    index={images.indexOf(image)}
-                    images={images}
-                    availableFinishes={availableFinishes}
-                    selectedFinishes={selectedFinishes}
-                    onRemove={removeImage}
-                    onFinishChange={updateFinishMapping}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
-                    isDefault={true}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Finish-Mapped Images */}
-          {mappedImages.length > 0 && (
-            <div>
-              <h4 className="font-medium text-charcoal mb-3 flex items-center gap-2">
-                <svg className="w-4 h-4 text-olive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                </svg>
-                Finish-Specific Images ({mappedImages.length})
-              </h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {mappedImages.map((image, index) => (
-                  <ImageCard
-                    key={`mapped-${index}`}
-                    image={image}
-                    index={images.indexOf(image)}
-                    images={images}
-                    availableFinishes={availableFinishes}
-                    selectedFinishes={selectedFinishes}
-                    onRemove={removeImage}
-                    onFinishChange={updateFinishMapping}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
-                    isDefault={false}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+          {images.map((image, index) => (
+            <ImageCard
+              key={`image-${index}`}
+              image={image}
+              index={index}
+              images={images}
+              availableFinishes={availableFinishes}
+              selectedFinishes={selectedFinishes}
+              onRemove={removeImage}
+              onFinishChange={updateFinishMapping}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              isDefault={!image.mappedFinishID}
+            />
+          ))}
         </div>
       )}
 
       {/* Empty State */}
       {images.length === 0 && (
-        <div className="text-center py-12 bg-gradient-to-br from-cream/30 to-white rounded-lg border-2 border-dashed border-brass/30">
-          <svg className="w-16 h-16 mx-auto mb-4 text-brass/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="text-center py-8 bg-cream/20 rounded-md border border-dashed border-brass/30">
+          <svg className="w-10 h-10 mx-auto mb-2 text-brass/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-          <h3 className="text-lg font-medium text-charcoal mb-2">No Images Added</h3>
-          <p className="text-charcoal/60 mb-4">Upload product images and optionally map them to specific finishes</p>
-          <Button onClick={() => fileInputRef.current?.click()}>
-            <span className="flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Upload Images
-            </span>
-          </Button>
-        </div>
-      )}
-
-      {/* Summary */}
-      {images.length > 0 && (
-        <div className="bg-gradient-to-r from-brass/5 to-cream/20 rounded-lg p-4 border border-brass/20">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-4">
-              <span className="text-charcoal/60">Total images:</span>
-              <span className="font-medium text-charcoal">{images.length}</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-charcoal/60">Default images:</span>
-              <span className="font-medium text-charcoal">{unmappedImages.length}</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-charcoal/60">Finish-mapped:</span>
-              <span className="font-medium text-charcoal">{mappedImages.length}</span>
-            </div>
-          </div>
+          <h3 className="text-xs font-medium text-charcoal mb-1">No Images Added</h3>
+          <p className="text-[10px] text-charcoal/60 mb-3">Upload product images</p>
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="px-4 py-1.5 text-xs bg-brass text-white hover:bg-brass/90 rounded inline-flex items-center gap-1"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Upload Images
+          </button>
         </div>
       )}
     </div>
@@ -411,17 +343,17 @@ function ImageCard({
       onDrop={(e) => onDrop(e, index)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`relative rounded-lg border-2 overflow-hidden cursor-move transition-all duration-300 ${
+      className={`relative rounded-md border overflow-hidden cursor-move transition-all ${
         isDefault 
-          ? 'border-brass/30 bg-gradient-to-br from-brass/5 to-cream/20' 
-          : 'border-olive/30 bg-gradient-to-br from-olive/5 to-cream/20'
+          ? 'border-brass/30 bg-brass/5' 
+          : 'border-olive/30 bg-olive/5'
       }`}
     >
       {/* Image */}
       <div className="relative aspect-square">
         <Image
           src={image.url}
-          alt={`Product image ${index + 1}`}
+          alt={`Image ${index + 1}`}
           fill
           className="object-cover"
         />
@@ -435,58 +367,54 @@ function ImageCard({
               exit={{ opacity: 0 }}
               className="absolute inset-0 bg-black/50 flex items-center justify-center"
             >
-              <Button
+              <button
                 onClick={() => onRemove(index)}
-                variant="danger"
-                size="sm"
+                className="px-1.5 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200 border border-red-300 rounded"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-              </Button>
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Finish Badge */}
         {mappedFinish && (
-          <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 text-xs font-medium text-charcoal flex items-center gap-1">
+          <div className="absolute top-1 left-1 bg-white/90 backdrop-blur-sm rounded px-1 py-0.5 text-[9px] font-medium text-charcoal flex items-center gap-0.5">
             {mappedFinish.photoURL && (
               <img
                 src={mappedFinish.photoURL}
                 alt={mappedFinish.name}
-                className="w-3 h-3 rounded-full object-cover"
+                className="w-2 h-2 rounded-full object-cover"
               />
             )}
             {mappedFinish.color && !mappedFinish.photoURL && (
               <div
-                className="w-3 h-3 rounded-full border border-charcoal/20"
+                className="w-2 h-2 rounded-full border border-charcoal/20"
                 style={{ backgroundColor: mappedFinish.color }}
               />
             )}
-            <span className="truncate max-w-20">{mappedFinish.name}</span>
+            <span className="truncate max-w-12">{mappedFinish.name}</span>
           </div>
         )}
 
         {/* Default Badge */}
         {isDefault && (
-          <div className="absolute top-2 right-2 bg-brass/90 text-white rounded-full px-2 py-1 text-xs font-medium">
+          <div className="absolute top-1 right-1 bg-brass/90 text-white rounded px-1 py-0.5 text-[9px] font-medium">
             Default
           </div>
         )}
       </div>
 
       {/* Finish Mapping */}
-      <div className="p-3 border-t border-brass/20">
-        <label className="block text-xs font-medium text-charcoal mb-1">
-          Map to Finish
-        </label>
+      <div className="p-1.5 border-t border-brass/20">
         <select
           value={image.mappedFinishID || ''}
           onChange={(e) => onFinishChange(index, e.target.value)}
-          className="w-full text-xs px-2 py-1 bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+          className="w-full text-[10px] px-1 py-0.5 bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
         >
-          <option value="">Default (No Finish)</option>
+          <option value="">Default</option>
           {availableFinishesForMapping.map((finish) => (
             <option key={finish._id} value={finish._id}>
               {finish.name}

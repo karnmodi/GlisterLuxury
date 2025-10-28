@@ -1,4 +1,4 @@
-import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, CartItem, Order, OrderStats, Wishlist } from '@/types'
+import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, CartItem, Order, OrderStats, Wishlist, DashboardSummary, WebsiteVisitAnalytics, RevenueAnalytics, ProductAnalytics, UserAnalytics, OrderAnalytics, ConversionAnalytics } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
@@ -119,7 +119,7 @@ export const categoriesApi = {
 
   updateSubcategory: (id: string, subcategoryId: string, data: { name?: string; description?: string }) =>
     apiCall<Category>(`/categories/${id}/subcategories/${subcategoryId}`, {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify(data),
     }),
 
@@ -179,10 +179,23 @@ export const finishesApi = {
 export const materialsApi = {
   getAll: () => apiCall<MaterialMaster[]>('/materials'),
 
+  getById: (id: string) => apiCall<MaterialMaster>(`/materials/${id}`),
+
   create: (data: Partial<MaterialMaster>) =>
     apiCall<MaterialMaster>('/materials', {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: Partial<MaterialMaster>) =>
+    apiCall<MaterialMaster>(`/materials/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    apiCall<{ message: string }>(`/materials/${id}`, {
+      method: 'DELETE',
     }),
 }
 
@@ -324,6 +337,67 @@ export const ordersApi = {
       },
       body: JSON.stringify({ status, note }),
     }),
+
+  getAllOrdersAdmin: (params: { 
+    status?: string; 
+    paymentStatus?: string; 
+    search?: string; 
+    page?: number; 
+    limit?: number 
+  }, token: string) => {
+    const queryParams = new URLSearchParams()
+    if (params.status) queryParams.append('status', params.status)
+    if (params.paymentStatus) queryParams.append('paymentStatus', params.paymentStatus)
+    if (params.search) queryParams.append('search', params.search)
+    if (params.page) queryParams.append('page', params.page.toString())
+    if (params.limit) queryParams.append('limit', params.limit.toString())
+    
+    const query = queryParams.toString()
+    return apiCall<{
+      success: boolean
+      orders: Order[]
+      stats: {
+        totalOrders: number
+        pendingOrders: number
+        totalRevenue: number
+      }
+      pagination: {
+        total: number
+        page: number
+        limit: number
+        pages: number
+      }
+    }>(`/orders/admin/all${query ? `?${query}` : ''}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+  },
+
+  getOrderByIdAdmin: (orderId: string, token: string) =>
+    apiCall<{ success: boolean; order: Order }>(`/orders/admin/${orderId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  addAdminMessage: (orderId: string, message: string, token: string) =>
+    apiCall<{ success: boolean; message: string; order: Order }>(`/orders/${orderId}/admin-message`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ message }),
+    }),
+
+  updatePaymentStatus: (orderId: string, paymentStatus: string, token: string) =>
+    apiCall<{ success: boolean; message: string; order: Order }>(`/orders/${orderId}/payment-status`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ paymentStatus }),
+    }),
 }
 
 // Wishlist API
@@ -406,6 +480,108 @@ export const faqApi = {
   delete: (id: string) =>
     apiCall<{ message: string }>(`/faqs/${id}`, {
       method: 'DELETE',
+    }),
+
+  reorder: (orderedIds: string[]) =>
+    apiCall<{ message: string }>('/faqs/reorder', {
+      method: 'PATCH',
+      body: JSON.stringify({ orderedIds }),
+    }),
+}
+
+// Analytics API
+export const analyticsApi = {
+  getDashboardSummary: (token: string) =>
+    apiCall<{ success: boolean; data: DashboardSummary }>('/analytics/dashboard', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  getWebsiteVisits: (token: string, params?: { startDate?: string; endDate?: string }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.startDate) queryParams.append('startDate', params.startDate)
+    if (params?.endDate) queryParams.append('endDate', params.endDate)
+    
+    const query = queryParams.toString()
+    return apiCall<{ success: boolean; data: WebsiteVisitAnalytics }>(`/analytics/visits${query ? `?${query}` : ''}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+  },
+
+  getRevenueAnalytics: (token: string, params?: { startDate?: string; endDate?: string }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.startDate) queryParams.append('startDate', params.startDate)
+    if (params?.endDate) queryParams.append('endDate', params.endDate)
+    
+    const query = queryParams.toString()
+    return apiCall<{ success: boolean; data: RevenueAnalytics }>(`/analytics/revenue${query ? `?${query}` : ''}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+  },
+
+  getProductAnalytics: (token: string, params?: { limit?: number }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    
+    const query = queryParams.toString()
+    return apiCall<{ success: boolean; data: ProductAnalytics }>(`/analytics/products${query ? `?${query}` : ''}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+  },
+
+  getUserAnalytics: (token: string, params?: { startDate?: string; endDate?: string }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.startDate) queryParams.append('startDate', params.startDate)
+    if (params?.endDate) queryParams.append('endDate', params.endDate)
+    
+    const query = queryParams.toString()
+    return apiCall<{ success: boolean; data: UserAnalytics }>(`/analytics/users${query ? `?${query}` : ''}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+  },
+
+  getOrderAnalytics: (token: string, params?: { startDate?: string; endDate?: string }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.startDate) queryParams.append('startDate', params.startDate)
+    if (params?.endDate) queryParams.append('endDate', params.endDate)
+    
+    const query = queryParams.toString()
+    return apiCall<{ success: boolean; data: OrderAnalytics }>(`/analytics/orders${query ? `?${query}` : ''}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+  },
+
+  getConversionAnalytics: (token: string, params?: { startDate?: string; endDate?: string }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.startDate) queryParams.append('startDate', params.startDate)
+    if (params?.endDate) queryParams.append('endDate', params.endDate)
+    
+    const query = queryParams.toString()
+    return apiCall<{ success: boolean; data: ConversionAnalytics }>(`/analytics/conversions${query ? `?${query}` : ''}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+  },
+
+  triggerDailyAggregation: (token: string, date?: string) =>
+    apiCall<{ success: boolean; message: string }>('/analytics/aggregate', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ date }),
     }),
 }
 

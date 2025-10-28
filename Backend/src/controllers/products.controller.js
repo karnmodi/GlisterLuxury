@@ -148,6 +148,81 @@ async function getProduct(req, res) {
 
 async function updateProduct(req, res) {
 	try {
+		const productId = req.params.id;
+		
+		// Get the existing product to compare images
+		const existingProduct = await Product.findById(productId);
+		if (!existingProduct) {
+			return res.status(404).json({ message: 'Product not found' });
+		}
+
+		// Handle image URLs update - identify images to delete
+		if (req.body.imageURLs !== undefined) {
+			// Convert new imageURLs to a Set of URLs for comparison
+			const newImageUrls = new Set();
+			
+			if (typeof req.body.imageURLs === 'object' && req.body.imageURLs !== null) {
+				// Handle both Map-like objects and plain objects
+				const imageMap = req.body.imageURLs;
+				for (const key in imageMap) {
+					if (imageMap.hasOwnProperty(key)) {
+						const imageData = imageMap[key];
+						if (typeof imageData === 'object' && imageData.url) {
+							newImageUrls.add(imageData.url);
+						} else if (typeof imageData === 'string') {
+							newImageUrls.add(imageData);
+						}
+					}
+				}
+			}
+
+			// Find images that were removed (exist in old but not in new)
+			const imagesToDelete = [];
+			for (const [key, imageData] of existingProduct.imageURLs.entries()) {
+				if (!newImageUrls.has(imageData.url)) {
+					imagesToDelete.push({ key, imageData });
+				}
+			}
+
+			// Delete removed images from Cloudinary
+			if (imagesToDelete.length > 0) {
+				const deletePromises = imagesToDelete.map(({ imageData }) => {
+					try {
+						// Extract public_id from Cloudinary URL
+						const urlParts = imageData.url.split('/');
+						const fileWithExt = urlParts[urlParts.length - 1];
+						const fileNameWithoutExt = fileWithExt.split('.')[0];
+						const publicId = `glister/products/${existingProduct.productID}/${fileNameWithoutExt}`;
+						
+						return deleteFromCloudinary(publicId);
+					} catch (err) {
+						console.error('Error extracting public_id:', err);
+						return Promise.resolve(); // Continue even if extraction fails
+					}
+				});
+
+				await Promise.all(deletePromises);
+			}
+
+			// Update imageURLs to new format if provided
+			if (typeof req.body.imageURLs === 'object' && req.body.imageURLs !== null) {
+				// Replace the entire Map with new values
+				existingProduct.imageURLs.clear();
+				for (const key in req.body.imageURLs) {
+					if (req.body.imageURLs.hasOwnProperty(key)) {
+						const imageData = req.body.imageURLs[key];
+						existingProduct.imageURLs.set(key, {
+							url: typeof imageData === 'string' ? imageData : imageData.url,
+							mappedFinishID: typeof imageData === 'object' ? (imageData.mappedFinishID || null) : null
+						});
+					}
+				}
+			}
+
+			// Remove imageURLs from req.body since we're handling it separately
+			delete req.body.imageURLs;
+		}
+
 		// Ensure materials have proper ObjectId conversion
 		if (req.body.materials && Array.isArray(req.body.materials)) {
 			req.body.materials = req.body.materials.map(material => {
@@ -198,10 +273,11 @@ async function updateProduct(req, res) {
 			req.body.packagingPrice = parseFloat(req.body.packagingPrice) || 0;
 		}
 
-		const item = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-		if (!item) return res.status(404).json({ message: 'Not found' });
+		// Update other fields
+		Object.assign(existingProduct, req.body);
+		await existingProduct.save();
 
-		const transformedItem = transformMongoTypes(item.toObject());
+		const transformedItem = transformMongoTypes(existingProduct.toObject());
 		return res.json(transformedItem);
 	} catch (err) {
 		console.error('Product update error:', err);
@@ -211,10 +287,37 @@ async function updateProduct(req, res) {
 
 async function deleteProduct(req, res) {
 	try {
+		const product = await Product.findById(req.params.id);
+		if (!product) {
+			return res.status(404).json({ message: 'Product not found' });
+		}
+
+		// Delete all images from Cloudinary
+		if (product.imageURLs && product.imageURLs.size > 0) {
+			const deletePromises = [];
+			for (const [key, imageData] of product.imageURLs.entries()) {
+				try {
+					// Extract public_id from Cloudinary URL
+					const urlParts = imageData.url.split('/');
+					const fileWithExt = urlParts[urlParts.length - 1];
+					const fileNameWithoutExt = fileWithExt.split('.')[0];
+					const publicId = `glister/products/${product.productID}/${fileNameWithoutExt}`;
+					
+					deletePromises.push(deleteFromCloudinary(publicId));
+				} catch (err) {
+					console.error('Error extracting public_id:', err);
+				}
+			}
+			
+			// Wait for all image deletions to complete
+			await Promise.all(deletePromises);
+		}
+
+		// Delete the product from database
 		const result = await Product.findByIdAndDelete(req.params.id);
-		if (!result) return res.status(404).json({ message: 'Not found' });
-		return res.json({ message: 'Deleted' });
+		return res.json({ message: 'Product and associated images deleted successfully' });
 	} catch (err) {
+		console.error('Product deletion error:', err);
 		return res.status(400).json({ message: err.message });
 	}
 }

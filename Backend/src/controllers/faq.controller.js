@@ -90,4 +90,25 @@ async function deleteFAQ(req, res) {
 	}
 }
 
-module.exports = { createFAQ, listFAQs, getFAQ, updateFAQ, deleteFAQ };
+async function reorderFAQs(req, res) {
+	try {
+		const { orderedIds } = req.body;
+		
+		if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+			return res.status(400).json({ message: 'orderedIds must be a non-empty array' });
+		}
+
+		// Update the order field for each FAQ
+		const updatePromises = orderedIds.map((id, index) => 
+			FAQ.findByIdAndUpdate(id, { order: index }, { new: true })
+		);
+
+		await Promise.all(updatePromises);
+
+		return res.json({ message: 'FAQs reordered successfully' });
+	} catch (err) {
+		return res.status(400).json({ message: err.message });
+	}
+}
+
+module.exports = { createFAQ, listFAQs, getFAQ, updateFAQ, deleteFAQ, reorderFAQs };

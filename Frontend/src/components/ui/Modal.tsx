@@ -53,20 +53,20 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
                 className={`relative w-full ${sizes[size]} bg-ivory rounded-lg shadow-2xl`}
               >
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-brass/20">
-                  <h2 className="text-2xl font-serif font-bold text-charcoal">{title}</h2>
+                <div className={`flex items-center justify-between border-b border-brass/20 ${size === 'sm' ? 'p-3' : 'p-6'}`}>
+                  <h2 className={`font-serif font-bold text-charcoal ${size === 'sm' ? 'text-sm' : 'text-2xl'}`}>{title}</h2>
                   <button
                     onClick={onClose}
                     className="text-charcoal hover:text-brass transition-colors duration-300"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className={`${size === 'sm' ? 'w-4 h-4' : 'w-6 h-6'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
 
                 {/* Content */}
-                <div className="p-6">
+                <div className={`${size === 'sm' ? 'p-3' : 'p-6'}`}>
                   {children}
                 </div>
               </motion.div>

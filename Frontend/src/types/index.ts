@@ -238,8 +238,14 @@ export interface Order {
     total: number
   }
   status: OrderStatus
-  statusHistory: Array<{
+  orderStatusHistory: Array<{
     status: OrderStatus
+    note?: string
+    updatedAt: string
+    updatedBy?: string
+  }>
+  paymentStatusHistory: Array<{
+    status: string
     note?: string
     updatedAt: string
     updatedBy?: string
@@ -252,12 +258,17 @@ export interface Order {
     refundAmount?: number
     notes?: string
   }
-  paymentInfo?: {
+  paymentInfo: {
     method?: string
-    status: 'pending' | 'awaiting_payment' | 'paid' | 'refunded'
+    status: 'pending' | 'awaiting_payment' | 'paid' | 'partially_paid' | 'payment_failed' | 'payment_pending_confirmation' | 'refunded'
     paidAt?: string
     transactionId?: string
   }
+  adminMessages?: Array<{
+    message: string
+    createdAt: string
+    createdBy?: string
+  }>
   createdAt: string
   updatedAt: string
 }
@@ -294,5 +305,159 @@ export interface Wishlist {
   count?: number
   createdAt: string
   updatedAt: string
+}
+
+// Analytics types
+export interface DashboardSummary {
+  today: {
+    pageViews: number
+    uniqueVisitors: number
+    orders: number
+    revenue: number
+    registrations: number
+  }
+  weekly: {
+    pageViews: number
+    orders: number
+    revenue: number
+    registrations: number
+    conversionRate: number
+  }
+  monthly: {
+    pageViews: number
+    orders: number
+    revenue: number
+    registrations: number
+  }
+  totals: {
+    users: number
+    orders: number
+    products: number
+  }
+}
+
+export interface WebsiteVisitAnalytics {
+  timeSeries: Array<{
+    date: string
+    pageViews: number
+    uniqueVisitors: number
+    uniqueSessions: number
+  }>
+  topPages: Array<{
+    page: string
+    views: number
+  }>
+  deviceBreakdown: {
+    mobile: number
+    tablet: number
+    desktop: number
+    unknown: number
+  }
+  summary: {
+    totalPageViews: number
+    averageDaily: number
+  }
+}
+
+export interface RevenueAnalytics {
+  timeSeries: Array<{
+    date: string
+    revenue: number
+    orders: number
+    averageOrderValue: number
+  }>
+  byCategory: Array<{
+    name: string
+    revenue: number
+    orders: number
+  }>
+  byMaterial: Array<{
+    name: string
+    revenue: number
+    quantity: number
+  }>
+  byFinish: Array<{
+    name: string
+    revenue: number
+    quantity: number
+  }>
+  summary: {
+    totalRevenue: number
+    totalOrders: number
+    averageOrderValue: number
+  }
+}
+
+export interface ProductAnalytics {
+  topSelling: Array<{
+    productID: string
+    productName: string
+    quantitySold: number
+    revenue: number
+  }>
+  mostViewed: Array<{
+    productID: string
+    productName: string
+    views: number
+  }>
+  mostWishlisted: Array<{
+    productID: string
+    productName: string
+    wishlistCount: number
+  }>
+}
+
+export interface UserAnalytics {
+  timeSeries: Array<{
+    date: string
+    newRegistrations: number
+    totalUsers: number
+    activeUsers: number
+  }>
+  roleBreakdown: {
+    customer: number
+    admin: number
+  }
+  summary: {
+    totalUsers: number
+    totalRegistrations: number
+    averageDaily: number
+  }
+}
+
+export interface OrderAnalytics {
+  ordersByStatus: Array<{
+    status: string
+    count: number
+  }>
+  paymentsByStatus: Array<{
+    status: string
+    count: number
+  }>
+  refunds: {
+    count: number
+    totalAmount: number
+  }
+  timeSeries: Array<{
+    date: string
+    orders: number
+    revenue: number
+  }>
+}
+
+export interface ConversionAnalytics {
+  timeSeries: Array<{
+    date: string
+    conversionRate: number
+    abandonmentRate: number
+    averageCartValue: number
+  }>
+  summary: {
+    totalCarts: number
+    completedOrders: number
+    abandonedCarts: number
+    conversionRate: number
+    abandonmentRate: number
+  }
 }
 

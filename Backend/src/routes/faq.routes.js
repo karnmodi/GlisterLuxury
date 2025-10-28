@@ -4,6 +4,7 @@ const { validateCreateFAQ } = require('../middleware/validation');
 
 router.post('/', validateCreateFAQ, ctrl.createFAQ);
 router.get('/', ctrl.listFAQs);
+router.patch('/reorder', ctrl.reorderFAQs);
 router.get('/:id', ctrl.getFAQ);
 router.patch('/:id', ctrl.updateFAQ);
 router.delete('/:id', ctrl.deleteFAQ);

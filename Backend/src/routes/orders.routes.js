@@ -8,7 +8,10 @@ const {
 	requestRefund,
 	getOrderStats,
 	updateOrderStatus,
-	getAllOrders
+	getAllOrders,
+	getOrderByIdAdmin,
+	addAdminMessage,
+	updatePaymentStatus
 } = require('../controllers/orders.controller');
 
 // Protected routes (require authentication)
@@ -20,7 +23,10 @@ router.put('/:orderId/refund', protect, requestRefund);
 
 // Admin only routes
 router.get('/admin/all', protect, authorize('admin'), getAllOrders);
+router.get('/admin/:orderId', protect, authorize('admin'), getOrderByIdAdmin);
 router.put('/:orderId/status', protect, authorize('admin'), updateOrderStatus);
+router.post('/:orderId/admin-message', protect, authorize('admin'), addAdminMessage);
+router.put('/:orderId/payment-status', protect, authorize('admin'), updatePaymentStatus);
 
 module.exports = router;
 

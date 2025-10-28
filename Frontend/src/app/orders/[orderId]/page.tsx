@@ -166,6 +166,68 @@ export default function OrderDetailsPage() {
                 </div>
               </div>
 
+              {/* Messages from Glister London */}
+              {order.adminMessages && order.adminMessages.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.2 }}
+                  className="bg-gradient-to-br from-brass/10 to-brass/5 backdrop-blur-md border border-brass/30 rounded-lg p-6"
+                >
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="bg-brass/20 rounded-full p-2">
+                      <svg className="w-6 h-6 text-brass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-2xl font-serif font-bold text-ivory">Messages from Glister London</h2>
+                  </div>
+                  <div className="space-y-4">
+                    {order.adminMessages.slice().reverse().map((msg: any, index: number) => (
+                      <div 
+                        key={index} 
+                        className="bg-charcoal/50 backdrop-blur-sm border border-brass/20 rounded-lg p-5 hover:border-brass/40 transition-all duration-300"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="bg-brass/10 rounded-full p-2 flex-shrink-0">
+                            <svg className="w-4 h-4 text-brass" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-ivory/90 whitespace-pre-wrap leading-relaxed mb-3">
+                              {msg.message}
+                            </p>
+                            <div className="flex items-center gap-2 text-brass/70 text-xs">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span>
+                                {new Date(msg.createdAt).toLocaleString('en-GB', {
+                                  day: 'numeric',
+                                  month: 'long',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-5 pt-5 border-t border-brass/20">
+                    <p className="text-ivory/60 text-sm flex items-center gap-2">
+                      <svg className="w-4 h-4 text-brass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      These messages were also sent to your email address
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+
               {/* Order Notes */}
               {order.orderNotes && (
                 <div className="bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg p-6">

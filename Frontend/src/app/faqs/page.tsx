@@ -7,6 +7,25 @@ import LuxuryFooter from '@/components/LuxuryFooter'
 import { faqApi } from '@/lib/api'
 import type { FAQ } from '@/types'
 
+// Helper function to convert HTML to plain text with preserved line breaks
+const htmlToPlainText = (html: string): string => {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')  // Convert <br> tags to newlines
+    .replace(/<\/p>/gi, '\n\n')      // Convert closing </p> to double newlines
+    .replace(/<p>/gi, '')            // Remove opening <p>
+    .replace(/<strong>(.*?)<\/strong>/gi, '$1') // Remove <strong> but keep content
+    .replace(/<em>(.*?)<\/em>/gi, '$1')         // Remove <em> but keep content
+    .replace(/<b>(.*?)<\/b>/gi, '$1')           // Remove <b> but keep content
+    .replace(/<i>(.*?)<\/i>/gi, '$1')           // Remove <i> but keep content
+    .replace(/<[^>]*>/g, '')         // Remove any remaining HTML tags
+    .replace(/&nbsp;/g, ' ')         // Convert &nbsp; to space
+    .replace(/&amp;/g, '&')          // Convert &amp; to &
+    .replace(/&lt;/g, '<')           // Convert &lt; to <
+    .replace(/&gt;/g, '>')           // Convert &gt; to >
+    .replace(/&quot;/g, '"')         // Convert &quot; to "
+    .trim()
+}
+
 export default function FAQsPage() {
   const [faqs, setFaqs] = useState<FAQ[]>([])
   const [filteredFaqs, setFilteredFaqs] = useState<FAQ[]>([])
@@ -38,7 +57,7 @@ export default function FAQsPage() {
     } else {
       const filtered = faqs.filter(faq =>
         faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+        htmlToPlainText(faq.answer).toLowerCase().includes(searchQuery.toLowerCase())
       )
       setFilteredFaqs(filtered)
     }
@@ -49,10 +68,16 @@ export default function FAQsPage() {
   }
 
   const handleLinkClick = (linkType: string, linkUrl?: string) => {
-    if (linkType === 'internal' && linkUrl) {
+    if (!linkUrl) return
+    
+    if (linkType === 'internal') {
       window.location.href = linkUrl
-    } else if (linkType === 'external' && linkUrl) {
-      window.open(linkUrl, '_blank', 'noopener,noreferrer')
+    } else if (linkType === 'external') {
+      // Ensure external URLs have a protocol
+      const url = linkUrl.startsWith('http://') || linkUrl.startsWith('https://') 
+        ? linkUrl 
+        : `https://${linkUrl}`
+      window.open(url, '_blank', 'noopener,noreferrer')
     }
   }
 
@@ -324,10 +349,9 @@ export default function FAQsPage() {
                               transition={{ delay: 0.2, duration: 0.3 }}
                               className="pt-4"
                             >
-                              <div 
-                                className="text-charcoal/80 leading-relaxed mb-4 prose prose-sm max-w-none text-sm sm:text-base"
-                                dangerouslySetInnerHTML={{ __html: faq.answer }}
-                              />
+                              <p className="text-charcoal/80 leading-relaxed mb-4 text-sm sm:text-base whitespace-pre-wrap">
+                                {htmlToPlainText(faq.answer)}
+                              </p>
                               
                               {/* FAQ Link */}
                               {faq.linkType !== 'none' && faq.linkUrl && (
@@ -338,14 +362,25 @@ export default function FAQsPage() {
                                   className="inline-flex items-center gap-2 text-brass hover:text-olive transition-all duration-300 font-medium text-sm sm:text-base group/link"
                                 >
                                   <span>{faq.linkText || (faq.linkType === 'internal' ? 'Learn More' : 'Visit Link')}</span>
-                                  <motion.svg 
-                                    className="w-4 h-4 group-hover/link:translate-x-1 transition-transform duration-300" 
-                                    fill="none" 
-                                    stroke="currentColor" 
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                  </motion.svg>
+                                  {faq.linkType === 'external' ? (
+                                    <motion.svg 
+                                      className="w-4 h-4 group-hover/link:translate-x-1 transition-transform duration-300" 
+                                      fill="none" 
+                                      stroke="currentColor" 
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </motion.svg>
+                                  ) : (
+                                    <motion.svg 
+                                      className="w-4 h-4 group-hover/link:translate-x-1 transition-transform duration-300" 
+                                      fill="none" 
+                                      stroke="currentColor" 
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                    </motion.svg>
+                                  )}
                                 </motion.button>
                               )}
                             </motion.div>

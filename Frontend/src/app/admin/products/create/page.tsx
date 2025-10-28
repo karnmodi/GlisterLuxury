@@ -201,50 +201,51 @@ export default function CreateProductPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-40">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-brass border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-charcoal/60 text-lg">Loading form data...</div>
+          <div className="w-10 h-10 border-3 border-brass border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <div className="text-charcoal/60 text-xs">Loading...</div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-white to-cream/50 rounded-xl p-6 shadow-md border border-brass/20">
-        <div>
-          <h1 className="text-4xl font-serif font-bold text-charcoal mb-2">Create New Product</h1>
-          <p className="text-charcoal/60">Configure all product details and options</p>
+    <div className="min-h-[calc(100vh-60px)] md:h-[calc(100vh-60px)] flex flex-col gap-2 overflow-hidden">
+      {/* Compact Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white rounded-md px-3 py-2 shadow-sm border border-brass/20 gap-2">
+        <div className="flex items-center gap-3">
+          <h1 className="text-sm sm:text-base font-serif font-bold text-charcoal">Create Product</h1>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2 w-full sm:w-auto">
           <button
             onClick={() => router.push('/admin/products')}
-            className="px-4 py-2 text-charcoal/60 hover:text-charcoal border border-brass/30 hover:border-brass/50 rounded-lg transition-colors"
+            className="flex-1 sm:flex-none px-3 py-1 text-xs text-charcoal/60 hover:text-charcoal border border-brass/30 hover:border-brass/50 rounded transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2 bg-brass text-white hover:bg-brass/90 disabled:opacity-50 rounded-lg transition-colors"
+            className="flex-1 sm:flex-none px-4 py-1 text-xs bg-brass text-white hover:bg-brass/90 disabled:opacity-50 rounded transition-colors"
           >
             {saving ? 'Creating...' : 'Create Product'}
           </button>
         </div>
       </div>
 
-      {/* Form Tabs */}
-      <ProductFormTabs
-        formData={formData}
-        setFormData={setFormData}
-        categories={categories}
-        materials={materials}
-        finishes={finishes}
-        isEditing={false}
-        productId={createdProductId}
-      />
+      {/* Form Tabs - Compact */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <ProductFormTabs
+          formData={formData}
+          setFormData={setFormData}
+          categories={categories}
+          materials={materials}
+          finishes={finishes}
+          isEditing={false}
+          productId={createdProductId}
+        />
+      </div>
     </div>
   )
 }

@@ -378,15 +378,20 @@ exports.createOrder = async (req, res, next) => {
 				tax: tax,
 				total: total
 			},
+		status: 'pending',
+		orderStatusHistory: [{
 			status: 'pending',
-			statusHistory: [{
-				status: 'pending',
-				note: 'Order placed',
-				updatedAt: new Date()
-			}],
-			paymentInfo: {
-				status: 'awaiting_payment'
-			}
+			note: 'Order placed',
+			updatedAt: new Date()
+		}],
+		paymentInfo: {
+			status: 'awaiting_payment'
+		},
+		paymentStatusHistory: [{
+			status: 'awaiting_payment',
+			note: 'Payment awaiting',
+			updatedAt: new Date()
+		}]
 		});
 
 		await order.save();
@@ -643,13 +648,10 @@ exports.updateOrderStatus = async (req, res, next) => {
 			});
 		}
 
-		order.status = status;
-		order.statusHistory.push({
-			status,
-			note,
-			updatedAt: new Date(),
-			updatedBy: userId
-		});
+	// Store the note temporarily for the pre-save hook to access
+	order._statusNote = note;
+	order._statusUpdatedBy = userId;
+	order.status = status;
 
 		// Update refund info if status is refund-related
 		if (status === 'refund_processing' && !order.refundInfo.processedAt) {
@@ -677,16 +679,67 @@ exports.updateOrderStatus = async (req, res, next) => {
 };
 
 /**
+ * Get single order details (Admin only)
+ * GET /api/orders/admin/:orderId
+ */
+exports.getOrderByIdAdmin = async (req, res, next) => {
+	try {
+		const { orderId } = req.params;
+
+		const order = await Order.findById(orderId)
+			.populate('items.productID')
+			.populate('userID', 'name email')
+			.populate('adminMessages.createdBy', 'name');
+
+		if (!order) {
+			return res.status(404).json({
+				success: false,
+				message: 'Order not found'
+			});
+		}
+
+		res.json({
+			success: true,
+			order
+		});
+	} catch (error) {
+		console.error('Get order error:', error);
+		res.status(500).json({
+			success: false,
+			message: 'Error fetching order',
+			error: process.env.NODE_ENV === 'development' ? error.message : undefined
+		});
+	}
+};
+
+/**
  * Get all orders (Admin only)
  * GET /api/orders/admin/all
  */
 exports.getAllOrders = async (req, res, next) => {
 	try {
-		const { status, page = 1, limit = 20 } = req.query;
+		const { status, paymentStatus, search, page = 1, limit = 20 } = req.query;
 
 		const query = {};
+		
+		// Filter by order status
 		if (status && status !== 'all') {
 			query.status = status;
+		}
+
+		// Filter by payment status
+		if (paymentStatus && paymentStatus !== 'all') {
+			query['paymentInfo.status'] = paymentStatus;
+		}
+
+		// Search by customer name, email, or order number
+		if (search && search.trim() !== '') {
+			const searchRegex = new RegExp(search.trim(), 'i');
+			query.$or = [
+				{ 'customerInfo.name': searchRegex },
+				{ 'customerInfo.email': searchRegex },
+				{ orderNumber: searchRegex }
+			];
 		}
 
 		const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -700,9 +753,20 @@ exports.getAllOrders = async (req, res, next) => {
 
 		const total = await Order.countDocuments(query);
 
+		// Calculate stats
+		const allOrders = await Order.find({});
+		const stats = {
+			totalOrders: allOrders.length,
+			pendingOrders: allOrders.filter(o => o.status === 'pending').length,
+			totalRevenue: allOrders.reduce((sum, order) => {
+				return sum + parseFloat(order.pricing.total?.toString() || 0);
+			}, 0)
+		};
+
 		res.json({
 			success: true,
 			orders,
+			stats,
 			pagination: {
 				total,
 				page: parseInt(page),
@@ -715,6 +779,227 @@ exports.getAllOrders = async (req, res, next) => {
 		res.status(500).json({
 			success: false,
 			message: 'Error fetching orders',
+			error: process.env.NODE_ENV === 'development' ? error.message : undefined
+		});
+	}
+};
+
+/**
+ * Add admin message to order
+ * POST /api/orders/:orderId/admin-message
+ */
+exports.addAdminMessage = async (req, res, next) => {
+	try {
+		const { orderId } = req.params;
+		const { message } = req.body;
+		const userId = req.user.userId;
+
+		if (!message || message.trim() === '') {
+			return res.status(400).json({
+				success: false,
+				message: 'Message is required'
+			});
+		}
+
+		const order = await Order.findById(orderId);
+
+		if (!order) {
+			return res.status(404).json({
+				success: false,
+				message: 'Order not found'
+			});
+		}
+
+		// Add message to order
+		order.adminMessages.push({
+			message: message.trim(),
+			createdAt: new Date(),
+			createdBy: userId
+		});
+
+		await order.save();
+
+		// Send email notification to customer
+		try {
+			const transporter = nodemailer.createTransport({
+				service: process.env.EMAIL_SERVICE || 'gmail',
+				auth: {
+					user: process.env.EMAIL_USERNAME,
+					pass: process.env.EMAIL_PASSWORD
+				}
+			});
+
+			const formatPrice = (price) => {
+				const amount = typeof price === 'object' && price.$numberDecimal 
+					? parseFloat(price.$numberDecimal) 
+					: parseFloat(price);
+				return `£${amount.toFixed(2)}`;
+			};
+
+			const statusLabels = {
+				pending: 'Pending',
+				confirmed: 'Confirmed',
+				processing: 'Processing',
+				shipped: 'Shipped',
+				delivered: 'Delivered',
+				refund_requested: 'Refund Requested',
+				refund_processing: 'Refund Processing',
+				refund_completed: 'Refund Completed',
+				cancelled: 'Cancelled'
+			};
+
+			const customerEmailHTML = `
+				<!DOCTYPE html>
+				<html>
+				<head>
+					<style>
+						body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+						.container { max-width: 600px; margin: 0 auto; padding: 20px; }
+						.header { background-color: #2C2C2C; color: #D4AF37; padding: 30px; text-align: center; }
+						.content { background-color: #f9f9f9; padding: 20px; }
+						.message-box { background-color: white; border-left: 4px solid #D4AF37; padding: 20px; margin: 20px 0; border-radius: 4px; }
+						.order-details { background-color: white; padding: 20px; margin: 20px 0; border-radius: 8px; }
+						.status-badge { display: inline-block; padding: 6px 12px; border-radius: 4px; background-color: #D4AF37; color: #2C2C2C; font-weight: bold; }
+						.footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+					</style>
+				</head>
+				<body>
+					<div class="container">
+						<div class="header">
+							<h1>✨ GLISTER LONDON</h1>
+							<h2 style="margin-top: 10px;">The Soul of Interior</h2>
+							<p style="margin-top: 20px; font-size: 16px;">Order Update</p>
+						</div>
+						<div class="content">
+							<p>Dear ${order.customerInfo.name},</p>
+							
+							<p>We have an important update regarding your order.</p>
+
+							<div class="order-details">
+								<h2>Order Information</h2>
+								<p><strong>Order Number:</strong> ${order.orderNumber}</p>
+								<p><strong>Current Status:</strong> <span class="status-badge">${statusLabels[order.status] || order.status.toUpperCase()}</span></p>
+								<p><strong>Order Total:</strong> ${formatPrice(order.pricing.total)}</p>
+							</div>
+
+							<div class="message-box">
+								<h3 style="margin-top: 0; color: #D4AF37;">📩 Message from Glister London</h3>
+								<p style="font-size: 16px; line-height: 1.8;">${message.replace(/\n/g, '<br>')}</p>
+								<p style="font-size: 12px; color: #666; margin-top: 15px;">
+									Sent on ${new Date().toLocaleString('en-GB', { 
+										day: 'numeric', 
+										month: 'long', 
+										year: 'numeric',
+										hour: '2-digit',
+										minute: '2-digit'
+									})}
+								</p>
+							</div>
+
+							<p>If you have any questions or concerns, please don't hesitate to contact us.</p>
+
+							<p style="margin-top: 30px;">
+								Best regards,<br>
+								<strong>The Glister London Team</strong><br>
+								<em>The Soul of Interior</em>
+							</p>
+						</div>
+						<div class="footer">
+							<p>This is an automated notification email.</p>
+							<p>&copy; ${new Date().getFullYear()} Glister London. All rights reserved.</p>
+						</div>
+					</div>
+				</body>
+				</html>
+			`;
+
+			await transporter.sendMail({
+				from: `Glister London <${process.env.EMAIL_FROM || process.env.EMAIL_USERNAME}>`,
+				to: order.customerInfo.email,
+				subject: `Order Update #${order.orderNumber} - Glister London`,
+				html: customerEmailHTML
+			});
+		} catch (emailError) {
+			console.error('Email sending failed:', emailError);
+			// Don't fail the request if email fails
+		}
+
+		res.json({
+			success: true,
+			message: 'Admin message added and customer notified',
+			order: await Order.findById(orderId).populate('items.productID').populate('userID', 'name email')
+		});
+	} catch (error) {
+		console.error('Add admin message error:', error);
+		res.status(500).json({
+			success: false,
+			message: 'Error adding admin message',
+			error: process.env.NODE_ENV === 'development' ? error.message : undefined
+		});
+	}
+};
+
+/**
+ * Update payment status (Admin only)
+ * PUT /api/orders/:orderId/payment-status
+ */
+exports.updatePaymentStatus = async (req, res, next) => {
+	try {
+		const { orderId } = req.params;
+		const { paymentStatus } = req.body;
+		const userId = req.user.userId;
+
+		if (!paymentStatus) {
+			return res.status(400).json({
+				success: false,
+				message: 'Payment status is required'
+			});
+		}
+
+		const validPaymentStatuses = [
+			'pending', 'awaiting_payment', 'paid', 'partially_paid', 
+			'payment_failed', 'payment_pending_confirmation', 'refunded'
+		];
+
+		if (!validPaymentStatuses.includes(paymentStatus)) {
+			return res.status(400).json({
+				success: false,
+				message: 'Invalid payment status'
+			});
+		}
+
+		const order = await Order.findById(orderId);
+
+		if (!order) {
+			return res.status(404).json({
+				success: false,
+				message: 'Order not found'
+			});
+		}
+
+	// Store the note temporarily for the pre-save hook to access
+	order._paymentStatusNote = `Payment status updated to: ${paymentStatus}`;
+	order._paymentStatusUpdatedBy = userId;
+	
+	order.paymentInfo.status = paymentStatus;
+	
+	// Update paidAt date if status is paid
+	if (paymentStatus === 'paid' && !order.paymentInfo.paidAt) {
+		order.paymentInfo.paidAt = new Date();
+	}
+
+		await order.save();
+
+		res.json({
+			success: true,
+			message: 'Payment status updated successfully',
+			order: await Order.findById(orderId).populate('items.productID').populate('userID', 'name email')
+		});
+	} catch (error) {
+		console.error('Update payment status error:', error);
+		res.status(500).json({
+			success: false,
+			message: 'Error updating payment status',
 			error: process.env.NODE_ENV === 'development' ? error.message : undefined
 		});
 	}
