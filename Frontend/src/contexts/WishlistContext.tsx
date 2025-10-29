@@ -57,7 +57,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       // If wishlist doesn't exist, that's okay
       if (err instanceof Error && err.message.includes('not found')) {
-        setWishlist({ items: [], count: 0 } as Wishlist)
+        setWishlist({ items: [], count: 0, _id: '', createdAt: '', updatedAt: '' } as Wishlist)
       } else {
         setError(err instanceof Error ? err.message : 'Failed to fetch wishlist')
       }

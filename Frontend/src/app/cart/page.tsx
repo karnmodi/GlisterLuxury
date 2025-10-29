@@ -373,7 +373,7 @@ export default function CartPage() {
                   
                   {!isAuthenticated && (
                     <p className="text-xs text-charcoal/60 text-center mb-3">
-                      You'll need to sign in to complete your purchase
+                      You&apos;ll need to sign in to complete your purchase
                     </p>
                   )}
                   

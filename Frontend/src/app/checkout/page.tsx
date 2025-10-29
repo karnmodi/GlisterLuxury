@@ -258,7 +258,7 @@ export default function CheckoutPage() {
             </p>
             <p className="text-brass text-xl font-bold mb-6">{orderNumber}</p>
             <p className="text-ivory/60 text-sm mb-6">
-              We'll send you an email with payment instructions shortly. 
+              We&apos;ll send you an email with payment instructions shortly.
               You can track your order status in your orders page.
             </p>
             <div className="flex gap-4">

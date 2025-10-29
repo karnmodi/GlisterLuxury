@@ -109,7 +109,7 @@ export default function CreateProductPage() {
           // Ensure materialID is a proper string
           let materialID = material.materialID
           if (typeof materialID === 'object' && materialID !== null) {
-            materialID = materialID._id || materialID.toString()
+            materialID = (materialID as any)._id || (materialID as any).toString()
           }
           if (typeof materialID !== 'string') {
             materialID = String(materialID)
@@ -130,7 +130,7 @@ export default function CreateProductPage() {
           // Ensure finishID is a proper string
           let finishID = finish.finishID
           if (typeof finishID === 'object' && finishID !== null) {
-            finishID = finishID._id || finishID.toString()
+            finishID = (finishID as any)._id || (finishID as any).toString()
           }
           if (typeof finishID !== 'string') {
             finishID = String(finishID)

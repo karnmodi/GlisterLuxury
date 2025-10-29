@@ -241,7 +241,7 @@ export default function OrderDetailsPage() {
                 <div className="bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg p-6">
                   <h2 className="text-2xl font-serif font-bold text-ivory mb-4">Need a Refund?</h2>
                   <p className="text-ivory/70 text-sm mb-4">
-                    If you're not satisfied with your order, you can request a refund.
+                    If you&apos;re not satisfied with your order, you can request a refund.
                   </p>
                   <button
                     onClick={() => setShowRefundModal(true)}
