@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Category, MaterialMaster, Finish } from '@/types'
 import BasicInfoTab from './BasicInfoTab'
@@ -96,19 +96,19 @@ export default function ProductFormTabs({
   }
 
   // Update tab errors
-  const updateTabErrors = () => {
+  const updateTabErrors = useCallback(() => {
     setTabErrors({
       basic: !validateBasicInfo(),
       materials: !validateMaterials(),
       finishes: !validateFinishes(),
       images: !validateImages(),
     })
-  }
+  }, [formData])
 
   // Update errors when form data changes
-  React.useEffect(() => {
+  useEffect(() => {
     updateTabErrors()
-  }, [formData])
+  }, [formData, updateTabErrors])
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId)

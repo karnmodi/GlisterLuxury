@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import Image from 'next/image'
 import Button from './Button'
 
 interface ImageUploadProps {
@@ -133,10 +134,12 @@ export default function ImageUpload({
               key={imageUrl}
               className="relative group aspect-square bg-cream border border-brass/30 rounded-sm overflow-hidden"
             >
-              <img
+              <Image
                 src={imageUrl}
                 alt={`Upload ${index + 1}`}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                unoptimized
               />
               
               {/* Delete Button Overlay */}

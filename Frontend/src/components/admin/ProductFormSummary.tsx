@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import Image from 'next/image'
 import type { Category, MaterialMaster, Finish } from '@/types'
 
 interface FormData {
@@ -196,11 +197,15 @@ export default function ProductFormSummary({
                 return (
                   <div key={finish.finishID} className="flex items-center gap-2 text-xs bg-white border border-brass/20 rounded px-2 py-1">
                     {finishDetails?.photoURL && (
-                      <img
-                        src={finishDetails.photoURL}
-                        alt={finishDetails.name}
-                        className="w-3 h-3 rounded-full object-cover"
-                      />
+                      <div className="relative w-3 h-3 rounded-full overflow-hidden flex-shrink-0">
+                        <Image
+                          src={finishDetails.photoURL}
+                          alt={finishDetails.name}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
                     )}
                     {finishDetails?.color && !finishDetails?.photoURL && (
                       <div

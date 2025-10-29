@@ -383,11 +383,15 @@ function ImageCard({
         {mappedFinish && (
           <div className="absolute top-1 left-1 bg-white/90 backdrop-blur-sm rounded px-1 py-0.5 text-[9px] font-medium text-charcoal flex items-center gap-0.5">
             {mappedFinish.photoURL && (
-              <img
-                src={mappedFinish.photoURL}
-                alt={mappedFinish.name}
-                className="w-2 h-2 rounded-full object-cover"
-              />
+              <div className="relative w-2 h-2 rounded-full overflow-hidden">
+                <Image
+                  src={mappedFinish.photoURL}
+                  alt={mappedFinish.name}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
             )}
             {mappedFinish.color && !mappedFinish.photoURL && (
               <div

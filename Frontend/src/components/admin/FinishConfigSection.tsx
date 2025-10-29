@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import Image from 'next/image'
 import type { Finish } from '@/types'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -115,11 +116,15 @@ export default function FinishConfigSection({
                   {/* Finish Preview */}
                   <div className="flex flex-col items-center gap-1.5 mb-2">
                     {finish.photoURL ? (
-                      <img
-                        src={finish.photoURL}
-                        alt={finish.name}
-                        className="w-8 h-8 object-cover rounded border border-brass/30"
-                      />
+                      <div className="relative w-8 h-8 rounded border border-brass/30 overflow-hidden">
+                        <Image
+                          src={finish.photoURL}
+                          alt={finish.name}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
                     ) : finish.color ? (
                       <div
                         className="w-8 h-8 rounded border border-brass/30"
