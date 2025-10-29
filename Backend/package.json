@@ -12,7 +12,6 @@
     "seed:categories": "node src/utils/seedCategories.js",
     "seed:products": "node src/utils/seedProducts.js",
     "seed:all": "npm run seed:finishes && npm run seed:materials && npm run seed:categories && npm run seed:products",
-    "analytics:aggregate": "node scripts/trigger-analytics.js",
     "analytics:check": "node scripts/check-analytics-data.js",
     "analytics:clear-api": "node scripts/clear-api-visits.js"
   },

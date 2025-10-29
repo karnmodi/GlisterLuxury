@@ -15,12 +15,17 @@ import type {
 } from '@/types'
 import MetricCard from '@/components/admin/analytics/MetricCard'
 import TopProductsTable from '@/components/admin/analytics/TopProductsTable'
+import AnalyticsLineChart from '@/components/admin/analytics/AnalyticsLineChart'
+import AnalyticsBarChart from '@/components/admin/analytics/AnalyticsBarChart'
+import AnalyticsPieChart from '@/components/admin/analytics/AnalyticsPieChart'
+import AnalyticsAreaChart from '@/components/admin/analytics/AnalyticsAreaChart'
 
 export default function AnalyticsPage() {
   const { user, token } = useAuth()
   const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'visits' | 'revenue' | 'products' | 'users' | 'orders' | 'conversions'>('overview')
+  const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({})
   
   // Data states
   const [dashboardData, setDashboardData] = useState<DashboardSummary | null>(null)
@@ -62,10 +67,13 @@ export default function AnalyticsPage() {
         return
       }
 
+      setLoadingTabs(prev => ({ ...prev, [tab]: true }))
+
       switch (tab) {
         case 'visits':
           if (!visitsData) {
             const response = await analyticsApi.getWebsiteVisits(token)
+            console.log('Visits data received:', response.data)
             setVisitsData(response.data)
           }
           break
@@ -103,6 +111,8 @@ export default function AnalyticsPage() {
     } catch (error) {
       showToast('Failed to load analytics data', 'error')
       console.error('Analytics error:', error)
+    } finally {
+      setLoadingTabs(prev => ({ ...prev, [tab]: false }))
     }
   }
 
@@ -135,18 +145,18 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 px-4 md:px-0">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-start md:items-center flex-col md:flex-row gap-2">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
-          <p className="text-gray-600 mt-1">Monitor your business performance and insights</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
+          <p className="text-gray-600 mt-1 text-sm md:text-base">Monitor your business performance and insights</p>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
+      {/* Tabs - Scrollable on mobile */}
+      <div className="border-b border-gray-200 -mx-4 px-4 md:mx-0 md:px-0">
+        <nav className="-mb-px flex space-x-4 md:space-x-8 overflow-x-auto scrollbar-hide">
           {[
             { id: 'overview', label: 'Overview' },
             { id: 'visits', label: 'Website Visits' },
@@ -159,7 +169,7 @@ export default function AnalyticsPage() {
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id as typeof activeTab)}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`py-3 md:py-4 px-2 md:px-1 border-b-2 font-medium text-xs md:text-sm transition-colors whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -173,11 +183,11 @@ export default function AnalyticsPage() {
 
       {/* Content */}
       {activeTab === 'overview' && (
-        <div className="space-y-8">
+        <div className="space-y-6 md:space-y-8">
           {/* Today's Metrics */}
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Today</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">Today</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               <MetricCard
                 title="Page Views"
                 value={dashboardData.today.pageViews.toLocaleString()}
@@ -207,8 +217,8 @@ export default function AnalyticsPage() {
 
           {/* Weekly Metrics */}
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">This Week</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">This Week</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               <MetricCard
                 title="Page Views"
                 value={dashboardData.weekly.pageViews.toLocaleString()}
@@ -238,8 +248,8 @@ export default function AnalyticsPage() {
 
           {/* Monthly Metrics */}
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">This Month</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">This Month</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               <MetricCard
                 title="Page Views"
                 value={dashboardData.monthly.pageViews.toLocaleString()}
@@ -269,8 +279,8 @@ export default function AnalyticsPage() {
 
           {/* Totals */}
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">All Time</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-3 md:mb-4">All Time</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
               <MetricCard
                 title="Total Users"
                 value={dashboardData.totals.users.toLocaleString()}
@@ -294,55 +304,91 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {activeTab === 'visits' && visitsData && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {activeTab === 'visits' && (
+        <div className="space-y-4 md:space-y-6">
+          {loadingTabs.visits ? (
+            <div className="flex items-center justify-center min-h-[40vh] md:min-h-[60vh]">
+              <div className="text-center px-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                <p className="text-gray-600 text-sm md:text-base">Loading website visits data...</p>
+              </div>
+            </div>
+          ) : !visitsData ? (
+            <div className="flex items-center justify-center min-h-[40vh] md:min-h-[60vh]">
+              <div className="text-center px-4">
+                <p className="text-gray-600 mb-2 text-sm md:text-base">No website visits data available</p>
+                <p className="text-xs md:text-sm text-gray-500">Make sure you have visited customer-facing pages on your website.</p>
+              </div>
+            </div>
+          ) : visitsData.timeSeries.length === 0 && visitsData.topPages.length === 0 ? (
+            <div className="flex items-center justify-center min-h-[40vh] md:min-h-[60vh]">
+              <div className="text-center px-4">
+                <p className="text-gray-600 mb-2 text-sm md:text-base">No website visits found</p>
+                <p className="text-xs md:text-sm text-gray-500">Start browsing your website to see analytics data here.</p>
+              </div>
+            </div>
+          ) : (
+          <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <MetricCard
               title="Total Page Views"
               value={visitsData.summary.totalPageViews.toLocaleString()}
               subtitle={`Average: ${visitsData.summary.averageDaily} per day`}
               colorClass="bg-blue-500"
             />
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Device Breakdown</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Desktop</span>
-                  <span className="font-semibold">{visitsData.deviceBreakdown.desktop.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Mobile</span>
-                  <span className="font-semibold">{visitsData.deviceBreakdown.mobile.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Tablet</span>
-                  <span className="font-semibold">{visitsData.deviceBreakdown.tablet.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
+            <MetricCard
+              title="Unique Visitors"
+              value={visitsData.timeSeries.reduce((sum, d) => sum + (d.uniqueVisitors || 0), 0).toLocaleString()}
+              subtitle="total unique visitors"
+              colorClass="bg-green-500"
+            />
           </div>
+
+          {/* Page Views Over Time */}
+          {visitsData.timeSeries.length > 0 && (
+            <AnalyticsLineChart
+              data={visitsData.timeSeries}
+              lines={[
+                { dataKey: 'pageViews', name: 'Page Views', color: '#3b82f6' },
+                { dataKey: 'uniqueVisitors', name: 'Unique Visitors', color: '#10b981' }
+              ]}
+              xAxisKey="date"
+              title="Website Visits Over Time"
+              height={280}
+            />
+          )}
           
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Pages</h3>
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Page</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Views</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {visitsData.topPages.map((page, index) => (
-                    <tr key={index}>
-                      <td className="px-6 py-4 text-sm text-gray-900">{page.page}</td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{page.views}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+            {/* Device Breakdown Pie Chart */}
+            <AnalyticsPieChart
+              data={[
+                { name: 'Desktop', value: visitsData.deviceBreakdown.desktop },
+                { name: 'Mobile', value: visitsData.deviceBreakdown.mobile },
+                { name: 'Tablet', value: visitsData.deviceBreakdown.tablet }
+              ].filter(d => d.value > 0)}
+              colors={['#3b82f6', '#10b981', '#f59e0b']}
+              title="Device Breakdown"
+              height={300}
+              innerRadius={60}
+            />
+
+            {/* Top Pages Bar Chart */}
+            <AnalyticsBarChart
+              data={visitsData.topPages.slice(0, 8).map(page => ({
+                ...page,
+                page: page.page.startsWith('/products/') 
+                  ? page.page.replace('/products/', '') // Show just product name
+                  : page.page
+              }))}
+              bars={[{ dataKey: 'views', name: 'Views', color: '#8b5cf6' }]}
+              xAxisKey="page"
+              title="Top 8 Pages"
+              height={300}
+              horizontal={true}
+            />
           </div>
+          </>
+          )}
         </div>
       )}
 
@@ -366,55 +412,117 @@ export default function AnalyticsPage() {
             />
           </div>
 
-          {revenueData.byCategory.length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue by Category</h3>
-              <div className="bg-white rounded-lg shadow overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Orders</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {revenueData.byCategory.map((cat, index) => (
-                      <tr key={index}>
-                        <td className="px-6 py-4 text-sm text-gray-900">{cat.name}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          £{cat.revenue.toLocaleString('en-GB', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">{cat.orders}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          {/* Revenue Over Time */}
+          {revenueData.timeSeries.length > 0 && (
+            <AnalyticsAreaChart
+              data={revenueData.timeSeries}
+              areas={[
+                { dataKey: 'revenue', name: 'Revenue', color: '#10b981' },
+                { dataKey: 'orders', name: 'Orders', color: '#3b82f6' }
+              ]}
+              xAxisKey="date"
+              title="Revenue & Orders Over Time"
+              height={350}
+              formatYAxis={(value) => `£${value.toLocaleString()}`}
+              formatTooltip={(value) => `£${value.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`}
+            />
           )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Revenue by Category */}
+            {revenueData.byCategory.length > 0 && (
+              <AnalyticsBarChart
+                data={revenueData.byCategory.slice(0, 8)}
+                bars={[{ dataKey: 'revenue', name: 'Revenue', color: '#10b981' }]}
+                xAxisKey="name"
+                title="Revenue by Category"
+                height={300}
+                horizontal={true}
+                formatYAxis={(value) => `£${value.toLocaleString()}`}
+                formatTooltip={(value) => `£${value.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`}
+              />
+            )}
+
+            {/* Revenue by Material */}
+            {revenueData.byMaterial.length > 0 && (
+              <AnalyticsPieChart
+                data={revenueData.byMaterial.slice(0, 6).map(m => ({
+                  name: m.name,
+                  value: m.revenue
+                }))}
+                title="Revenue by Material"
+                height={300}
+                formatTooltip={(value) => `£${value.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`}
+                innerRadius={60}
+              />
+            )}
+          </div>
         </div>
       )}
 
       {activeTab === 'products' && productData && (
         <div className="space-y-6">
+          {/* Top Selling Products Chart */}
+          {productData.topSelling.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <AnalyticsBarChart
+                data={productData.topSelling.slice(0, 10)}
+                bars={[{ dataKey: 'quantitySold', name: 'Quantity Sold', color: '#3b82f6' }]}
+                xAxisKey="productName"
+                title="Top 10 Selling Products by Quantity"
+                height={350}
+                horizontal={true}
+              />
+              <AnalyticsBarChart
+                data={productData.topSelling.slice(0, 10)}
+                bars={[{ dataKey: 'revenue', name: 'Revenue', color: '#10b981' }]}
+                xAxisKey="productName"
+                title="Top 10 Selling Products by Revenue"
+                height={350}
+                horizontal={true}
+                formatYAxis={(value) => `£${value.toLocaleString()}`}
+                formatTooltip={(value) => `£${value.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`}
+              />
+            </div>
+          )}
+          
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Selling Products</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Selling Products (Details)</h3>
             <TopProductsTable products={productData.topSelling} type="selling" />
           </div>
           
           {productData.mostViewed.length > 0 && (
+            <>
+              <AnalyticsBarChart
+                data={productData.mostViewed.slice(0, 10)}
+                bars={[{ dataKey: 'views', name: 'Views', color: '#8b5cf6' }]}
+                xAxisKey="productName"
+                title="Most Viewed Products"
+                height={300}
+                horizontal={true}
+              />
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Viewed Products</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Viewed Products (Details)</h3>
               <TopProductsTable products={productData.mostViewed} type="viewed" />
             </div>
+            </>
           )}
           
           {productData.mostWishlisted.length > 0 && (
+            <>
+              <AnalyticsBarChart
+                data={productData.mostWishlisted.slice(0, 10)}
+                bars={[{ dataKey: 'wishlistCount', name: 'Wishlist Count', color: '#ec4899' }]}
+                xAxisKey="productName"
+                title="Most Wishlisted Products"
+                height={300}
+                horizontal={true}
+              />
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Wishlisted Products</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Wishlisted Products (Details)</h3>
               <TopProductsTable products={productData.mostWishlisted} type="wishlisted" />
             </div>
+            </>
           )}
         </div>
       )}
@@ -433,53 +541,84 @@ export default function AnalyticsPage() {
               subtitle={`Average: ${userData.summary.averageDaily} per day`}
               colorClass="bg-green-500"
             />
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">User Roles</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Customers</span>
-                  <span className="font-semibold">{userData.roleBreakdown.customer.toLocaleString()}</span>
+            <MetricCard
+              title="Customer to Admin Ratio"
+              value={`${(userData.roleBreakdown.customer / (userData.roleBreakdown.admin || 1)).toFixed(0)}:1`}
+              subtitle="customers per admin"
+              colorClass="bg-purple-500"
+            />
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Admins</span>
-                  <span className="font-semibold">{userData.roleBreakdown.admin.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* User Registrations Over Time */}
+            {userData.timeSeries.length > 0 && (
+              <AnalyticsLineChart
+                data={userData.timeSeries}
+                lines={[
+                  { dataKey: 'newRegistrations', name: 'New Registrations', color: '#10b981' },
+                  { dataKey: 'totalUsers', name: 'Total Users', color: '#3b82f6' }
+                ]}
+                xAxisKey="date"
+                title="User Growth Over Time"
+                height={300}
+              />
+            )}
+
+            {/* User Role Breakdown */}
+            <AnalyticsPieChart
+              data={[
+                { name: 'Customers', value: userData.roleBreakdown.customer },
+                { name: 'Admins', value: userData.roleBreakdown.admin }
+              ]}
+              colors={['#3b82f6', '#f59e0b']}
+              title="User Role Distribution"
+              height={300}
+              innerRadius={60}
+            />
           </div>
         </div>
       )}
 
       {activeTab === 'orders' && orderData && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Orders by Status</h3>
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="space-y-3">
-                  {orderData.ordersByStatus.map((status, index) => (
-                    <div key={index} className="flex justify-between items-center">
-                      <span className="text-gray-600 capitalize">{status.status.replace(/_/g, ' ')}</span>
-                      <span className="font-semibold">{status.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+          {/* Orders Over Time */}
+          {orderData.timeSeries.length > 0 && (
+            <AnalyticsLineChart
+              data={orderData.timeSeries}
+              lines={[
+                { dataKey: 'orders', name: 'Orders', color: '#3b82f6' },
+                { dataKey: 'revenue', name: 'Revenue', color: '#10b981' }
+              ]}
+              xAxisKey="date"
+              title="Orders & Revenue Over Time"
+              height={350}
+              formatTooltip={(value) => `£${value.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`}
+            />
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Orders by Status Pie Chart */}
+            <AnalyticsPieChart
+              data={orderData.ordersByStatus.map(s => ({
+                name: s.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                value: s.count
+              }))}
+              title="Orders by Status"
+              height={300}
+              innerRadius={60}
+            />
             
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Status</h3>
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="space-y-3">
-                  {orderData.paymentsByStatus.map((status, index) => (
-                    <div key={index} className="flex justify-between items-center">
-                      <span className="text-gray-600 capitalize">{status.status.replace(/_/g, ' ')}</span>
-                      <span className="font-semibold">{status.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            {/* Payment Status Pie Chart */}
+            <AnalyticsPieChart
+              data={orderData.paymentsByStatus.map(s => ({
+                name: s.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                value: s.count
+              }))}
+              colors={['#10b981', '#f59e0b', '#ef4444']}
+              title="Payment Status Distribution"
+              height={300}
+              innerRadius={60}
+            />
           </div>
 
           {orderData.refunds.count > 0 && (
@@ -532,6 +671,50 @@ export default function AnalyticsPage() {
               subtitle="abandoned carts"
               colorClass="bg-red-500"
             />
+          </div>
+
+          {/* Conversion Rates Over Time */}
+          {conversionData.timeSeries.length > 0 && (
+            <AnalyticsAreaChart
+              data={conversionData.timeSeries}
+              areas={[
+                { dataKey: 'conversionRate', name: 'Conversion Rate %', color: '#10b981' },
+                { dataKey: 'abandonmentRate', name: 'Abandonment Rate %', color: '#ef4444' }
+              ]}
+              xAxisKey="date"
+              title="Conversion & Abandonment Rates Over Time"
+              height={350}
+              formatTooltip={(value) => `${value}%`}
+            />
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Cart Funnel */}
+            <AnalyticsPieChart
+              data={[
+                { name: 'Completed Orders', value: conversionData.summary.completedOrders },
+                { name: 'Abandoned Carts', value: conversionData.summary.abandonedCarts }
+              ]}
+              colors={['#10b981', '#ef4444']}
+              title="Cart Conversion Funnel"
+              height={300}
+              innerRadius={60}
+            />
+
+            {/* Average Cart Value Over Time */}
+            {conversionData.timeSeries.filter(d => d.averageCartValue > 0).length > 0 && (
+              <AnalyticsLineChart
+                data={conversionData.timeSeries.filter(d => d.averageCartValue > 0)}
+                lines={[
+                  { dataKey: 'averageCartValue', name: 'Avg Cart Value', color: '#8b5cf6' }
+                ]}
+                xAxisKey="date"
+                title="Average Cart Value Over Time"
+                height={300}
+                formatYAxis={(value) => `£${value.toLocaleString()}`}
+                formatTooltip={(value) => `£${value.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`}
+              />
+            )}
           </div>
         </div>
       )}

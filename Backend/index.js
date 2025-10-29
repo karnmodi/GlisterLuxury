@@ -58,8 +58,11 @@ if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     
-    // Schedule daily aggregation (only in non-production for now)
-    scheduleDailyAggregation();
+    // DEPRECATED: Daily aggregation is no longer needed
+    // Analytics now use real-time queries with 5-minute caching
+    // Uncomment below if you want to keep historical aggregated data
+    // scheduleDailyAggregation();
+    console.log('Analytics system running in REAL-TIME mode with caching');
   });
 }
 

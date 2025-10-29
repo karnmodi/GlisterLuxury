@@ -3,7 +3,10 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const analyticsController = require('../controllers/analytics.controller');
 
-// Protect all routes - admin only
+// PUBLIC endpoint for tracking visits (called from frontend)
+router.post('/track-visit', analyticsController.trackVisit);
+
+// Protect all other routes - admin only
 router.use(protect);
 router.use(authorize('admin'));
 

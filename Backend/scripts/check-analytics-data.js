@@ -37,9 +37,10 @@ async function checkData() {
       console.log(`  Latest summary: ${latestSummary.date.toISOString().split('T')[0]}`);
       console.log(`  Page views: ${latestSummary.websiteMetrics.totalPageViews}`);
       console.log(`  Revenue: £${latestSummary.revenueMetrics.totalRevenue}`);
+      console.log('  ℹ️  Note: Analytics now use real-time queries. Summaries are optional.');
     } else {
-      console.log('  ⚠️  No aggregated summaries found!');
-      console.log('  Run: npm run analytics:aggregate');
+      console.log('  ℹ️  No aggregated summaries found - this is normal!');
+      console.log('  Analytics now use real-time data from raw collections.');
     }
     
     // Check Orders

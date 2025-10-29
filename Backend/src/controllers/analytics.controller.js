@@ -5,7 +5,26 @@ const User = require('../models/User');
 const Product = require('../models/Product');
 const Cart = require('../models/Cart');
 const Wishlist = require('../models/Wishlist');
+const Category = require('../models/Category');
 const { aggregateDailyMetrics } = require('../utils/analyticsAggregator');
+
+/**
+ * Simple in-memory cache with TTL
+ */
+const cache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const getCachedData = (key) => {
+	const cached = cache.get(key);
+	if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+		return cached.data;
+	}
+	return null;
+};
+
+const setCachedData = (key, data) => {
+	cache.set(key, { data, timestamp: Date.now() });
+};
 
 /**
  * Get date ranges for today, this week, this month
@@ -28,20 +47,46 @@ const toFloat = (decimal) => {
 };
 
 /**
- * Get dashboard summary with today, weekly, and monthly stats
+ * Get dashboard summary with today, weekly, and monthly stats (REAL-TIME)
  */
 exports.getDashboardSummary = async (req, res) => {
 	try {
+		// Check cache first
+		const cacheKey = 'dashboard:summary';
+		const cached = getCachedData(cacheKey);
+		if (cached) {
+			return res.json({ success: true, data: cached, cached: true });
+		}
+
 		const { todayStart, weekStart, monthStart } = getDateRanges();
 		
-		// Get today's metrics (real-time)
+		// Get ALL metrics in real-time from raw collections
 		const [
+			// Today's metrics
 			todayPageViews,
 			todayUniqueSessions,
 			todayOrders,
 			todayRevenue,
-			todayRegistrations
+			todayRegistrations,
+			// Weekly metrics
+			weeklyPageViews,
+			weeklyUniqueSessions,
+			weeklyOrders,
+			weeklyRevenue,
+			weeklyRegistrations,
+			// Monthly metrics
+			monthlyPageViews,
+			monthlyOrders,
+			monthlyRevenue,
+			monthlyRegistrations,
+			// Totals
+			totalUsers,
+			totalOrders,
+			totalProducts,
+			// Conversion data
+			weeklyCarts
 		] = await Promise.all([
+			// TODAY
 			WebsiteVisit.countDocuments({ timestamp: { $gte: todayStart } }),
 			WebsiteVisit.distinct('sessionID', { timestamp: { $gte: todayStart } }).then(arr => arr.length),
 			Order.countDocuments({ createdAt: { $gte: todayStart } }),
@@ -49,81 +94,73 @@ exports.getDashboardSummary = async (req, res) => {
 				{ $match: { createdAt: { $gte: todayStart }, 'paymentInfo.status': 'paid' } },
 				{ $group: { _id: null, total: { $sum: { $toDouble: '$pricing.total' } } } }
 			]),
-			User.countDocuments({ createdAt: { $gte: todayStart } })
-		]);
-		
-		// Get weekly metrics from aggregated data
-		const weeklyData = await AnalyticsSummary.find({
-			date: { $gte: weekStart }
-		}).sort({ date: -1 });
-		
-		const weeklyMetrics = weeklyData.reduce((acc, day) => {
-			acc.pageViews += day.websiteMetrics.totalPageViews || 0;
-			acc.orders += day.revenueMetrics.totalOrders || 0;
-			acc.revenue += toFloat(day.revenueMetrics.totalRevenue);
-			acc.registrations += day.userMetrics.newRegistrations || 0;
-			return acc;
-		}, { pageViews: 0, orders: 0, revenue: 0, registrations: 0 });
-		
-		// Get monthly metrics from aggregated data
-		const monthlyData = await AnalyticsSummary.find({
-			date: { $gte: monthStart }
-		}).sort({ date: -1 });
-		
-		const monthlyMetrics = monthlyData.reduce((acc, day) => {
-			acc.pageViews += day.websiteMetrics.totalPageViews || 0;
-			acc.orders += day.revenueMetrics.totalOrders || 0;
-			acc.revenue += toFloat(day.revenueMetrics.totalRevenue);
-			acc.registrations += day.userMetrics.newRegistrations || 0;
-			return acc;
-		}, { pageViews: 0, orders: 0, revenue: 0, registrations: 0 });
-		
-		// Get total counts
-		const [totalUsers, totalOrders, totalProducts] = await Promise.all([
+			User.countDocuments({ createdAt: { $gte: todayStart } }),
+			
+			// WEEKLY
+			WebsiteVisit.countDocuments({ timestamp: { $gte: weekStart } }),
+			WebsiteVisit.distinct('sessionID', { timestamp: { $gte: weekStart } }).then(arr => arr.length),
+			Order.countDocuments({ createdAt: { $gte: weekStart } }),
+			Order.aggregate([
+				{ $match: { createdAt: { $gte: weekStart }, 'paymentInfo.status': 'paid' } },
+				{ $group: { _id: null, total: { $sum: { $toDouble: '$pricing.total' } } } }
+			]),
+			User.countDocuments({ createdAt: { $gte: weekStart } }),
+			
+			// MONTHLY
+			WebsiteVisit.countDocuments({ timestamp: { $gte: monthStart } }),
+			Order.countDocuments({ createdAt: { $gte: monthStart } }),
+			Order.aggregate([
+				{ $match: { createdAt: { $gte: monthStart }, 'paymentInfo.status': 'paid' } },
+				{ $group: { _id: null, total: { $sum: { $toDouble: '$pricing.total' } } } }
+			]),
+			User.countDocuments({ createdAt: { $gte: monthStart } }),
+			
+			// TOTALS
 			User.countDocuments(),
 			Order.countDocuments(),
-			Product.countDocuments()
+			Product.countDocuments(),
+			
+			// CONVERSION
+			Cart.countDocuments({ createdAt: { $gte: weekStart } })
 		]);
 		
-		// Calculate conversion rate
-		const activeCarts = await Cart.countDocuments({ 
-			status: 'active',
-			updatedAt: { $gte: weekStart }
-		});
-		const weeklyConversionRate = activeCarts > 0 
-			? ((weeklyMetrics.orders / activeCarts) * 100).toFixed(2)
+		const weeklyConversionRate = weeklyCarts > 0 
+			? ((weeklyOrders / weeklyCarts) * 100).toFixed(2)
 			: 0;
 		
-		res.json({
-			success: true,
-			data: {
-				today: {
-					pageViews: todayPageViews,
-					uniqueVisitors: todayUniqueSessions,
-					orders: todayOrders,
-					revenue: todayRevenue[0]?.total || 0,
-					registrations: todayRegistrations
-				},
-				weekly: {
-					pageViews: weeklyMetrics.pageViews,
-					orders: weeklyMetrics.orders,
-					revenue: weeklyMetrics.revenue,
-					registrations: weeklyMetrics.registrations,
-					conversionRate: weeklyConversionRate
-				},
-				monthly: {
-					pageViews: monthlyMetrics.pageViews,
-					orders: monthlyMetrics.orders,
-					revenue: monthlyMetrics.revenue,
-					registrations: monthlyMetrics.registrations
-				},
-				totals: {
-					users: totalUsers,
-					orders: totalOrders,
-					products: totalProducts
-				}
+		const result = {
+			today: {
+				pageViews: todayPageViews,
+				uniqueVisitors: todayUniqueSessions,
+				orders: todayOrders,
+				revenue: todayRevenue[0]?.total || 0,
+				registrations: todayRegistrations
+			},
+			weekly: {
+				pageViews: weeklyPageViews,
+				uniqueVisitors: weeklyUniqueSessions,
+				orders: weeklyOrders,
+				revenue: weeklyRevenue[0]?.total || 0,
+				registrations: weeklyRegistrations,
+				conversionRate: weeklyConversionRate
+			},
+			monthly: {
+				pageViews: monthlyPageViews,
+				orders: monthlyOrders,
+				revenue: monthlyRevenue[0]?.total || 0,
+				registrations: monthlyRegistrations
+			},
+			totals: {
+				users: totalUsers,
+				orders: totalOrders,
+				products: totalProducts
 			}
-		});
+		};
+		
+		// Cache the result
+		setCachedData(cacheKey, result);
+		
+		res.json({ success: true, data: result });
 	} catch (error) {
 		console.error('Error getting dashboard summary:', error);
 		res.status(500).json({
@@ -135,78 +172,205 @@ exports.getDashboardSummary = async (req, res) => {
 };
 
 /**
- * Get website visit analytics
+ * Get website visit analytics (REAL-TIME)
  */
 exports.getWebsiteVisits = async (req, res) => {
 	try {
 		const { startDate, endDate } = req.query;
 		const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 		const end = endDate ? new Date(endDate) : new Date();
+		end.setHours(23, 59, 59, 999);
+
+		// Cache key based on date range
+		const cacheKey = `visits:${start.toISOString().split('T')[0]}:${end.toISOString().split('T')[0]}`;
+		const cached = getCachedData(cacheKey);
+		if (cached) {
+			return res.json({ success: true, data: cached, cached: true });
+		}
 		
-		// Get aggregated data
-		const summaries = await AnalyticsSummary.find({
-			date: { $gte: start, $lte: end }
-		}).sort({ date: 1 });
-		
-		// Get real-time data for today
-		const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
-		const [todayPageViews, todayUniqueSessions, todayTopPages, todayDevices] = await Promise.all([
-			WebsiteVisit.countDocuments({ timestamp: { $gte: todayStart } }),
-			WebsiteVisit.distinct('sessionID', { timestamp: { $gte: todayStart } }).then(arr => arr.length),
-			WebsiteVisit.aggregate([
-				{ $match: { timestamp: { $gte: todayStart } } },
-				{ $group: { _id: '$page', count: { $sum: 1 } } },
-				{ $sort: { count: -1 } },
-				{ $limit: 10 },
-				{ $project: { page: '$_id', views: '$count', _id: 0 } }
-			]),
-			WebsiteVisit.aggregate([
-				{ $match: { timestamp: { $gte: todayStart } } },
-				{ $group: { _id: '$deviceType', count: { $sum: 1 } } }
-			])
+		// Get time series data grouped by day (exclude admin pages)
+		const timeSeries = await WebsiteVisit.aggregate([
+			{ 
+				$match: { 
+					timestamp: { $gte: start, $lte: end },
+					page: { $not: { $regex: /^\/admin/ } } // Exclude admin pages
+				} 
+			},
+			{
+				$group: {
+					_id: {
+						$dateToString: { format: '%Y-%m-%d', date: '$timestamp' }
+					},
+					pageViews: { $sum: 1 },
+					uniqueSessions: { $addToSet: '$sessionID' }
+				}
+			},
+			{
+				$project: {
+					date: '$_id',
+					pageViews: 1,
+					uniqueVisitors: { $size: '$uniqueSessions' },
+					uniqueSessions: { $size: '$uniqueSessions' },
+					_id: 0
+				}
+			},
+			{ $sort: { date: 1 } }
 		]);
 		
-		// Format device breakdown
+		// Get top pages with product names for product detail pages
+		const topPages = await WebsiteVisit.aggregate([
+			{ 
+				$match: { 
+					timestamp: { $gte: start, $lte: end },
+					page: { $not: { $regex: /^\/admin/ } } // Exclude admin pages
+				} 
+			},
+			// Extract product ID from URL pattern /products/[id]
+			{
+				$addFields: {
+					productId: {
+						$cond: {
+							if: { $regexMatch: { input: '$page', regex: /^\/products\/[a-fA-F0-9]{24}/ } },
+							then: {
+								$let: {
+									vars: {
+										parts: { $split: ['$page', '/'] },
+										queryParts: { $split: ['$page', '?'] }
+									},
+									in: {
+										$cond: {
+											if: { $gte: [{ $size: '$$parts' }, 3] },
+											then: {
+												$arrayElemAt: [
+													{ $split: [{ $arrayElemAt: ['$$queryParts', 0] }, '/'] },
+													2
+												]
+											},
+											else: null
+										}
+									}
+								}
+							},
+							else: null
+						}
+					},
+					originalPage: '$page'
+				}
+			},
+			// Lookup product name if it's a product page
+			{
+				$lookup: {
+					from: 'products',
+					let: { 
+						prodId: {
+							$cond: {
+								if: { $ne: ['$productId', null] },
+								then: { 
+									$convert: {
+										input: '$productId',
+										to: 'objectId',
+										onError: null,
+										onNull: null
+									}
+								},
+								else: null
+							}
+						}
+					},
+					pipeline: [
+						{
+							$match: {
+								$expr: {
+									$cond: {
+										if: { $ne: ['$$prodId', null] },
+										then: { $eq: ['$_id', '$$prodId'] },
+										else: false
+									}
+								}
+							}
+						},
+						{
+							$project: {
+								name: 1,
+								_id: 0
+							}
+						}
+					],
+					as: 'productInfo'
+				}
+			},
+			// Replace product ID with product name in page field
+			{
+				$addFields: {
+					displayPage: {
+						$cond: {
+							if: { $and: [{ $ne: ['$productId', null] }, { $gt: [{ $size: '$productInfo' }, 0] }] },
+							then: {
+								$concat: ['/products/', { $arrayElemAt: ['$productInfo.name', 0] }]
+							},
+							else: '$originalPage'
+						}
+					}
+				}
+			},
+			// Group by display page
+			{
+				$group: {
+					_id: '$displayPage',
+					count: { $sum: 1 },
+					originalPage: { $first: '$originalPage' } // Keep original for reference
+				}
+			},
+			{ $sort: { count: -1 } },
+			{ $limit: 10 },
+			{
+				$project: {
+					page: '$_id',
+					views: '$count',
+					originalPage: 1, // Keep for debugging if needed
+					_id: 0
+				}
+			}
+		]);
+		
+		// Get device breakdown (exclude admin pages)
+		const devices = await WebsiteVisit.aggregate([
+			{ 
+				$match: { 
+					timestamp: { $gte: start, $lte: end },
+					page: { $not: { $regex: /^\/admin/ } } // Exclude admin pages
+				} 
+			},
+			{ $group: { _id: '$deviceType', count: { $sum: 1 } } }
+		]);
+		
 		const deviceBreakdown = {
 			mobile: 0,
 			tablet: 0,
 			desktop: 0,
 			unknown: 0
 		};
-		todayDevices.forEach(d => {
+		devices.forEach(d => {
 			deviceBreakdown[d._id] = d.count;
 		});
 		
-		// Prepare time series data
-		const timeSeries = summaries.map(summary => ({
-			date: summary.date,
-			pageViews: summary.websiteMetrics.totalPageViews,
-			uniqueVisitors: summary.websiteMetrics.uniqueVisitors,
-			uniqueSessions: summary.websiteMetrics.uniqueSessions
-		}));
+		const totalPageViews = timeSeries.reduce((sum, d) => sum + (d.pageViews || 0), 0);
 		
-		// Add today's data
-		timeSeries.push({
-			date: todayStart,
-			pageViews: todayPageViews,
-			uniqueVisitors: todayUniqueSessions,
-			uniqueSessions: todayUniqueSessions
-		});
-		
-		res.json({
-			success: true,
-			data: {
-				timeSeries,
-				topPages: todayTopPages,
-				deviceBreakdown,
-				summary: {
-					totalPageViews: timeSeries.reduce((sum, d) => sum + d.pageViews, 0),
-					averageDaily: timeSeries.length > 0 
-						? (timeSeries.reduce((sum, d) => sum + d.pageViews, 0) / timeSeries.length).toFixed(0)
-						: 0
-				}
+		const result = {
+			timeSeries: timeSeries || [],
+			topPages: topPages || [],
+			deviceBreakdown,
+			summary: {
+				totalPageViews,
+				averageDaily: timeSeries.length > 0 
+					? (totalPageViews / timeSeries.length).toFixed(0)
+					: '0'
 			}
-		});
+		};
+
+		setCachedData(cacheKey, result);
+		
+		res.json({ success: true, data: result });
 	} catch (error) {
 		console.error('Error getting website visits:', error);
 		res.status(500).json({
@@ -218,120 +382,145 @@ exports.getWebsiteVisits = async (req, res) => {
 };
 
 /**
- * Get revenue analytics
+ * Get revenue analytics (REAL-TIME)
  */
 exports.getRevenueAnalytics = async (req, res) => {
 	try {
 		const { startDate, endDate } = req.query;
 		const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 		const end = endDate ? new Date(endDate) : new Date();
-		
-		// Get aggregated data
-		const summaries = await AnalyticsSummary.find({
-			date: { $gte: start, $lte: end }
-		}).sort({ date: 1 });
-		
-		// Prepare time series
-		const timeSeries = summaries.map(summary => ({
-			date: summary.date,
-			revenue: toFloat(summary.revenueMetrics.totalRevenue),
-			orders: summary.revenueMetrics.totalOrders,
-			averageOrderValue: toFloat(summary.revenueMetrics.averageOrderValue)
-		}));
-		
-		// Get today's data
-		const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
-		const todayOrders = await Order.aggregate([
-			{ $match: { createdAt: { $gte: todayStart }, 'paymentInfo.status': 'paid' } },
-			{
-				$group: {
-					_id: null,
-					total: { $sum: { $toDouble: '$pricing.total' } },
-					count: { $sum: 1 }
-				}
-			}
-		]);
-		
-		if (todayOrders.length > 0) {
-			timeSeries.push({
-				date: todayStart,
-				revenue: todayOrders[0].total,
-				orders: todayOrders[0].count,
-				averageOrderValue: todayOrders[0].total / todayOrders[0].count
-			});
+		end.setHours(23, 59, 59, 999);
+
+		const cacheKey = `revenue:${start.toISOString().split('T')[0]}:${end.toISOString().split('T')[0]}`;
+		const cached = getCachedData(cacheKey);
+		if (cached) {
+			return res.json({ success: true, data: cached, cached: true });
 		}
 		
-		// Aggregate revenue by category
-		const revenueByCategory = {};
-		summaries.forEach(summary => {
-			summary.revenueMetrics.revenueByCategory.forEach(cat => {
-				if (!revenueByCategory[cat.categoryName]) {
-					revenueByCategory[cat.categoryName] = {
-						revenue: 0,
-						orders: 0
-					};
+		// Get time series data grouped by day
+		const timeSeries = await Order.aggregate([
+			{ $match: { createdAt: { $gte: start, $lte: end }, 'paymentInfo.status': 'paid' } },
+			{
+				$group: {
+					_id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+					revenue: { $sum: { $toDouble: '$pricing.total' } },
+					orders: { $sum: 1 }
 				}
-				revenueByCategory[cat.categoryName].revenue += toFloat(cat.revenue);
-				revenueByCategory[cat.categoryName].orders += cat.orderCount;
-			});
-		});
+			},
+			{
+				$project: {
+					date: '$_id',
+					revenue: 1,
+					orders: 1,
+					averageOrderValue: { $divide: ['$revenue', '$orders'] },
+					_id: 0
+				}
+			},
+			{ $sort: { date: 1 } }
+		]);
 		
-		// Aggregate revenue by material
-		const revenueByMaterial = {};
-		summaries.forEach(summary => {
-			summary.revenueMetrics.revenueByMaterial.forEach(mat => {
-				if (!revenueByMaterial[mat.materialName]) {
-					revenueByMaterial[mat.materialName] = {
-						revenue: 0,
-						quantity: 0
-					};
+		// Get revenue by category
+		const byCategory = await Order.aggregate([
+			{ $match: { createdAt: { $gte: start, $lte: end }, 'paymentInfo.status': 'paid' } },
+			{ $unwind: '$items' },
+			{
+				$lookup: {
+					from: 'products',
+					localField: 'items.product',
+					foreignField: '_id',
+					as: 'productInfo'
 				}
-				revenueByMaterial[mat.materialName].revenue += toFloat(mat.revenue);
-				revenueByMaterial[mat.materialName].quantity += mat.quantity;
-			});
-		});
+			},
+			{ $unwind: '$productInfo' },
+			{
+				$lookup: {
+					from: 'categories',
+					localField: 'productInfo.categoryID',
+					foreignField: '_id',
+					as: 'categoryInfo'
+				}
+			},
+			{ $unwind: '$categoryInfo' },
+			{
+				$group: {
+					_id: '$categoryInfo.name',
+					revenue: { $sum: { $toDouble: '$items.totalPrice' } },
+					orders: { $sum: 1 }
+				}
+			},
+			{
+				$project: {
+					name: '$_id',
+					revenue: 1,
+					orders: 1,
+					_id: 0
+				}
+			},
+			{ $sort: { revenue: -1 } }
+		]);
 		
-		// Aggregate revenue by finish
-		const revenueByFinish = {};
-		summaries.forEach(summary => {
-			summary.revenueMetrics.revenueByFinish.forEach(fin => {
-				if (!revenueByFinish[fin.finishName]) {
-					revenueByFinish[fin.finishName] = {
-						revenue: 0,
-						quantity: 0
-					};
+		// Get revenue by material (from product configurations)
+		const byMaterial = await Order.aggregate([
+			{ $match: { createdAt: { $gte: start, $lte: end }, 'paymentInfo.status': 'paid' } },
+			{ $unwind: '$items' },
+			{
+				$group: {
+					_id: '$items.selectedMaterial',
+					revenue: { $sum: { $toDouble: '$items.totalPrice' } },
+					quantity: { $sum: '$items.quantity' }
 				}
-				revenueByFinish[fin.finishName].revenue += toFloat(fin.revenue);
-				revenueByFinish[fin.finishName].quantity += fin.quantity;
-			});
-		});
+			},
+			{
+				$project: {
+					name: '$_id',
+					revenue: 1,
+					quantity: 1,
+					_id: 0
+				}
+			},
+			{ $sort: { revenue: -1 } }
+		]);
+		
+		// Get revenue by finish
+		const byFinish = await Order.aggregate([
+			{ $match: { createdAt: { $gte: start, $lte: end }, 'paymentInfo.status': 'paid' } },
+			{ $unwind: '$items' },
+			{
+				$group: {
+					_id: '$items.selectedFinish',
+					revenue: { $sum: { $toDouble: '$items.totalPrice' } },
+					quantity: { $sum: '$items.quantity' }
+				}
+			},
+			{
+				$project: {
+					name: '$_id',
+					revenue: 1,
+					quantity: 1,
+					_id: 0
+				}
+			},
+			{ $sort: { revenue: -1 } }
+		]);
 		
 		const totalRevenue = timeSeries.reduce((sum, d) => sum + d.revenue, 0);
 		const totalOrders = timeSeries.reduce((sum, d) => sum + d.orders, 0);
 		
-		res.json({
-			success: true,
-			data: {
-				timeSeries,
-				byCategory: Object.entries(revenueByCategory).map(([name, data]) => ({
-					name,
-					...data
-				})),
-				byMaterial: Object.entries(revenueByMaterial).map(([name, data]) => ({
-					name,
-					...data
-				})),
-				byFinish: Object.entries(revenueByFinish).map(([name, data]) => ({
-					name,
-					...data
-				})),
-				summary: {
-					totalRevenue,
-					totalOrders,
-					averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0
-				}
+		const result = {
+			timeSeries,
+			byCategory,
+			byMaterial: byMaterial.filter(m => m.name),
+			byFinish: byFinish.filter(f => f.name),
+			summary: {
+				totalRevenue,
+				totalOrders,
+				averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0
 			}
-		});
+		};
+
+		setCachedData(cacheKey, result);
+		
+		res.json({ success: true, data: result });
 	} catch (error) {
 		console.error('Error getting revenue analytics:', error);
 		res.status(500).json({
@@ -343,89 +532,147 @@ exports.getRevenueAnalytics = async (req, res) => {
 };
 
 /**
- * Get product analytics
+ * Get product analytics (REAL-TIME)
  */
 exports.getProductAnalytics = async (req, res) => {
 	try {
 		const { limit = 10 } = req.query;
-		
-		// Get data from last 30 days
 		const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-		const summaries = await AnalyticsSummary.find({
-			date: { $gte: thirtyDaysAgo }
-		}).sort({ date: -1 });
+
+		const cacheKey = `products:${limit}`;
+		const cached = getCachedData(cacheKey);
+		if (cached) {
+			return res.json({ success: true, data: cached, cached: true });
+		}
 		
-		// Aggregate top selling products
-		const topSelling = {};
-		summaries.forEach(summary => {
-			summary.productMetrics.topSellingProducts.forEach(prod => {
-				const key = prod.productID.toString();
-				if (!topSelling[key]) {
-					topSelling[key] = {
-						productID: prod.productID,
-						productName: prod.productName,
-						quantitySold: 0,
-						revenue: 0
-					};
+		// Top selling products
+		const topSelling = await Order.aggregate([
+			{ $match: { 'paymentInfo.status': 'paid', createdAt: { $gte: thirtyDaysAgo } } },
+			{ $unwind: '$items' },
+			{
+				$lookup: {
+					from: 'products',
+					localField: 'items.product',
+					foreignField: '_id',
+					as: 'productInfo'
 				}
-				topSelling[key].quantitySold += prod.quantitySold;
-				topSelling[key].revenue += toFloat(prod.revenue);
-			});
-		});
-		
-		// Aggregate most viewed products
-		const mostViewed = {};
-		summaries.forEach(summary => {
-			summary.productMetrics.mostViewedProducts.forEach(prod => {
-				const key = prod.productID.toString();
-				if (!mostViewed[key]) {
-					mostViewed[key] = {
-						productID: prod.productID,
-						productName: prod.productName,
-						views: 0
-					};
+			},
+			{ $unwind: '$productInfo' },
+			{
+				$group: {
+					_id: '$productInfo._id',
+					productName: { $first: '$productInfo.name' },
+					quantitySold: { $sum: '$items.quantity' },
+					revenue: { $sum: { $toDouble: '$items.totalPrice' } }
 				}
-				mostViewed[key].views += prod.views;
-			});
-		});
-		
-		// Aggregate most wishlisted
-		const mostWishlisted = {};
-		summaries.forEach(summary => {
-			summary.productMetrics.mostWishlisted.forEach(prod => {
-				const key = prod.productID.toString();
-				if (!mostWishlisted[key]) {
-					mostWishlisted[key] = {
-						productID: prod.productID,
-						productName: prod.productName,
-						wishlistCount: 0
-					};
+			},
+			{
+				$project: {
+					productID: '$_id',
+					productName: 1,
+					quantitySold: 1,
+					revenue: 1,
+					_id: 0
 				}
-				mostWishlisted[key].wishlistCount += prod.wishlistCount;
-			});
-		});
+			},
+			{ $sort: { quantitySold: -1 } },
+			{ $limit: parseInt(limit) }
+		]);
 		
-		// Sort and limit
-		const topSellingArray = Object.values(topSelling)
-			.sort((a, b) => b.quantitySold - a.quantitySold)
-			.slice(0, parseInt(limit));
+		// Most viewed products
+		const mostViewed = await WebsiteVisit.aggregate([
+			{
+				$match: {
+					page: { $regex: '^/products/' },
+					timestamp: { $gte: thirtyDaysAgo }
+				}
+			},
+			{
+				$addFields: {
+					productIDStr: {
+						$arrayElemAt: [
+							{ $split: ['$page', '/'] },
+							-1
+						]
+					}
+				}
+			},
+			{
+				$match: {
+					productIDStr: { $regex: '^[0-9a-fA-F]{24}$' }
+				}
+			},
+			{
+				$addFields: {
+					productIDObj: { $toObjectId: '$productIDStr' }
+				}
+			},
+			{
+				$group: {
+					_id: '$productIDObj',
+					views: { $sum: 1 }
+				}
+			},
+			{
+				$lookup: {
+					from: 'products',
+					localField: '_id',
+					foreignField: '_id',
+					as: 'productInfo'
+				}
+			},
+			{ $unwind: '$productInfo' },
+			{
+				$project: {
+					productID: '$_id',
+					productName: '$productInfo.name',
+					views: 1,
+					_id: 0
+				}
+			},
+			{ $sort: { views: -1 } },
+			{ $limit: parseInt(limit) }
+		]);
 		
-		const mostViewedArray = Object.values(mostViewed)
-			.sort((a, b) => b.views - a.views)
-			.slice(0, parseInt(limit));
+		// Most wishlisted products
+		const mostWishlisted = await Wishlist.aggregate([
+			{ $unwind: '$products' },
+			{
+				$group: {
+					_id: '$products.product',
+					wishlistCount: { $sum: 1 }
+				}
+			},
+			{
+				$lookup: {
+					from: 'products',
+					localField: '_id',
+					foreignField: '_id',
+					as: 'productInfo'
+				}
+			},
+			{ $unwind: '$productInfo' },
+			{
+				$project: {
+					productID: '$_id',
+					productName: '$productInfo.name',
+					wishlistCount: 1,
+					_id: 0
+				}
+			},
+			{ $sort: { wishlistCount: -1 } },
+			{ $limit: parseInt(limit) }
+		]);
 		
-		const mostWishlistedArray = Object.values(mostWishlisted)
-			.sort((a, b) => b.wishlistCount - a.wishlistCount)
-			.slice(0, parseInt(limit));
+		const result = {
+			topSelling,
+			mostViewed,
+			mostWishlisted
+		};
+
+		setCachedData(cacheKey, result);
 		
-		res.json({
-			success: true,
-			data: {
-				topSelling: topSellingArray,
-				mostViewed: mostViewedArray,
-				mostWishlisted: mostWishlistedArray
-			}
-		});
+		res.json({ success: true, data: result });
 	} catch (error) {
 		console.error('Error getting product analytics:', error);
 		res.status(500).json({
@@ -437,40 +684,49 @@ exports.getProductAnalytics = async (req, res) => {
 };
 
 /**
- * Get user analytics
+ * Get user analytics (REAL-TIME)
  */
 exports.getUserAnalytics = async (req, res) => {
 	try {
 		const { startDate, endDate } = req.query;
 		const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 		const end = endDate ? new Date(endDate) : new Date();
+		end.setHours(23, 59, 59, 999);
+
+		const cacheKey = `users:${start.toISOString().split('T')[0]}:${end.toISOString().split('T')[0]}`;
+		const cached = getCachedData(cacheKey);
+		if (cached) {
+			return res.json({ success: true, data: cached, cached: true });
+		}
 		
-		// Get aggregated data
-		const summaries = await AnalyticsSummary.find({
-			date: { $gte: start, $lte: end }
-		}).sort({ date: 1 });
-		
-		// Prepare time series
-		const timeSeries = summaries.map(summary => ({
-			date: summary.date,
-			newRegistrations: summary.userMetrics.newRegistrations,
-			totalUsers: summary.userMetrics.totalUsers,
-			activeUsers: summary.userMetrics.activeUsers
-		}));
-		
-		// Get today's data
-		const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
-		const [todayRegistrations, totalUsers, activeToday] = await Promise.all([
-			User.countDocuments({ createdAt: { $gte: todayStart } }),
-			User.countDocuments(),
-			User.countDocuments({ lastLogin: { $gte: todayStart } })
+		// Get time series data grouped by day
+		const timeSeries = await User.aggregate([
+			{ $match: { createdAt: { $gte: start, $lte: end } } },
+			{
+				$group: {
+					_id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+					newRegistrations: { $sum: 1 }
+				}
+			},
+			{
+				$project: {
+					date: '$_id',
+					newRegistrations: 1,
+					_id: 0
+				}
+			},
+			{ $sort: { date: 1 } }
 		]);
 		
-		timeSeries.push({
-			date: todayStart,
-			newRegistrations: todayRegistrations,
-			totalUsers: totalUsers,
-			activeUsers: activeToday
+		// Get total users count
+		const totalUsers = await User.countDocuments();
+		
+		// Add cumulative total users to each time series entry
+		let runningTotal = await User.countDocuments({ createdAt: { $lt: start } });
+		timeSeries.forEach(entry => {
+			runningTotal += entry.newRegistrations;
+			entry.totalUsers = runningTotal;
+			entry.activeUsers = 0; // Active users tracking requires lastLogin tracking
 		});
 		
 		// Get user role breakdown
@@ -486,20 +742,23 @@ exports.getUserAnalytics = async (req, res) => {
 			roleBreakdown[r._id] = r.count;
 		});
 		
-		res.json({
-			success: true,
-			data: {
-				timeSeries,
-				roleBreakdown,
-				summary: {
-					totalUsers,
-					totalRegistrations: timeSeries.reduce((sum, d) => sum + d.newRegistrations, 0),
-					averageDaily: timeSeries.length > 0
-						? (timeSeries.reduce((sum, d) => sum + d.newRegistrations, 0) / timeSeries.length).toFixed(0)
-						: 0
-				}
+		const totalRegistrations = timeSeries.reduce((sum, d) => sum + d.newRegistrations, 0);
+		
+		const result = {
+			timeSeries,
+			roleBreakdown,
+			summary: {
+				totalUsers,
+				totalRegistrations,
+				averageDaily: timeSeries.length > 0
+					? (totalRegistrations / timeSeries.length).toFixed(0)
+					: 0
 			}
-		});
+		};
+
+		setCachedData(cacheKey, result);
+		
+		res.json({ success: true, data: result });
 	} catch (error) {
 		console.error('Error getting user analytics:', error);
 		res.status(500).json({
@@ -511,24 +770,33 @@ exports.getUserAnalytics = async (req, res) => {
 };
 
 /**
- * Get order analytics
+ * Get order analytics (REAL-TIME)
  */
 exports.getOrderAnalytics = async (req, res) => {
 	try {
 		const { startDate, endDate } = req.query;
 		const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 		const end = endDate ? new Date(endDate) : new Date();
+		end.setHours(23, 59, 59, 999);
+
+		const cacheKey = `orders:${start.toISOString().split('T')[0]}:${end.toISOString().split('T')[0]}`;
+		const cached = getCachedData(cacheKey);
+		if (cached) {
+			return res.json({ success: true, data: cached, cached: true });
+		}
 		
 		// Get orders by status
 		const ordersByStatus = await Order.aggregate([
 			{ $match: { createdAt: { $gte: start, $lte: end } } },
-			{ $group: { _id: '$status', count: { $sum: 1 } } }
+			{ $group: { _id: '$status', count: { $sum: 1 } } },
+			{ $project: { status: '$_id', count: 1, _id: 0 } }
 		]);
 		
 		// Get orders by payment status
 		const paymentsByStatus = await Order.aggregate([
 			{ $match: { createdAt: { $gte: start, $lte: end } } },
-			{ $group: { _id: '$paymentInfo.status', count: { $sum: 1 } } }
+			{ $group: { _id: '$paymentInfo.status', count: { $sum: 1 } } },
+			{ $project: { status: '$_id', count: 1, _id: 0 } }
 		]);
 		
 		// Get refund metrics
@@ -548,35 +816,40 @@ exports.getOrderAnalytics = async (req, res) => {
 			}
 		]);
 		
-		// Get time series from aggregated data
-		const summaries = await AnalyticsSummary.find({
-			date: { $gte: start, $lte: end }
-		}).sort({ date: 1 });
+		// Get time series
+		const timeSeries = await Order.aggregate([
+			{ $match: { createdAt: { $gte: start, $lte: end }, 'paymentInfo.status': 'paid' } },
+			{
+				$group: {
+					_id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+					orders: { $sum: 1 },
+					revenue: { $sum: { $toDouble: '$pricing.total' } }
+				}
+			},
+			{
+				$project: {
+					date: '$_id',
+					orders: 1,
+					revenue: 1,
+					_id: 0
+				}
+			},
+			{ $sort: { date: 1 } }
+		]);
 		
-		const timeSeries = summaries.map(summary => ({
-			date: summary.date,
-			orders: summary.revenueMetrics.totalOrders,
-			revenue: toFloat(summary.revenueMetrics.totalRevenue)
-		}));
+		const result = {
+			ordersByStatus,
+			paymentsByStatus,
+			refunds: {
+				count: refundMetrics[0]?.count || 0,
+				totalAmount: refundMetrics[0]?.totalAmount || 0
+			},
+			timeSeries
+		};
+
+		setCachedData(cacheKey, result);
 		
-		res.json({
-			success: true,
-			data: {
-				ordersByStatus: ordersByStatus.map(s => ({
-					status: s._id,
-					count: s.count
-				})),
-				paymentsByStatus: paymentsByStatus.map(s => ({
-					status: s._id,
-					count: s.count
-				})),
-				refunds: {
-					count: refundMetrics[0]?.count || 0,
-					totalAmount: refundMetrics[0]?.totalAmount || 0
-				},
-				timeSeries
-			}
-		});
+		res.json({ success: true, data: result });
 	} catch (error) {
 		console.error('Error getting order analytics:', error);
 		res.status(500).json({
@@ -588,48 +861,115 @@ exports.getOrderAnalytics = async (req, res) => {
 };
 
 /**
- * Get conversion analytics
+ * Get conversion analytics (REAL-TIME)
  */
 exports.getConversionAnalytics = async (req, res) => {
 	try {
 		const { startDate, endDate } = req.query;
 		const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 		const end = endDate ? new Date(endDate) : new Date();
+		end.setHours(23, 59, 59, 999);
+
+		const cacheKey = `conversions:${start.toISOString().split('T')[0]}:${end.toISOString().split('T')[0]}`;
+		const cached = getCachedData(cacheKey);
+		if (cached) {
+			return res.json({ success: true, data: cached, cached: true });
+		}
 		
-		// Get aggregated data
-		const summaries = await AnalyticsSummary.find({
-			date: { $gte: start, $lte: end }
-		}).sort({ date: 1 });
+		// Get cart creation time series
+		const cartTimeSeries = await Cart.aggregate([
+			{ $match: { createdAt: { $gte: start, $lte: end } } },
+			{
+				$group: {
+					_id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+					totalCarts: { $sum: 1 },
+					totalCartValue: { $sum: { $toDouble: '$totalPrice' } }
+				}
+			},
+			{
+				$project: {
+					date: '$_id',
+					totalCarts: 1,
+					averageCartValue: { $divide: ['$totalCartValue', '$totalCarts'] },
+					_id: 0
+				}
+			},
+			{ $sort: { date: 1 } }
+		]);
 		
-		// Prepare time series
-		const timeSeries = summaries.map(summary => ({
-			date: summary.date,
-			conversionRate: summary.conversionMetrics.conversionRate,
-			abandonmentRate: summary.conversionMetrics.cartAbandonmentRate,
-			averageCartValue: toFloat(summary.conversionMetrics.averageCartValue)
-		}));
+		// Get order completion time series
+		const orderTimeSeries = await Order.aggregate([
+			{ $match: { createdAt: { $gte: start, $lte: end } } },
+			{
+				$group: {
+					_id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+					completedOrders: { $sum: 1 }
+				}
+			},
+			{
+				$project: {
+					date: '$_id',
+					completedOrders: 1,
+					_id: 0
+				}
+			},
+			{ $sort: { date: 1 } }
+		]);
+		
+		// Merge time series data
+		const timeSeriesMap = new Map();
+		
+		cartTimeSeries.forEach(entry => {
+			timeSeriesMap.set(entry.date, {
+				date: entry.date,
+				totalCarts: entry.totalCarts,
+				averageCartValue: entry.averageCartValue,
+				completedOrders: 0
+			});
+		});
+		
+		orderTimeSeries.forEach(entry => {
+			if (timeSeriesMap.has(entry.date)) {
+				timeSeriesMap.get(entry.date).completedOrders = entry.completedOrders;
+			} else {
+				timeSeriesMap.set(entry.date, {
+					date: entry.date,
+					totalCarts: 0,
+					averageCartValue: 0,
+					completedOrders: entry.completedOrders
+				});
+			}
+		});
+		
+		// Calculate conversion rates per day
+		const timeSeries = Array.from(timeSeriesMap.values()).map(entry => ({
+			...entry,
+			conversionRate: entry.totalCarts > 0 ? ((entry.completedOrders / entry.totalCarts) * 100).toFixed(2) : 0,
+			abandonmentRate: entry.totalCarts > 0 ? (((entry.totalCarts - entry.completedOrders) / entry.totalCarts) * 100).toFixed(2) : 0
+		})).sort((a, b) => a.date.localeCompare(b.date));
 		
 		// Calculate overall metrics
-		const totalCarts = summaries.reduce((sum, s) => sum + s.conversionMetrics.totalCarts, 0);
-		const completedOrders = summaries.reduce((sum, s) => sum + s.conversionMetrics.completedOrders, 0);
-		const abandonedCarts = summaries.reduce((sum, s) => sum + s.conversionMetrics.abandonedCarts, 0);
+		const totalCarts = await Cart.countDocuments({ createdAt: { $gte: start, $lte: end } });
+		const completedOrders = await Order.countDocuments({ createdAt: { $gte: start, $lte: end } });
+		const abandonedCarts = totalCarts - completedOrders;
 		
 		const overallConversionRate = totalCarts > 0 ? ((completedOrders / totalCarts) * 100).toFixed(2) : 0;
 		const overallAbandonmentRate = totalCarts > 0 ? ((abandonedCarts / totalCarts) * 100).toFixed(2) : 0;
 		
-		res.json({
-			success: true,
-			data: {
-				timeSeries,
-				summary: {
-					totalCarts,
-					completedOrders,
-					abandonedCarts,
-					conversionRate: overallConversionRate,
-					abandonmentRate: overallAbandonmentRate
-				}
+		const result = {
+			timeSeries,
+			summary: {
+				totalCarts,
+				completedOrders,
+				abandonedCarts,
+				conversionRate: overallConversionRate,
+				abandonmentRate: overallAbandonmentRate
 			}
-		});
+		};
+
+		setCachedData(cacheKey, result);
+		
+		res.json({ success: true, data: result });
 	} catch (error) {
 		console.error('Error getting conversion analytics:', error);
 		res.status(500).json({
@@ -662,6 +1002,60 @@ exports.getHistoricalData = async (req, res) => {
 		res.status(500).json({
 			success: false,
 			message: 'Error fetching historical data',
+			error: error.message
+		});
+	}
+};
+
+/**
+ * Track visit from frontend (PUBLIC endpoint)
+ */
+exports.trackVisit = async (req, res) => {
+	try {
+		const { sessionID, page, referrer, deviceType, userAgent, timestamp } = req.body;
+		
+		// Validate required fields
+		if (!sessionID || !page) {
+			return res.status(400).json({
+				success: false,
+				message: 'sessionID and page are required'
+			});
+		}
+		
+		// Get user ID if authenticated (optional)
+		const userID = req.user ? req.user._id : null;
+		
+		// Get IP address
+		const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || '';
+		
+		// Store visit asynchronously
+		setImmediate(async () => {
+			try {
+				await WebsiteVisit.create({
+					sessionID,
+					userID,
+					page,
+					referrer: referrer || '',
+					userAgent: userAgent || req.headers['user-agent'] || '',
+					ipAddress: ipAddress.split(',')[0].trim(), // Get first IP if forwarded
+					deviceType: deviceType || 'unknown',
+					timestamp: timestamp ? new Date(timestamp) : new Date()
+				});
+			} catch (error) {
+				console.error('Error storing visit:', error);
+			}
+		});
+		
+		// Return success immediately (non-blocking)
+		res.json({
+			success: true,
+			message: 'Visit tracked'
+		});
+	} catch (error) {
+		console.error('Error tracking visit:', error);
+		res.status(500).json({
+			success: false,
+			message: 'Error tracking visit',
 			error: error.message
 		});
 	}

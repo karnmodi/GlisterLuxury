@@ -21,13 +21,13 @@ export default function MetricCard({
   colorClass = 'bg-blue-500'
 }: MetricCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
+    <div className="bg-white rounded-lg shadow p-4 md:p-6 hover:shadow-lg transition-shadow">
       <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
-          <p className="text-3xl font-bold text-gray-900 mb-2">{value}</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs md:text-sm font-medium text-gray-600 mb-1">{title}</p>
+          <p className="text-2xl md:text-3xl font-bold text-gray-900 mb-2 break-words">{value}</p>
           {subtitle && (
-            <p className="text-sm text-gray-500">{subtitle}</p>
+            <p className="text-xs md:text-sm text-gray-500">{subtitle}</p>
           )}
           {trend && (
             <div className="flex items-center mt-2">

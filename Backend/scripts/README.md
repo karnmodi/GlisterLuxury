@@ -1,244 +1,227 @@
-# Analytics Aggregation Scripts
+# Analytics Scripts
 
-## Quick Start
+## Overview
 
-### Method 1: Using npm script (Recommended)
+**⚠️ Important Update:** Analytics system now uses **real-time queries** instead of daily aggregation. The `trigger-analytics.js` script has been removed as it's no longer needed.
 
+---
+
+## Available Scripts
+
+### 1. `check-analytics-data.js` - Check Analytics Data
+
+**Purpose:** Verify that analytics data exists in the database and check data quality.
+
+**Usage:**
 ```bash
 cd Backend
-
-# Set your admin credentials
-export ADMIN_EMAIL="admin@glister.com"
-export ADMIN_PASSWORD="your-admin-password"
-
-# Trigger aggregation for yesterday (default)
-npm run analytics:aggregate
-
-# Trigger aggregation for a specific date
-npm run analytics:aggregate 2025-10-27
+npm run analytics:check
 ```
 
-**Windows (PowerShell):**
-```powershell
-cd Backend
+**What it checks:**
+- Total website visits count
+- Latest visit timestamp and page
+- Analytics summary records (if any - optional with real-time)
+- Order counts (total and paid)
+- User counts (total and admins)
+- Today's activity (visits and orders)
 
-# Set credentials
-$env:ADMIN_EMAIL="admin@glister.com"
-$env:ADMIN_PASSWORD="your-admin-password"
-
-# Run aggregation
-npm run analytics:aggregate
+**Example Output:**
 ```
+=== Analytics Data Check ===
 
-**Windows (CMD):**
-```cmd
-cd Backend
+✓ WebsiteVisits: 150 records
+  Latest visit: 2025-01-15T10:30:00.000Z
+  Page: /products
 
-# Set credentials
-set ADMIN_EMAIL=admin@glister.com
-set ADMIN_PASSWORD=your-admin-password
+✓ AnalyticsSummary: 5 records (optional - not required for real-time)
+  Latest summary: 2025-01-14
+  Page views: 1250
+  Revenue: £15000
 
-# Run aggregation
-npm run analytics:aggregate
+✓ Orders: 45 total (38 paid)
+✓ Users: 12 total (2 admins)
+
+=== Today's Activity ===
+Page views: 25
+Orders: 3
+
+✅ Data check complete!
 ```
 
 ---
 
-### Method 2: Using curl
+### 2. `clear-api-visits.js` - Clear API Route Visits
 
+**Purpose:** Remove incorrectly tracked API route visits from the database.
+
+**Usage:**
 ```bash
-# Step 1: Login to get token
-TOKEN=$(curl -X POST http://localhost:5000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@glister.com","password":"your-password"}' \
-  | jq -r '.token')
-
-# Step 2: Trigger aggregation
-curl -X POST http://localhost:5000/api/analytics/aggregate \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"date":"2025-10-27"}'
-
-# Or for yesterday (default)
-curl -X POST http://localhost:5000/api/analytics/aggregate \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN"
+cd Backend
+npm run analytics:clear-api
 ```
 
-**Windows (PowerShell):**
-```powershell
-# Step 1: Login
-$response = Invoke-RestMethod -Uri "http://localhost:5000/api/auth/login" `
-  -Method POST `
-  -ContentType "application/json" `
-  -Body '{"email":"admin@glister.com","password":"your-password"}'
+**What it does:**
+- Deletes all `WebsiteVisit` records where `page` starts with `/api`
+- Shows remaining visit count
+- Displays sample visits for verification
 
-$token = $response.token
+**When to use:**
+- After fixing visit tracking to exclude API routes
+- To clean up incorrectly tracked data
+- Before starting fresh with proper tracking
 
-# Step 2: Trigger aggregation
-Invoke-RestMethod -Uri "http://localhost:5000/api/analytics/aggregate" `
-  -Method POST `
-  -ContentType "application/json" `
-  -Headers @{Authorization="Bearer $token"} `
-  -Body '{"date":"2025-10-27"}'
+**Example Output:**
+```
+Connecting to database...
+Clearing API route visits...
+✓ Deleted 50 API route visit records
+
+✓ Remaining visits: 100
+
+Sample visits:
+  - /products
+  - /cart
+  - /products/123
+
+✅ Cleanup complete!
+
+Next steps:
+1. Restart your backend server
+2. Visit some pages on the frontend (http://localhost:3000)
+3. Check analytics dashboard - data appears in real-time!
 ```
 
 ---
 
-### Method 3: Using Postman
+## Real-Time Analytics System
 
-1. **Login Request:**
-   - Method: `POST`
-   - URL: `http://localhost:5000/api/auth/login`
-   - Body (JSON):
-     ```json
-     {
-       "email": "admin@glister.com",
-       "password": "your-password"
-     }
-     ```
-   - Copy the `token` from response
+### How It Works
 
-2. **Trigger Aggregation:**
-   - Method: `POST`
-   - URL: `http://localhost:5000/api/analytics/aggregate`
-   - Headers:
-     - `Authorization: Bearer YOUR_TOKEN_HERE`
-     - `Content-Type: application/json`
-   - Body (JSON) - Optional:
-     ```json
-     {
-       "date": "2025-10-27"
-     }
-     ```
-     Leave body empty for yesterday's aggregation
+**Old System (Removed):**
+- ❌ Daily aggregation at 12:05 AM
+- ❌ Pre-computed summaries in `AnalyticsSummary` collection
+- ❌ Required manual triggering via `trigger-analytics.js`
 
----
+**New System (Current):**
+- ✅ Real-time queries from raw collections
+- ✅ 5-minute caching for performance
+- ✅ No scheduled jobs needed
+- ✅ Instant data updates
 
-## Script Details
+### Data Flow
 
-### trigger-analytics.js
-
-**Purpose:** Automates the process of logging in and triggering analytics aggregation.
-
-**Environment Variables:**
-- `ADMIN_EMAIL` - Admin user email (required)
-- `ADMIN_PASSWORD` - Admin user password (required)
-- `API_URL` - API base URL (optional, defaults to http://localhost:5000/api)
-
-**Command Line Arguments:**
-- `[date]` - Optional date in YYYY-MM-DD format. Defaults to yesterday if not provided.
-
-**Examples:**
-
-```bash
-# Aggregate yesterday's data
-ADMIN_EMAIL=admin@glister.com ADMIN_PASSWORD=pass123 npm run analytics:aggregate
-
-# Aggregate specific date
-ADMIN_EMAIL=admin@glister.com ADMIN_PASSWORD=pass123 npm run analytics:aggregate 2025-10-27
-
-# Using custom API URL
-API_URL=https://api.glister.com/api ADMIN_EMAIL=admin@glister.com ADMIN_PASSWORD=pass123 npm run analytics:aggregate
 ```
+User Visits Page → VisitTracker → WebsiteVisit Collection
+                                         ↓
+Admin Views Analytics → Query (with cache) → Aggregate On-Demand → Return Data
+```
+
+### Collections Used
+
+1. **WebsiteVisit** - Raw page visits (90-day TTL)
+2. **Order** - Order and revenue data
+3. **Cart** - Cart conversion data
+4. **User** - User registration and activity
+5. **Product** - Product information for lookups
+6. **Wishlist** - Wishlist data
+
+### AnalyticsSummary Collection
+
+- **Status:** Optional/Deprecated
+- **Purpose:** Historical aggregated data (if you want to keep it)
+- **Note:** Real-time system doesn't require it but it won't hurt if it exists
 
 ---
 
 ## Troubleshooting
 
-### Error: Missing required environment variables
+### No Data Showing in Analytics
 
-**Problem:** Script can't find ADMIN_EMAIL or ADMIN_PASSWORD.
+**Check 1: Verify visits are being tracked**
+```bash
+npm run analytics:check
+```
+
+**Check 2: Visit customer-facing pages**
+- Open your website in browser
+- Navigate to: `/`, `/products`, `/cart`, etc.
+- Check that visits are being recorded
+
+**Check 3: Clear cache**
+- Real-time analytics cache expires after 5 minutes
+- Wait a few minutes or restart backend server
+
+### API Routes Being Tracked
+
+**Problem:** API routes like `/api/products` are showing in analytics.
 
 **Solution:**
 ```bash
-# Make sure to export variables before running
-export ADMIN_EMAIL="admin@glister.com"
-export ADMIN_PASSWORD="your-password"
-npm run analytics:aggregate
+npm run analytics:clear-api
 ```
 
-### Error: Login failed
+Then verify `VisitTracker.tsx` excludes `/api` routes (it should).
 
-**Problem:** Invalid credentials or user doesn't exist.
+### Old Aggregated Data
 
-**Solution:**
-1. Verify your admin credentials
-2. Create an admin user if needed:
-   ```bash
-   npm run seed:admin
-   ```
-3. Check if the API server is running
+**If you have old `AnalyticsSummary` data:**
+- Real-time system ignores it by default
+- It won't interfere with new real-time queries
+- You can keep it for historical reference or delete it
 
-### Error: Connection refused
+---
 
-**Problem:** API server is not running.
+## Production Considerations
 
-**Solution:**
+### Performance
+
+- **Caching:** 5-minute TTL reduces database load
+- **Indexes:** Ensure indexes exist on:
+  - `WebsiteVisit.timestamp`
+  - `WebsiteVisit.sessionID`
+  - `WebsiteVisit.page`
+- **Query Optimization:** Aggregation pipelines use indexes efficiently
+
+### Data Retention
+
+- **WebsiteVisit:** Auto-deleted after 90 days (TTL index)
+- **Other Collections:** Keep indefinitely (or as per business needs)
+
+### Monitoring
+
+Check analytics health:
 ```bash
-# Start the backend server first
-npm run dev
-# Then in another terminal, run the aggregation
-npm run analytics:aggregate
+npm run analytics:check
 ```
 
-### Error: Aggregation failed
-
-**Problem:** Database connection issues or data problems.
-
-**Solution:**
-1. Check MongoDB is running
-2. Verify database connection in `.env` file
-3. Check server logs for detailed error messages
+Monitor backend logs for:
+- Visit tracking errors
+- Query performance
+- Cache hits/misses
 
 ---
 
-## Production Usage
+## Migration from Aggregated System
 
-For production environments, consider:
+If you're migrating from the old aggregated system:
 
-1. **Using environment files:**
-   ```bash
-   # Create .env.production
-   ADMIN_EMAIL=admin@glister.com
-   ADMIN_PASSWORD=secure-password
-   API_URL=https://api.glister.com/api
-   
-   # Load and run
-   set -a && source .env.production && set +a
-   npm run analytics:aggregate
-   ```
-
-2. **Scheduled cron jobs:**
-   ```bash
-   # Add to crontab (Linux/Mac)
-   # Run daily at 1 AM
-   0 1 * * * cd /path/to/Backend && /usr/bin/npm run analytics:aggregate >> /var/log/analytics-aggregate.log 2>&1
-   ```
-
-3. **CI/CD Integration:**
-   - Store credentials in CI/CD secrets
-   - Run as part of deployment pipeline
-   - Monitor execution and alert on failures
-
----
-
-## Security Notes
-
-⚠️ **Important:**
-- Never commit credentials to version control
-- Use environment variables or secure secret management
-- Rotate admin passwords regularly
-- Limit network access to aggregation endpoints
-- Monitor aggregation logs for unauthorized access
+1. ✅ **Real-time queries are already active** - no migration needed
+2. ⚠️ **Old `AnalyticsSummary` data** - can be kept or deleted
+3. ✅ **New visits** - automatically tracked and available in real-time
+4. ✅ **Historical data** - Still accessible from `WebsiteVisit` (90-day retention)
 
 ---
 
 ## Support
 
 For issues or questions:
-1. Check the main documentation: `Analytics_Implementation_Documentation.md`
+1. Check main documentation: `Analytics_Implementation_Documentation.md`
 2. Review backend logs: `npm run dev` output
-3. Verify API endpoints are accessible
-4. Check MongoDB connection and data integrity
+3. Verify data: `npm run analytics:check`
+4. Check MongoDB connection and indexes
 
+---
+
+**Last Updated:** 2025-01-15  
+**System:** Real-Time Analytics (No aggregation needed)

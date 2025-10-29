@@ -36,8 +36,7 @@ async function clearAPIVisits() {
     console.log('Next steps:');
     console.log('1. Restart your backend server');
     console.log('2. Visit some pages on the frontend (http://localhost:3000)');
-    console.log('3. Check analytics dashboard');
-    console.log('4. Run: npm run analytics:aggregate');
+    console.log('3. Check analytics dashboard - data appears in real-time!');
     
     process.exit(0);
   } catch (error) {
