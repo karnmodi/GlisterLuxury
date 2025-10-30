@@ -9,13 +9,36 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
+const normalizeOrigin = (value) => (typeof value === 'string' ? value.replace(/\/+$/, '') : value);
+
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL_2,
+  'https://glister-londonn.vercel.app',
+  'https://glister-london.vercel.app',
+  'http://localhost:3000'
+]
+  .filter(Boolean)
+  .map(normalizeOrigin);
+
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Allow server-to-server/health checks with no Origin
+    if (!origin) return callback(null, true);
+    const normalized = normalizeOrigin(origin);
+    if (allowedOrigins.includes(normalized)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-ID']
 };
+
 app.use(cors(corsOptions));
+// Handle preflight quickly
+app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
