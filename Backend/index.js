@@ -37,8 +37,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-// Handle preflight quickly
-app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -65,18 +63,22 @@ app.get('/', (req, res) => {
 // Visit tracking middleware (before routes, after auth)
 app.use(visitTracker);
 
-// API routes (no /api prefix needed - Vercel handles routing to /api/*)
-app.use('/auth', require('./src/routes/auth.routes'));
-app.use('/categories', require('./src/routes/categories.routes'));
-app.use('/products', require('./src/routes/products.routes'));
-app.use('/finishes', require('./src/routes/finishes.routes'));
-app.use('/materials', require('./src/routes/materials.routes'));
-app.use('/configurations', require('./src/routes/configurations.routes'));
-app.use('/cart', require('./src/routes/cart.routes'));
-app.use('/orders', require('./src/routes/orders.routes'));
-app.use('/wishlist', require('./src/routes/wishlist.routes'));
-app.use('/faqs', require('./src/routes/faq.routes'));
-app.use('/analytics', require('./src/routes/analytics.routes'));
+// API routes - support both with and without /api prefix (Vercel sends /api/*)
+const apiRouter = express.Router();
+apiRouter.use('/auth', require('./src/routes/auth.routes'));
+apiRouter.use('/categories', require('./src/routes/categories.routes'));
+apiRouter.use('/products', require('./src/routes/products.routes'));
+apiRouter.use('/finishes', require('./src/routes/finishes.routes'));
+apiRouter.use('/materials', require('./src/routes/materials.routes'));
+apiRouter.use('/configurations', require('./src/routes/configurations.routes'));
+apiRouter.use('/cart', require('./src/routes/cart.routes'));
+apiRouter.use('/orders', require('./src/routes/orders.routes'));
+apiRouter.use('/wishlist', require('./src/routes/wishlist.routes'));
+apiRouter.use('/faqs', require('./src/routes/faq.routes'));
+apiRouter.use('/analytics', require('./src/routes/analytics.routes'));
+
+app.use(apiRouter); // no prefix
+app.use('/api', apiRouter); // with /api prefix
 
 // Error handler (must be last)
 app.use(require('./src/middleware/errorHandler'));
