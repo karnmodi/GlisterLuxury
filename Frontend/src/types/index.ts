@@ -58,6 +58,12 @@ export interface Product {
   description?: string
   category?: Category | string
   subcategoryId?: string
+  subcategory?: {
+    _id: string
+    name: string
+    slug: string
+    description?: string
+  }
   packagingPrice: number
   packagingUnit: string
   materials: Material[]

@@ -22,12 +22,13 @@ async function apiCall<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
 // Products API
 export const productsApi = {
-  getAll: (params?: { q?: string; material?: string; category?: string }) => {
+  getAll: (params?: { q?: string; material?: string; category?: string; subcategory?: string }) => {
     const queryParams = new URLSearchParams()
     if (params?.q) queryParams.append('q', params.q)
     if (params?.material) queryParams.append('material', params.material)
     if (params?.category) queryParams.append('category', params.category)
-    
+    if (params?.subcategory) queryParams.append('subcategory', params.subcategory)
+
     const query = queryParams.toString()
     return apiCall<Product[]>(`/products${query ? `?${query}` : ''}`)
   },

@@ -1,14 +1,37 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useAuth } from '@/contexts/AuthContext'
+import { categoriesApi } from '@/lib/api'
+import type { Category } from '@/types'
 
 export default function MobileNavigation() {
   const [isOpen, setIsOpen] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  const { user, isAuthenticated } = useAuth()
 
   const closeMenu = () => setIsOpen(false)
+
+  // Fetch categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await categoriesApi.getAll()
+        setCategories(data)
+      } catch (error) {
+        console.error('Failed to fetch categories:', error)
+      }
+    }
+    fetchCategories()
+  }, [])
+
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategory(expandedCategory === categoryId ? null : categoryId)
+  }
 
   return (
     <div className="lg:hidden">
@@ -88,11 +111,28 @@ export default function MobileNavigation() {
 
                   {/* Navigation Menu */}
                   <nav className="flex-1 space-y-1">
-                    
+
+                    {/* Admin Panel Button - Show only for admin users */}
+                    {isAuthenticated && user?.role === 'admin' && (
+                      <Link
+                        href="/admin/products"
+                        className="block w-full px-4 py-3 mb-3 bg-gradient-to-r from-brass to-olive text-charcoal text-center font-semibold tracking-wide rounded-sm hover:shadow-lg hover:shadow-brass/50 transition-all duration-300 border-2 border-brass"
+                        onClick={closeMenu}
+                      >
+                        <span className="flex items-center justify-center gap-2">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Admin Panel
+                        </span>
+                      </Link>
+                    )}
+
                     {/* About Link */}
-                    <Link 
-                      href="/about" 
-                      className="block text-base font-medium text-ivory hover:text-brass hover:bg-brass/5 transition-all duration-300 py-3 px-4 rounded-sm border-b border-brass/10" 
+                    <Link
+                      href="/about"
+                      className="block text-base font-medium text-ivory hover:text-brass hover:bg-brass/5 transition-all duration-300 py-3 px-4 rounded-sm border-b border-brass/10"
                       onClick={closeMenu}
                     >
                       About
@@ -135,47 +175,80 @@ export default function MobileNavigation() {
                       </div>
                     </div>
 
-                    {/* Products Section */}
+                    {/* Products Section - Dynamic Categories */}
                     <div className="border-b border-brass/10">
-                      <div className="text-base font-semibold text-ivory py-3 px-4">
+                      <Link
+                        href="/products"
+                        className="block text-base font-semibold text-ivory py-3 px-4 hover:text-brass hover:bg-brass/5 transition-all duration-300"
+                        onClick={closeMenu}
+                      >
                         Products
-                      </div>
+                      </Link>
                       <div className="space-y-1 pb-2">
-                        <Link 
-                          href="/products/cabinet-hardware" 
-                          className="block text-sm text-ivory/80 hover:text-brass hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-4 rounded-sm" 
-                          onClick={closeMenu}
-                        >
-                          Cabinet Hardware
-                        </Link>
-                        <Link 
-                          href="/products/bathroom-accessories" 
-                          className="block text-sm text-ivory/80 hover:text-brass hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-4 rounded-sm" 
-                          onClick={closeMenu}
-                        >
-                          Bathroom Accessories
-                        </Link>
-                        <Link 
-                          href="/products/mortise-handles" 
-                          className="block text-sm text-ivory/80 hover:text-brass hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-4 rounded-sm" 
-                          onClick={closeMenu}
-                        >
-                          Mortise Handles
-                        </Link>
-                        <Link 
-                          href="/products/door-hardware" 
-                          className="block text-sm text-ivory/80 hover:text-brass hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-4 rounded-sm" 
-                          onClick={closeMenu}
-                        >
-                          Door Hardware
-                        </Link>
-                        <Link 
-                          href="/products/sockets-switches" 
-                          className="block text-sm text-ivory/80 hover:text-brass hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-4 rounded-sm" 
-                          onClick={closeMenu}
-                        >
-                          Sockets & Switches
-                        </Link>
+                        {categories.length > 0 ? (
+                          categories.map((category) => (
+                            <div key={category._id}>
+                              {/* Category with toggle */}
+                              <div className="flex items-center justify-between">
+                                <Link
+                                  href={`/products?category=${category.slug}`}
+                                  className="flex-1 block text-sm text-brass font-medium hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-4 rounded-sm"
+                                  onClick={closeMenu}
+                                >
+                                  {category.name}
+                                </Link>
+                                {category.subcategories && category.subcategories.length > 0 && (
+                                  <button
+                                    onClick={() => toggleCategory(category._id)}
+                                    className="px-3 py-2 text-ivory hover:text-brass transition-colors duration-300"
+                                    aria-label={`Toggle ${category.name} subcategories`}
+                                  >
+                                    <svg
+                                      className={`w-4 h-4 transition-transform duration-300 ${
+                                        expandedCategory === category._id ? 'rotate-180' : ''
+                                      }`}
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Subcategories - Expandable */}
+                              {category.subcategories && category.subcategories.length > 0 && (
+                                <AnimatePresence>
+                                  {expandedCategory === category._id && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: 'auto', opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.2 }}
+                                      className="overflow-hidden"
+                                    >
+                                      {category.subcategories.map((subcategory) => (
+                                        <Link
+                                          key={subcategory._id}
+                                          href={`/products?category=${category.slug}&subcategory=${subcategory.slug}`}
+                                          className="block text-sm text-ivory/70 hover:text-brass hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-12 rounded-sm"
+                                          onClick={closeMenu}
+                                        >
+                                          {subcategory.name}
+                                        </Link>
+                                      ))}
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-4 py-2 text-sm text-ivory/50 ml-4">
+                            No categories available
+                          </div>
+                        )}
                       </div>
                     </div>
 

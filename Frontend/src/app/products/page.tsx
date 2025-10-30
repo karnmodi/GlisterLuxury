@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { productsApi, categoriesApi, finishesApi } from '@/lib/api'
@@ -12,13 +13,30 @@ import Button from '@/components/ui/Button'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function ProductsPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [finishes, setFinishes] = useState<Finish[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>('')
   const [hoveredProduct, setHoveredProduct] = useState<string | null>(null)
+  const [activeCategory, setActiveCategory] = useState<Category | null>(null)
+  const [activeSubcategory, setActiveSubcategory] = useState<{ _id: string; name: string; slug: string } | null>(null)
+
+  // Read URL params on mount
+  useEffect(() => {
+    const categorySlug = searchParams.get('category')
+    const subcategorySlug = searchParams.get('subcategory')
+
+    if (categorySlug || subcategorySlug) {
+      // Store slugs to use after categories are loaded
+      setSelectedCategory(categorySlug || '')
+      setSelectedSubcategory(subcategorySlug || '')
+    }
+  }, [searchParams])
 
   useEffect(() => {
     fetchData()
@@ -32,9 +50,35 @@ export default function ProductsPage() {
         categoriesApi.getAll(),
         finishesApi.getAll(),
       ])
-      setProducts(productsData)
       setCategories(categoriesData)
       setFinishes(finishesData)
+
+      // After categories load, resolve category/subcategory from URL params
+      const categorySlug = searchParams.get('category')
+      const subcategorySlug = searchParams.get('subcategory')
+
+      if (categorySlug) {
+        const category = categoriesData.find((c: Category) => c.slug === categorySlug)
+        if (category) {
+          setActiveCategory(category)
+          setSelectedCategory(category._id)
+
+          if (subcategorySlug && category.subcategories) {
+            const subcategory = category.subcategories.find((s: any) => s.slug === subcategorySlug)
+            if (subcategory) {
+              setActiveSubcategory(subcategory)
+              setSelectedSubcategory(subcategory._id)
+            }
+          }
+        }
+      }
+
+      // Filter products based on URL params
+      if (categorySlug || subcategorySlug) {
+        await handleSearch()
+      } else {
+        setProducts(productsData)
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error)
     } finally {
@@ -48,6 +92,7 @@ export default function ProductsPage() {
       const params: any = {}
       if (searchQuery) params.q = searchQuery
       if (selectedCategory) params.category = selectedCategory
+      if (selectedSubcategory) params.subcategory = selectedSubcategory
       const results = await productsApi.getAll(params)
       setProducts(results)
     } catch (error) {
@@ -60,8 +105,25 @@ export default function ProductsPage() {
   const clearFilters = () => {
     setSearchQuery('')
     setSelectedCategory('')
+    setSelectedSubcategory('')
+    setActiveCategory(null)
+    setActiveSubcategory(null)
+    router.push('/products')
     fetchData()
   }
+
+  // Update active category when selection changes
+  useEffect(() => {
+    if (selectedCategory) {
+      const category = categories.find(c => c._id === selectedCategory)
+      setActiveCategory(category || null)
+    } else {
+      setActiveCategory(null)
+    }
+  }, [selectedCategory, categories])
+
+  // Get available subcategories based on selected category
+  const availableSubcategories = activeCategory?.subcategories || []
 
   // Get the default image (mappedFinishID: null)
   const getDefaultImage = (product: Product) => {
@@ -103,11 +165,41 @@ export default function ProductsPage() {
               className="text-center"
             >
               <h1 className="text-5xl font-serif font-bold mb-4 tracking-wide">
-                Our Products
+                {activeCategory ? activeCategory.name : 'Our Products'}
               </h1>
               <p className="text-xl text-brass tracking-luxury">
-                Discover Excellence in Every Detail
+                {activeSubcategory
+                  ? activeSubcategory.name
+                  : activeCategory
+                  ? activeCategory.description || 'Discover Excellence in Every Detail'
+                  : 'Discover Excellence in Every Detail'}
               </p>
+
+              {/* Breadcrumb for active filters */}
+              {(activeCategory || activeSubcategory) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="mt-4 flex items-center justify-center gap-2 text-sm text-brass/80"
+                >
+                  <Link href="/products" className="hover:text-brass transition-colors">
+                    All Products
+                  </Link>
+                  {activeCategory && (
+                    <>
+                      <span>/</span>
+                      <span className="text-ivory">{activeCategory.name}</span>
+                    </>
+                  )}
+                  {activeSubcategory && (
+                    <>
+                      <span>/</span>
+                      <span className="text-ivory">{activeSubcategory.name}</span>
+                    </>
+                  )}
+                </motion.div>
+              )}
             </motion.div>
           </div>
         </section>
@@ -115,17 +207,20 @@ export default function ProductsPage() {
         <div className="container mx-auto px-6 py-12">
           {/* Filters */}
           <div className="bg-white rounded-lg shadow-md border border-brass/20 p-6 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Input
                 placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
               />
-              
+
               <select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value)
+                  setSelectedSubcategory('') // Reset subcategory when category changes
+                }}
                 className="px-4 py-2.5 bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all duration-300"
               >
                 <option value="">All Categories</option>
@@ -136,17 +231,83 @@ export default function ProductsPage() {
                 ))}
               </select>
 
+              <select
+                value={selectedSubcategory}
+                onChange={(e) => setSelectedSubcategory(e.target.value)}
+                disabled={!selectedCategory || availableSubcategories.length === 0}
+                className="px-4 py-2.5 bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="">All Subcategories</option>
+                {availableSubcategories.map((sub: any) => (
+                  <option key={sub._id} value={sub._id}>
+                    {sub.name}
+                  </option>
+                ))}
+              </select>
+
               <div className="flex gap-2">
                 <Button onClick={handleSearch} className="flex-1">
                   Search
                 </Button>
-                {(searchQuery || selectedCategory) && (
+                {(searchQuery || selectedCategory || selectedSubcategory) && (
                   <Button onClick={clearFilters} variant="ghost">
                     Clear
                   </Button>
                 )}
               </div>
             </div>
+
+            {/* Active Filter Badges */}
+            {(activeCategory || activeSubcategory || searchQuery) && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="mt-4 pt-4 border-t border-brass/20 flex flex-wrap gap-2"
+              >
+                <span className="text-sm text-charcoal/60">Active Filters:</span>
+                {activeCategory && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-brass/10 text-brass text-sm rounded-full border border-brass/30">
+                    Category: {activeCategory.name}
+                    <button
+                      onClick={() => {
+                        setSelectedCategory('')
+                        setSelectedSubcategory('')
+                        setActiveCategory(null)
+                        setActiveSubcategory(null)
+                      }}
+                      className="ml-1 hover:text-charcoal transition-colors"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {activeSubcategory && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-brass/10 text-brass text-sm rounded-full border border-brass/30">
+                    Subcategory: {activeSubcategory.name}
+                    <button
+                      onClick={() => {
+                        setSelectedSubcategory('')
+                        setActiveSubcategory(null)
+                      }}
+                      className="ml-1 hover:text-charcoal transition-colors"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {searchQuery && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-brass/10 text-brass text-sm rounded-full border border-brass/30">
+                    Search: "{searchQuery}"
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="ml-1 hover:text-charcoal transition-colors"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+              </motion.div>
+            )}
           </div>
 
           {/* Products Grid */}

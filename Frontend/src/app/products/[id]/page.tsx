@@ -416,6 +416,77 @@ export default function ProductDetailPage() {
               transition={{ duration: 0.6 }}
               className="w-full lg:w-[55%] space-y-3 min-w-0"
             >
+              {/* Breadcrumb Navigation */}
+              {product.category && (
+                <motion.nav
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                  className="flex items-center gap-2 text-sm text-charcoal/60 mb-4 flex-wrap"
+                >
+                  <a href="/" className="hover:text-brass transition-colors">
+                    Home
+                  </a>
+                  <span>/</span>
+                  <a href="/products" className="hover:text-brass transition-colors">
+                    Products
+                  </a>
+                  <span>/</span>
+                  <a
+                    href={`/products?category=${product.category.slug}`}
+                    className="hover:text-brass transition-colors"
+                  >
+                    {product.category.name}
+                  </a>
+                  {product.subcategory && (
+                    <>
+                      <span>/</span>
+                      <a
+                        href={`/products?category=${product.category.slug}&subcategory=${product.subcategory.slug}`}
+                        className="hover:text-brass transition-colors"
+                      >
+                        {product.subcategory.name}
+                      </a>
+                    </>
+                  )}
+                  <span>/</span>
+                  <span className="text-charcoal font-medium">{product.name}</span>
+                </motion.nav>
+              )}
+
+              {/* Category & Subcategory Tags */}
+              {(product.category || product.subcategory) && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.1 }}
+                  className="flex items-center gap-2 mb-3"
+                >
+                  {product.category && (
+                    <a
+                      href={`/products?category=${product.category.slug}`}
+                      className="inline-flex items-center px-3 py-1.5 bg-brass/10 text-brass text-xs font-medium rounded-full border border-brass/30 hover:bg-brass/20 hover:shadow-md transition-all duration-300"
+                    >
+                      <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                      {product.category.name}
+                    </a>
+                  )}
+                  {product.subcategory && (
+                    <a
+                      href={`/products?category=${product.category.slug}&subcategory=${product.subcategory.slug}`}
+                      className="inline-flex items-center px-3 py-1.5 bg-olive/10 text-olive text-xs font-medium rounded-full border border-olive/30 hover:bg-olive/20 hover:shadow-md transition-all duration-300"
+                    >
+                      <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                      {product.subcategory.name}
+                    </a>
+                  )}
+                </motion.div>
+              )}
+
               {/* Product Header */}
               <ProductHeader
                 product={product}

@@ -110,23 +110,80 @@ async function createProduct(req, res) {
 
 async function listProducts(req, res) {
 	try {
-		const { q, material, hasSize, finishId, category, subcategoryId } = req.query;
+		const { q, material, hasSize, finishId, category, subcategory, subcategoryId } = req.query;
+		const Category = require('../models/Category');
 		const filter = {};
+
+		// Search query
 		if (q) filter.$or = [
 			{ name: { $regex: q, $options: 'i' } },
 			{ productID: { $regex: q, $options: 'i' } },
 			{ productUID: { $regex: q, $options: 'i' } },
 		];
+
+		// Material filter
 		if (material) filter['materials.name'] = { $regex: material, $options: 'i' };
+
+		// Size filter
 		if (hasSize === 'true') filter['materials.sizeOptions.0'] = { $exists: true };
+
+		// Finish filter
 		if (finishId) filter.finishes = { $in: [finishId] };
-		if (category) filter.category = category;
-		if (subcategoryId) filter.subcategoryId = subcategoryId;
-		const items = await Product.find(filter).populate('category', 'name slug').lean();
+
+		// Category filter - support both ID and slug
+		if (category) {
+			// Check if category is an ObjectId or slug
+			const mongoose = require('mongoose');
+			if (mongoose.Types.ObjectId.isValid(category) && category.length === 24) {
+				// It's an ObjectId
+				filter.category = category;
+			} else {
+				// It's a slug - need to look up the category ID
+				const categoryDoc = await Category.findOne({ slug: category });
+				if (categoryDoc) {
+					filter.category = categoryDoc._id;
+				} else {
+					// Category slug not found - return empty results
+					return res.json([]);
+				}
+			}
+		}
+
+		// Subcategory filter - support both ID and slug
+		if (subcategory || subcategoryId) {
+			const subcategoryValue = subcategory || subcategoryId;
+			const mongoose = require('mongoose');
+
+			if (mongoose.Types.ObjectId.isValid(subcategoryValue) && subcategoryValue.length === 24) {
+				// It's an ObjectId
+				filter.subcategoryId = subcategoryValue;
+			} else {
+				// It's a slug - need to find the subcategory ID from the category
+				// First, we need to find which category contains this subcategory
+				const categoryWithSubcategory = await Category.findOne({
+					'subcategories.slug': subcategoryValue
+				});
+
+				if (categoryWithSubcategory) {
+					const subcategoryDoc = categoryWithSubcategory.subcategories.find(
+						sub => sub.slug === subcategoryValue
+					);
+					if (subcategoryDoc) {
+						filter.subcategoryId = subcategoryDoc._id;
+					}
+				} else {
+					// Subcategory slug not found - return empty results
+					return res.json([]);
+				}
+			}
+		}
+
+		const items = await Product.find(filter).populate('category', 'name slug description subcategories').lean();
 
 		const transformedItems = items.map(item => transformMongoTypes(item));
 		return res.json(transformedItems);
 	} catch (err) {
+		console.error('List products error:', err);
 		return res.status(500).json({ message: err.message });
 	}
 }
@@ -134,9 +191,24 @@ async function listProducts(req, res) {
 async function getProduct(req, res) {
 	try {
 		const item = await Product.findById(req.params.id)
-			.populate('category', 'name slug')
+			.populate('category', 'name slug description subcategories')
 			.lean();
 		if (!item) return res.status(404).json({ message: 'Not found' });
+
+		// Add subcategory details if subcategoryId exists
+		if (item.subcategoryId && item.category && item.category.subcategories) {
+			const subcategory = item.category.subcategories.find(
+				sub => sub._id.toString() === item.subcategoryId.toString()
+			);
+			if (subcategory) {
+				item.subcategory = {
+					_id: subcategory._id,
+					name: subcategory.name,
+					slug: subcategory.slug,
+					description: subcategory.description
+				};
+			}
+		}
 
 		const transformedItem = transformMongoTypes(item);
 		return res.json(transformedItem);

@@ -8,11 +8,14 @@ import MobileNavigation from './MobileNavigation'
 import { useCart } from '@/contexts/CartContext'
 import { useWishlist } from '@/contexts/WishlistContext'
 import { useAuth } from '@/contexts/AuthContext'
+import { categoriesApi } from '@/lib/api'
+import type { Category } from '@/types'
 
 export default function LuxuryNavigation() {
   const [scrolled, setScrolled] = useState(false)
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
   const { itemCount } = useCart()
   const { itemCount: wishlistCount } = useWishlist()
   const { user, isAuthenticated, logout } = useAuth()
@@ -25,19 +28,24 @@ export default function LuxuryNavigation() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  // Fetch categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await categoriesApi.getAll()
+        setCategories(data)
+      } catch (error) {
+        console.error('Failed to fetch categories:', error)
+      }
+    }
+    fetchCategories()
+  }, [])
+
   const collectionsSubmenu = [
     { name: 'Luxury Collection', href: '/collections/luxury' },
     { name: 'Classic Collection', href: '/collections/classic' },
     { name: 'Modern Collection', href: '/collections/modern' },
     { name: 'Heritage Collection', href: '/collections/heritage' },
-  ]
-
-  const productsSubmenu = [
-    { name: 'Cabinet Hardware', href: '/products/cabinet-hardware' },
-    { name: 'Bathroom Accessories', href: '/products/bathroom-accessories' },
-    { name: 'Mortise Handles', href: '/products/mortise-handles' },
-    { name: 'Door Hardware', href: '/products/door-hardware' },
-    { name: 'Sockets & Switches', href: '/products/sockets-switches' },
   ]
 
   return (
@@ -118,14 +126,14 @@ export default function LuxuryNavigation() {
               </AnimatePresence>
             </div>
 
-            {/* Products with Submenu */}
-            <div 
+            {/* Products with Submenu - Dynamic Categories */}
+            <div
               className="relative"
               onMouseEnter={() => setActiveMenu('products')}
               onMouseLeave={() => setActiveMenu(null)}
             >
-              <Link 
-                href="/products" 
+              <Link
+                href="/products"
                 className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline flex items-center gap-1"
               >
                 Products
@@ -133,7 +141,7 @@ export default function LuxuryNavigation() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </Link>
-              
+
               <AnimatePresence>
                 {activeMenu === 'products' && (
                   <motion.div
@@ -141,17 +149,40 @@ export default function LuxuryNavigation() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
                     transition={{ duration: 0.2 }}
-                    className="absolute top-full left-0 mt-2 w-56 bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg shadow-2xl overflow-hidden"
+                    className="absolute top-full left-0 mt-2 w-72 bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg shadow-2xl overflow-hidden max-h-[80vh] overflow-y-auto"
                   >
-                    {productsSubmenu.map((item, index) => (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        className="block px-6 py-3 text-sm text-ivory hover:text-brass hover:bg-brass/10 transition-all duration-300 border-b border-brass/10 last:border-b-0"
-                      >
-                        {item.name}
-                      </Link>
-                    ))}
+                    {categories.length > 0 ? (
+                      categories.map((category) => (
+                        <div key={category._id} className="border-b border-brass/10 last:border-b-0">
+                          {/* Category Link */}
+                          <Link
+                            href={`/products?category=${category.slug}`}
+                            className="block px-6 py-3 text-sm font-semibold text-brass hover:bg-brass/10 transition-all duration-300"
+                          >
+                            {category.name}
+                          </Link>
+
+                          {/* Subcategories */}
+                          {category.subcategories && category.subcategories.length > 0 && (
+                            <div className="bg-charcoal/50">
+                              {category.subcategories.map((subcategory) => (
+                                <Link
+                                  key={subcategory._id}
+                                  href={`/products?category=${category.slug}&subcategory=${subcategory.slug}`}
+                                  className="block pl-10 pr-6 py-2 text-sm text-ivory hover:text-brass hover:bg-brass/10 transition-all duration-300"
+                                >
+                                  {subcategory.name}
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-6 py-3 text-sm text-ivory/50">
+                        No categories available
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

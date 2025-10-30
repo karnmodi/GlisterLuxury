@@ -1,8 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { useAuth } from '@/contexts/AuthContext'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export default function AdminLayout({
   children,
@@ -10,6 +13,14 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const { user, logout } = useAuth()
+  const [showUserMenu, setShowUserMenu] = useState(false)
+
+  const handleLogout = async () => {
+    await logout()
+    router.push('/')
+  }
 
   const navItems = [
     { 
@@ -89,16 +100,81 @@ export default function AdminLayout({
                 <p className="text-[10px] sm:text-xs text-brass/80 tracking-wide hidden sm:block">Product Management System</p>
               </div>
             </div>
-            <Link
-              href="/"
-              className="group px-2 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-brass to-brass/90 text-charcoal text-[10px] sm:text-xs font-semibold tracking-wide rounded-md hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center gap-1 flex-shrink-0"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-              <span className="hidden sm:inline">View Website</span>
-              <span className="sm:hidden">Site</span>
-            </Link>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Link
+                href="/"
+                className="group px-2 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-brass to-brass/90 text-charcoal text-[10px] sm:text-xs font-semibold tracking-wide rounded-md hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center gap-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                <span className="hidden sm:inline">View Website</span>
+                <span className="sm:hidden">Site</span>
+              </Link>
+
+              {/* Desktop Logout Button - hidden on mobile */}
+              <button
+                onClick={handleLogout}
+                className="hidden md:flex items-center gap-1.5 px-4 py-2 bg-red-500/10 text-red-600 hover:bg-red-500/20 text-xs font-semibold tracking-wide rounded-md transition-all duration-300 border border-red-500/30 hover:border-red-500/50"
+                aria-label="Logout"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span>Logout</span>
+              </button>
+
+              {/* Mobile Menu Button */}
+              <div className="relative md:hidden">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="p-2 bg-brass/20 text-brass rounded-md hover:bg-brass/30 transition-all duration-300 border border-brass/30"
+                  aria-label="User menu"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                  </svg>
+                </button>
+
+                {/* Mobile Dropdown Menu */}
+                <AnimatePresence>
+                  {showUserMenu && (
+                    <>
+                      {/* Backdrop */}
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setShowUserMenu(false)}
+                      />
+                      {/* Menu */}
+                      <motion.div
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-brass/20 overflow-hidden z-50"
+                      >
+                        <div className="px-4 py-3 border-b border-brass/20 bg-gradient-to-r from-brass/5 to-transparent">
+                          <p className="text-sm font-semibold text-charcoal">{user?.name}</p>
+                          <p className="text-xs text-charcoal/60 truncate">{user?.email}</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false)
+                            handleLogout()
+                          }}
+                          className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-all duration-300"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                          </svg>
+                          Logout
+                        </button>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
           </div>
         </div>
       </header>
