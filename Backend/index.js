@@ -62,7 +62,7 @@ app.use(require('./src/middleware/errorHandler'));
 // Start server (for local development)
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
-    console.log("Server is running on port ${PORT}");
+    console.log(`Server is running on port ${PORT}`);
 
     // DEPRECATED: Daily aggregation is no longer needed
     // Analytics now use real-time queries with 5-minute caching
