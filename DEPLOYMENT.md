@@ -87,7 +87,7 @@ The frontend only needs one environment variable:
 
 1. **NEXT_PUBLIC_API_URL** - Your deployed backend API URL
    - Format: `https://your-backend.vercel.app/api`
-   - Note: Add `/api` at the end
+   - Note: The backend automatically routes all requests through `/api` serverless function
 
 ### Step 2: Deploy Frontend to Vercel
 
@@ -153,14 +153,17 @@ npm run seed:admin
 ### Backend Files Created/Modified:
 
 1. **[vercel.json](Backend/vercel.json)** - Vercel deployment configuration
-   - Uses `@vercel/node` runtime
-   - Routes all requests to `index.js`
+   - Rewrites all requests to the `/api` serverless function
    - Sets max function duration to 30 seconds
 
-2. **[.env.example](Backend/.env.example)** - Template for environment variables
+2. **[api/index.js](Backend/api/index.js)** - Serverless function entry point
+   - Exports the Express app from `index.js`
+   - Required for Vercel's serverless function architecture
+
+3. **[.env.example](Backend/.env.example)** - Template for environment variables
    - Contains all required environment variables with examples
 
-3. **[index.js](Backend/index.js)** - Updated CORS configuration
+4. **[index.js](Backend/index.js)** - Updated CORS configuration
    - Now uses `FRONTEND_URL` environment variable
    - Enables credentials for cookie support
 
