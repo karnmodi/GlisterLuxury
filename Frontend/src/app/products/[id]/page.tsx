@@ -417,7 +417,7 @@ export default function ProductDetailPage() {
               className="w-full lg:w-[55%] space-y-3 min-w-0"
             >
               {/* Breadcrumb Navigation */}
-              {product.category && (
+              {product.category && typeof product.category === 'object' && (
                 <motion.nav
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -455,14 +455,14 @@ export default function ProductDetailPage() {
               )}
 
               {/* Category & Subcategory Tags */}
-              {(product.category || product.subcategory) && (
+              {(product.category && typeof product.category === 'object') || product.subcategory ? (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: 0.1 }}
                   className="flex items-center gap-2 mb-3"
                 >
-                  {product.category && (
+                  {product.category && typeof product.category === 'object' && (
                     <a
                       href={`/products?category=${product.category.slug}`}
                       className="inline-flex items-center px-3 py-1.5 bg-brass/10 text-brass text-xs font-medium rounded-full border border-brass/30 hover:bg-brass/20 hover:shadow-md transition-all duration-300"
@@ -473,7 +473,7 @@ export default function ProductDetailPage() {
                       {product.category.name}
                     </a>
                   )}
-                  {product.subcategory && (
+                  {product.subcategory && product.category && typeof product.category === 'object' && (
                     <a
                       href={`/products?category=${product.category.slug}&subcategory=${product.subcategory.slug}`}
                       className="inline-flex items-center px-3 py-1.5 bg-olive/10 text-olive text-xs font-medium rounded-full border border-olive/30 hover:bg-olive/20 hover:shadow-md transition-all duration-300"
@@ -485,7 +485,7 @@ export default function ProductDetailPage() {
                     </a>
                   )}
                 </motion.div>
-              )}
+              ) : null}
 
               {/* Product Header */}
               <ProductHeader
