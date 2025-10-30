@@ -10,7 +10,13 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-ID']
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -37,18 +43,18 @@ app.get('/', (req, res) => {
 // Visit tracking middleware (before routes, after auth)
 app.use(visitTracker);
 
-// API routes
-app.use('/api/auth', require('./src/routes/auth.routes'));
-app.use('/api/categories', require('./src/routes/categories.routes'));
-app.use('/api/products', require('./src/routes/products.routes'));
-app.use('/api/finishes', require('./src/routes/finishes.routes'));
-app.use('/api/materials', require('./src/routes/materials.routes'));
-app.use('/api/configurations', require('./src/routes/configurations.routes'));
-app.use('/api/cart', require('./src/routes/cart.routes'));
-app.use('/api/orders', require('./src/routes/orders.routes'));
-app.use('/api/wishlist', require('./src/routes/wishlist.routes'));
-app.use('/api/faqs', require('./src/routes/faq.routes'));
-app.use('/api/analytics', require('./src/routes/analytics.routes'));
+// API routes (no /api prefix needed - Vercel handles routing to /api/*)
+app.use('/auth', require('./src/routes/auth.routes'));
+app.use('/categories', require('./src/routes/categories.routes'));
+app.use('/products', require('./src/routes/products.routes'));
+app.use('/finishes', require('./src/routes/finishes.routes'));
+app.use('/materials', require('./src/routes/materials.routes'));
+app.use('/configurations', require('./src/routes/configurations.routes'));
+app.use('/cart', require('./src/routes/cart.routes'));
+app.use('/orders', require('./src/routes/orders.routes'));
+app.use('/wishlist', require('./src/routes/wishlist.routes'));
+app.use('/faqs', require('./src/routes/faq.routes'));
+app.use('/analytics', require('./src/routes/analytics.routes'));
 
 // Error handler (must be last)
 app.use(require('./src/middleware/errorHandler'));
