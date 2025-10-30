@@ -4,7 +4,6 @@ const cookieParser = require('cookie-parser');
 require('dotenv').config();
 const connectToDatabase = require('./src/config/database');
 const visitTracker = require('./src/middleware/visitTracker');
-const { scheduleDailyAggregation } = require('./src/utils/analyticsAggregator');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -61,6 +60,8 @@ app.use(require('./src/middleware/errorHandler'));
 
 // Start server (for local development)
 if (process.env.NODE_ENV !== 'production') {
+  const { scheduleDailyAggregation } = require('./src/utils/analyticsAggregator');
+
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 
@@ -73,4 +74,8 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Export for Vercel serverless
+// Vercel expects either the app directly or a handler function
 module.exports = app;
+
+// Also export as default for Vercel compatibility
+module.exports.default = app;
