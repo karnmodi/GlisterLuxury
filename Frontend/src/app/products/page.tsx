@@ -1,16 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { productsApi, categoriesApi, finishesApi } from '@/lib/api'
-import type { Product, Category, Finish } from '@/types'
+import { productsApi, categoriesApi, finishesApi, materialsApi } from '@/lib/api'
+import type { Product, Category, Finish, MaterialMaster } from '@/types'
 import LuxuryNavigation from '@/components/LuxuryNavigation'
 import LuxuryFooter from '@/components/LuxuryFooter'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { motion, AnimatePresence } from 'framer-motion'
+
+type SortOption = 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc' | 'newest'
 
 export default function ProductsPage() {
   const searchParams = useSearchParams()
@@ -18,112 +20,218 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [finishes, setFinishes] = useState<Finish[]>([])
+  const [materials, setMaterials] = useState<MaterialMaster[]>([])
   const [loading, setLoading] = useState(true)
+  const [hoveredProduct, setHoveredProduct] = useState<string | null>(null)
+  
+  // Filter states
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('')
-  const [hoveredProduct, setHoveredProduct] = useState<string | null>(null)
+  const [selectedMaterial, setSelectedMaterial] = useState<string>('')
+  const [selectedFinish, setSelectedFinish] = useState<string>('')
+  const [hasSize, setHasSize] = useState<boolean>(false)
+  const [hasDiscount, setHasDiscount] = useState<boolean>(false)
+  const [sortOption, setSortOption] = useState<SortOption>('newest')
+  
   const [activeCategory, setActiveCategory] = useState<Category | null>(null)
   const [activeSubcategory, setActiveSubcategory] = useState<{ _id: string; name: string; slug: string } | null>(null)
 
-  // Read URL params on mount
+  // Debounce search query
   useEffect(() => {
-    const categorySlug = searchParams.get('category')
-    const subcategorySlug = searchParams.get('subcategory')
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
-    if (categorySlug || subcategorySlug) {
-      // Store slugs to use after categories are loaded
-      setSelectedCategory(categorySlug || '')
-      setSelectedSubcategory(subcategorySlug || '')
+  // Read URL params on mount and when URL changes
+  useEffect(() => {
+    const q = searchParams.get('q') || ''
+    const category = searchParams.get('category') || ''
+    const subcategory = searchParams.get('subcategory') || ''
+    const material = searchParams.get('material') || ''
+    const finishId = searchParams.get('finishId') || ''
+    const hasSizeParam = searchParams.get('hasSize') === 'true'
+    const hasDiscountParam = searchParams.get('hasDiscount') === 'true'
+    const sortBy = searchParams.get('sortBy') || ''
+    const sortOrder = searchParams.get('sortOrder') || ''
+
+    setSearchQuery(q)
+    setDebouncedSearchQuery(q)
+    setSelectedCategory(category)
+    setSelectedSubcategory(subcategory)
+    setSelectedMaterial(material)
+    setSelectedFinish(finishId)
+    setHasSize(hasSizeParam)
+    setHasDiscount(hasDiscountParam)
+
+    // Map sortBy and sortOrder to sortOption
+    if (sortBy && sortOrder) {
+      if (sortBy === 'name') {
+        setSortOption(sortOrder === 'asc' ? 'name-asc' : 'name-desc')
+      } else if (sortBy === 'price' || sortBy === 'packagingPrice') {
+        setSortOption(sortOrder === 'asc' ? 'price-asc' : 'price-desc')
+      } else if (sortBy === 'createdAt') {
+        setSortOption('newest')
+      }
     }
   }, [searchParams])
 
+  // Fetch initial data (categories, finishes, materials)
   useEffect(() => {
-    fetchData()
+    const fetchInitialData = async () => {
+      try {
+        const [categoriesData, finishesData, materialsData] = await Promise.all([
+          categoriesApi.getAll(),
+          finishesApi.getAll(),
+          materialsApi.getAll(),
+        ])
+        setCategories(categoriesData)
+        setFinishes(finishesData)
+        setMaterials(materialsData)
+      } catch (error) {
+        console.error('Failed to fetch initial data:', error)
+      }
+    }
+    fetchInitialData()
   }, [])
 
-  const fetchData = async () => {
-    try {
-      setLoading(true)
-      const [productsData, categoriesData, finishesData] = await Promise.all([
-        productsApi.getAll(),
-        categoriesApi.getAll(),
-        finishesApi.getAll(),
-      ])
-      setCategories(categoriesData)
-      setFinishes(finishesData)
-
-      // After categories load, resolve category/subcategory from URL params
-      const categorySlug = searchParams.get('category')
-      const subcategorySlug = searchParams.get('subcategory')
-
-      if (categorySlug) {
-        const category = categoriesData.find((c: Category) => c.slug === categorySlug)
-        if (category) {
-          setActiveCategory(category)
-          setSelectedCategory(category._id)
-
-          if (subcategorySlug && category.subcategories) {
-            const subcategory = category.subcategories.find((s: any) => s.slug === subcategorySlug)
-            if (subcategory) {
-              setActiveSubcategory(subcategory)
-              setSelectedSubcategory(subcategory._id)
-            }
+  // Resolve category/subcategory from URL params after categories load
+  useEffect(() => {
+    if (categories.length > 0 && selectedCategory) {
+      const category = categories.find((c: Category) => 
+        c.slug === selectedCategory || c._id === selectedCategory
+      )
+      if (category) {
+        setActiveCategory(category)
+        
+        if (selectedSubcategory && category.subcategories) {
+          const subcategory = category.subcategories.find((s: any) => 
+            s.slug === selectedSubcategory || s._id === selectedSubcategory
+          )
+          if (subcategory) {
+            setActiveSubcategory(subcategory)
           }
         }
       }
-
-      // Filter products based on URL params
-      if (categorySlug || subcategorySlug) {
-        await handleSearch()
-      } else {
-        setProducts(productsData)
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setLoading(false)
     }
-  }
-
-  const handleSearch = async () => {
-    try {
-      setLoading(true)
-      const params: any = {}
-      if (searchQuery) params.q = searchQuery
-      if (selectedCategory) params.category = selectedCategory
-      if (selectedSubcategory) params.subcategory = selectedSubcategory
-      const results = await productsApi.getAll(params)
-      setProducts(results)
-    } catch (error) {
-      console.error('Search failed:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const clearFilters = () => {
-    setSearchQuery('')
-    setSelectedCategory('')
-    setSelectedSubcategory('')
-    setActiveCategory(null)
-    setActiveSubcategory(null)
-    router.push('/products')
-    fetchData()
-  }
+  }, [categories, selectedCategory, selectedSubcategory])
 
   // Update active category when selection changes
   useEffect(() => {
-    if (selectedCategory) {
+    if (selectedCategory && categories.length > 0) {
       const category = categories.find(c => c._id === selectedCategory)
       setActiveCategory(category || null)
     } else {
       setActiveCategory(null)
     }
+    // Reset subcategory when category changes
+    if (!selectedCategory) {
+      setSelectedSubcategory('')
+      setActiveSubcategory(null)
+    }
   }, [selectedCategory, categories])
 
   // Get available subcategories based on selected category
   const availableSubcategories = activeCategory?.subcategories || []
+
+  // Parse sort option to backend params
+  const getSortParams = () => {
+    switch (sortOption) {
+      case 'name-asc':
+        return { sortBy: 'name', sortOrder: 'asc' as const }
+      case 'name-desc':
+        return { sortBy: 'name', sortOrder: 'desc' as const }
+      case 'price-asc':
+        return { sortBy: 'price', sortOrder: 'asc' as const }
+      case 'price-desc':
+        return { sortBy: 'price', sortOrder: 'desc' as const }
+      case 'newest':
+        return { sortBy: 'createdAt', sortOrder: 'desc' as const }
+      default:
+        return { sortBy: 'createdAt', sortOrder: 'desc' as const }
+    }
+  }
+
+  // Fetch products with current filters
+  const fetchProducts = useCallback(async () => {
+    try {
+      setLoading(true)
+      const sortParams = getSortParams()
+      const params: any = {
+        ...sortParams,
+      }
+      
+      if (debouncedSearchQuery) params.q = debouncedSearchQuery
+      if (selectedCategory) params.category = selectedCategory
+      if (selectedSubcategory) params.subcategory = selectedSubcategory
+      if (selectedMaterial) params.material = selectedMaterial
+      if (selectedFinish) params.finishId = selectedFinish
+      if (hasSize) params.hasSize = true
+      if (hasDiscount) params.hasDiscount = true
+
+      const results = await productsApi.getAll(params)
+      setProducts(results)
+    } catch (error) {
+      console.error('Failed to fetch products:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [debouncedSearchQuery, selectedCategory, selectedSubcategory, selectedMaterial, selectedFinish, hasSize, hasDiscount, sortOption])
+
+  // Auto-fetch products when filters change
+  useEffect(() => {
+    fetchProducts()
+  }, [fetchProducts])
+
+  // Update URL when filters change
+  useEffect(() => {
+    const params = new URLSearchParams()
+    
+    if (debouncedSearchQuery) params.set('q', debouncedSearchQuery)
+    if (selectedCategory) params.set('category', selectedCategory)
+    if (selectedSubcategory) params.set('subcategory', selectedSubcategory)
+    if (selectedMaterial) params.set('material', selectedMaterial)
+    if (selectedFinish) params.set('finishId', selectedFinish)
+    if (hasSize) params.set('hasSize', 'true')
+    if (hasDiscount) params.set('hasDiscount', 'true')
+    
+    const sortParams = getSortParams()
+    if (sortParams.sortBy !== 'createdAt' || sortParams.sortOrder !== 'desc') {
+      params.set('sortBy', sortParams.sortBy)
+      params.set('sortOrder', sortParams.sortOrder)
+    }
+
+    const queryString = params.toString()
+    const newUrl = queryString ? `/products?${queryString}` : '/products'
+    
+    router.push(newUrl, { scroll: false })
+  }, [debouncedSearchQuery, selectedCategory, selectedSubcategory, selectedMaterial, selectedFinish, hasSize, hasDiscount, sortOption, router])
+
+  // Update active subcategory when selection changes
+  useEffect(() => {
+    if (selectedSubcategory && activeCategory?.subcategories) {
+      const subcategory = activeCategory.subcategories.find((s: any) => s._id === selectedSubcategory)
+      setActiveSubcategory(subcategory || null)
+    } else {
+      setActiveSubcategory(null)
+    }
+  }, [selectedSubcategory, activeCategory])
+
+  const clearFilters = () => {
+    setSearchQuery('')
+    setDebouncedSearchQuery('')
+    setSelectedCategory('')
+    setSelectedSubcategory('')
+    setSelectedMaterial('')
+    setSelectedFinish('')
+    setHasSize(false)
+    setHasDiscount(false)
+    setSortOption('newest')
+    router.push('/products', { scroll: false })
+  }
 
   // Get the default image (mappedFinishID: null)
   const getDefaultImage = (product: Product) => {
@@ -150,24 +258,122 @@ export default function ProductsPage() {
     return null
   }
 
+  // Get active filter count
+  const activeFilterCount = [
+    debouncedSearchQuery,
+    selectedCategory,
+    selectedSubcategory,
+    selectedMaterial,
+    selectedFinish,
+    hasSize,
+    hasDiscount,
+    sortOption !== 'newest'
+  ].filter(Boolean).length
+
   return (
-    <div className="min-h-screen bg-ivory">
+    <div className="min-h-screen bg-ivory relative overflow-hidden">
+      {/* Luxury Background Design */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        {/* Animated Gradient Orbs */}
+        <motion.div
+          className="absolute top-0 left-1/4 w-96 h-96 bg-brass/5 rounded-full blur-3xl"
+          animate={{
+            x: [0, 100, 0],
+            y: [0, 50, 0],
+            scale: [1, 1.2, 1],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+        <motion.div
+          className="absolute top-1/3 right-1/4 w-96 h-96 bg-charcoal/3 rounded-full blur-3xl"
+          animate={{
+            x: [0, -80, 0],
+            y: [0, 80, 0],
+            scale: [1, 1.3, 1],
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+        <motion.div
+          className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-brass/4 rounded-full blur-3xl"
+          animate={{
+            x: [0, 60, 0],
+            y: [0, -60, 0],
+            scale: [1, 1.1, 1],
+          }}
+          transition={{
+            duration: 30,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+
+        {/* Subtle Grid Pattern */}
+        <div 
+          className="absolute inset-0 opacity-[0.02]"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(139, 69, 19, 0.1) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(139, 69, 19, 0.1) 1px, transparent 1px)
+            `,
+            backgroundSize: '50px 50px',
+          }}
+        />
+
+        {/* Decorative Lines */}
+        <motion.div
+          className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-brass/10 to-transparent"
+          animate={{
+            opacity: [0.1, 0.3, 0.1],
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+      </div>
+
       <LuxuryNavigation />
       
-      <main className="pt-24 pb-16">
-        {/* Header Section */}
-        <section className="bg-gradient-charcoal text-ivory py-16">
-          <div className="container mx-auto px-6">
+      <main className="pt-24 pb-16 relative z-10">
+        {/* Compact Header Section */}
+        <section className="bg-gradient-charcoal text-ivory py-8 relative overflow-hidden">
+          {/* Header Background Animation */}
+          <motion.div
+            className="absolute inset-0 opacity-10"
+            style={{
+              backgroundImage: `radial-gradient(circle at 20% 50%, rgba(218, 165, 32, 0.3) 0%, transparent 50%),
+                               radial-gradient(circle at 80% 50%, rgba(218, 165, 32, 0.2) 0%, transparent 50%)`,
+            }}
+            animate={{
+              backgroundPosition: ['0% 0%', '100% 100%'],
+            }}
+            transition={{
+              duration: 15,
+              repeat: Infinity,
+              repeatType: "reverse",
+            }}
+          />
+          
+          <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 relative z-10">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
+              transition={{ duration: 0.4 }}
               className="text-center"
             >
-              <h1 className="text-5xl font-serif font-bold mb-4 tracking-wide">
+              <h1 className="text-4xl font-serif font-bold mb-2 tracking-wide">
                 {activeCategory ? activeCategory.name : 'Our Products'}
               </h1>
-              <p className="text-xl text-brass tracking-luxury">
+              <p className="text-lg text-brass tracking-luxury">
                 {activeSubcategory
                   ? activeSubcategory.name
                   : activeCategory
@@ -175,13 +381,13 @@ export default function ProductsPage() {
                   : 'Discover Excellence in Every Detail'}
               </p>
 
-              {/* Breadcrumb for active filters */}
+              {/* Compact Breadcrumb */}
               {(activeCategory || activeSubcategory) && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="mt-4 flex items-center justify-center gap-2 text-sm text-brass/80"
+                  transition={{ delay: 0.1 }}
+                  className="mt-3 flex items-center justify-center gap-2 text-sm text-brass/80"
                 >
                   <Link href="/products" className="hover:text-brass transition-colors">
                     All Products
@@ -204,302 +410,492 @@ export default function ProductsPage() {
           </div>
         </section>
 
-        <div className="container mx-auto px-6 py-12">
-          {/* Filters */}
-          <div className="bg-white rounded-lg shadow-md border border-brass/20 p-6 mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Input
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              />
-
-              <select
-                value={selectedCategory}
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value)
-                  setSelectedSubcategory('') // Reset subcategory when category changes
-                }}
-                className="px-4 py-2.5 bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all duration-300"
-              >
-                <option value="">All Categories</option>
-                {categories.map((cat) => (
-                  <option key={cat._id} value={cat._id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedSubcategory}
-                onChange={(e) => setSelectedSubcategory(e.target.value)}
-                disabled={!selectedCategory || availableSubcategories.length === 0}
-                className="px-4 py-2.5 bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="">All Subcategories</option>
-                {availableSubcategories.map((sub: any) => (
-                  <option key={sub._id} value={sub._id}>
-                    {sub.name}
-                  </option>
-                ))}
-              </select>
-
-              <div className="flex gap-2">
-                <Button onClick={handleSearch} className="flex-1">
-                  Search
-                </Button>
-                {(searchQuery || selectedCategory || selectedSubcategory) && (
-                  <Button onClick={clearFilters} variant="ghost">
-                    Clear
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Active Filter Badges */}
-            {(activeCategory || activeSubcategory || searchQuery) && (
+        <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-8">
+          <div className="flex gap-4 lg:gap-6 xl:gap-8">
+            {/* Left Sidebar - Filters */}
+            <aside 
+              className="filter-sidebar w-72 lg:w-80 flex-shrink-0 sticky top-20 self-start h-[calc(100vh-8rem)] overflow-y-auto pr-2"
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(218, 165, 32, 0.3) transparent',
+              }}
+            >
+              <style dangerouslySetInnerHTML={{
+                __html: `
+                  .filter-sidebar::-webkit-scrollbar {
+                    width: 6px;
+                  }
+                  .filter-sidebar::-webkit-scrollbar-track {
+                    background: transparent;
+                  }
+                  .filter-sidebar::-webkit-scrollbar-thumb {
+                    background: rgba(218, 165, 32, 0.3);
+                    border-radius: 3px;
+                  }
+                  .filter-sidebar::-webkit-scrollbar-thumb:hover {
+                    background: rgba(218, 165, 32, 0.5);
+                  }
+                `
+              }} />
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="mt-4 pt-4 border-t border-brass/20 flex flex-wrap gap-2"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4 }}
+                className="bg-white rounded-lg shadow-lg border border-brass/20 p-6 space-y-6"
               >
-                <span className="text-sm text-charcoal/60">Active Filters:</span>
-                {activeCategory && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-brass/10 text-brass text-sm rounded-full border border-brass/30">
-                    Category: {activeCategory.name}
+                <div className="border-b border-brass/20 pb-4">
+                  <h2 className="text-xl font-serif font-semibold text-charcoal flex items-center gap-2">
+                    <span className="w-1 h-6 bg-brass"></span>
+                    Filters
+                  </h2>
+                  {activeFilterCount > 0 && (
+                    <p className="text-sm text-charcoal/60 mt-1">
+                      {activeFilterCount} {activeFilterCount === 1 ? 'filter' : 'filters'} active
+                    </p>
+                  )}
+                </div>
+
+                {/* Search */}
+                <div>
+                  <label className="block text-sm font-medium text-charcoal mb-2">
+                    Search Products
+                  </label>
+                  <Input
+                    placeholder="Search by name, ID..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Category */}
+                <div>
+                  <label className="block text-sm font-medium text-charcoal mb-2">
+                    Category
+                  </label>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => {
+                      setSelectedCategory(e.target.value)
+                      setSelectedSubcategory('')
+                    }}
+                    className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                  >
+                    <option value="">All Categories</option>
+                    {categories.map((cat) => (
+                      <option key={cat._id} value={cat._id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Subcategory */}
+                <div>
+                  <label className="block text-sm font-medium text-charcoal mb-2">
+                    Subcategory
+                  </label>
+                  <select
+                    value={selectedSubcategory}
+                    onChange={(e) => setSelectedSubcategory(e.target.value)}
+                    disabled={!selectedCategory || availableSubcategories.length === 0}
+                    className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="">All Subcategories</option>
+                    {availableSubcategories.map((sub: any) => (
+                      <option key={sub._id} value={sub._id}>
+                        {sub.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Material */}
+                <div>
+                  <label className="block text-sm font-medium text-charcoal mb-2">
+                    Material
+                  </label>
+                  <select
+                    value={selectedMaterial}
+                    onChange={(e) => setSelectedMaterial(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                  >
+                    <option value="">All Materials</option>
+                    {materials.map((mat) => (
+                      <option key={mat._id} value={mat.name}>
+                        {mat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Finish */}
+                <div>
+                  <label className="block text-sm font-medium text-charcoal mb-2">
+                    Finish
+                  </label>
+                  <select
+                    value={selectedFinish}
+                    onChange={(e) => setSelectedFinish(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                  >
+                    <option value="">All Finishes</option>
+                    {finishes.map((fin) => (
+                      <option key={fin._id} value={fin._id}>
+                        {fin.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Sort */}
+                <div>
+                  <label className="block text-sm font-medium text-charcoal mb-2">
+                    Sort By
+                  </label>
+                  <select
+                    value={sortOption}
+                    onChange={(e) => setSortOption(e.target.value as SortOption)}
+                    className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                  >
+                    <option value="newest">Newest First</option>
+                    <option value="name-asc">Name A-Z</option>
+                    <option value="name-desc">Name Z-A</option>
+                    <option value="price-asc">Price Low-High</option>
+                    <option value="price-desc">Price High-Low</option>
+                  </select>
+                </div>
+
+                {/* Toggle Filters */}
+                <div className="space-y-3 border-t border-brass/20 pt-4">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={hasSize}
+                      onChange={(e) => setHasSize(e.target.checked)}
+                      className="w-5 h-5 text-brass border-brass/30 rounded focus:ring-brass transition-all group-hover:border-brass"
+                    />
+                    <span className="text-sm text-charcoal group-hover:text-brass transition-colors">
+                      Has Size Options
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={hasDiscount}
+                      onChange={(e) => setHasDiscount(e.target.checked)}
+                      className="w-5 h-5 text-brass border-brass/30 rounded focus:ring-brass transition-all group-hover:border-brass"
+                    />
+                    <span className="text-sm text-charcoal group-hover:text-brass transition-colors">
+                      Discounted Items
+                    </span>
+                  </label>
+                </div>
+
+                {/* Clear Filters */}
+                {activeFilterCount > 0 && (
+                  <div className="border-t border-brass/20 pt-4">
                     <button
-                      onClick={() => {
-                        setSelectedCategory('')
-                        setSelectedSubcategory('')
-                        setActiveCategory(null)
-                        setActiveSubcategory(null)
-                      }}
-                      className="ml-1 hover:text-charcoal transition-colors"
+                      onClick={clearFilters}
+                      className="w-full px-4 py-2.5 bg-brass/10 hover:bg-brass/20 text-brass border border-brass/40 rounded-sm text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 group"
                     >
-                      ×
+                      <svg className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      Clear All Filters
+                      <span className="bg-brass/20 px-1.5 py-0.5 rounded text-xs font-semibold">
+                        {activeFilterCount}
+                      </span>
                     </button>
-                  </span>
+                  </div>
                 )}
-                {activeSubcategory && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-brass/10 text-brass text-sm rounded-full border border-brass/30">
-                    Subcategory: {activeSubcategory.name}
-                    <button
-                      onClick={() => {
-                        setSelectedSubcategory('')
-                        setActiveSubcategory(null)
-                      }}
-                      className="ml-1 hover:text-charcoal transition-colors"
-                    >
-                      ×
-                    </button>
-                  </span>
-                )}
-                {searchQuery && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-brass/10 text-brass text-sm rounded-full border border-brass/30">
-                    Search: "{searchQuery}"
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      className="ml-1 hover:text-charcoal transition-colors"
-                    >
-                      ×
-                    </button>
-                  </span>
+
+                {/* Active Filter Badges */}
+                {(activeCategory || activeSubcategory || debouncedSearchQuery || selectedMaterial || selectedFinish || hasSize || hasDiscount) && (
+                  <div className="border-t border-brass/20 pt-4">
+                    <p className="text-xs font-medium text-charcoal/60 mb-2">Active Filters:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {activeCategory && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                          {activeCategory.name}
+                          <button
+                            onClick={() => {
+                              setSelectedCategory('')
+                              setSelectedSubcategory('')
+                            }}
+                            className="hover:text-charcoal transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )}
+                      {activeSubcategory && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                          {activeSubcategory.name}
+                          <button
+                            onClick={() => setSelectedSubcategory('')}
+                            className="hover:text-charcoal transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )}
+                      {debouncedSearchQuery && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                          "{debouncedSearchQuery}"
+                          <button
+                            onClick={() => {
+                              setSearchQuery('')
+                              setDebouncedSearchQuery('')
+                            }}
+                            className="hover:text-charcoal transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )}
+                      {selectedMaterial && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                          {selectedMaterial}
+                          <button
+                            onClick={() => setSelectedMaterial('')}
+                            className="hover:text-charcoal transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )}
+                      {selectedFinish && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                          {finishes.find(f => f._id === selectedFinish)?.name || selectedFinish}
+                          <button
+                            onClick={() => setSelectedFinish('')}
+                            className="hover:text-charcoal transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )}
+                      {hasSize && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                          Size Options
+                          <button
+                            onClick={() => setHasSize(false)}
+                            className="hover:text-charcoal transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )}
+                      {hasDiscount && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                          Discounted
+                          <button
+                            onClick={() => setHasDiscount(false)}
+                            className="hover:text-charcoal transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 )}
               </motion.div>
-            )}
-          </div>
+            </aside>
 
-          {/* Products Grid */}
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-charcoal/60 text-lg">Loading products...</div>
-            </div>
-          ) : products.length === 0 ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center">
-                <p className="text-charcoal/60 text-lg mb-4">No products found</p>
-                <Button onClick={clearFilters} variant="secondary">
-                  Clear Filters
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {products.map((product, index) => (
-                <motion.div
-                  key={product._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: index * 0.1 }}
-                >
-                  <Link href={`/products/${product._id}`}>
-                    <motion.div 
-                      className="bg-white rounded-lg overflow-hidden shadow-md border border-brass/20 hover:shadow-xl transition-all duration-300 group relative"
-                      onMouseEnter={() => setHoveredProduct(product._id)}
-                      onMouseLeave={() => setHoveredProduct(null)}
-                      whileHover={{ 
-                        scale: 1.02,
-                        transition: { duration: 0.3, ease: "easeOut" }
-                      }}
+            {/* Right Content Area - Products */}
+            <div className="flex-1 min-w-0">
+              {/* Results Header */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex items-center justify-between mb-6"
+              >
+                <div className="text-charcoal/60">
+                  {loading ? (
+                    <span>Loading...</span>
+                  ) : (
+                    <span className="font-medium">
+                      {products.length} {products.length === 1 ? 'product' : 'products'} found
+                    </span>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Products Grid - More Columns */}
+              {loading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-charcoal/60 text-lg">Loading products...</div>
+                </div>
+              ) : products.length === 0 ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <p className="text-charcoal/60 text-lg mb-4">No products found</p>
+                    <Button onClick={clearFilters} variant="secondary">
+                      Clear Filters
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                  {products.map((product, index) => (
+                    <motion.div
+                      key={product._id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: index * 0.03 }}
                     >
-                      {/* Product Image */}
-                      <div className="relative h-64 bg-white overflow-hidden">
-                        {product.discountPercentage && product.discountPercentage > 0 && (
-                          <div className="absolute top-2 left-2 z-10">
-                            <span className="px-2 py-1 text-[11px] font-semibold rounded-md bg-brass text-white shadow">
-                              {Math.round(product.discountPercentage)}% OFF
-                            </span>
-                          </div>
-                        )}
-                        {/* Subtle Glow Effect */}
-                        <motion.div
-                          className="absolute inset-0 bg-gradient-to-br from-brass/5 to-transparent pointer-events-none"
-                          initial={{ opacity: 0 }}
-                          animate={{ 
-                            opacity: hoveredProduct === product._id ? 1 : 0 
+                      <Link href={`/products/${product._id}`}>
+                        <motion.div 
+                          className="bg-white rounded-lg overflow-hidden shadow-md border border-brass/20 hover:shadow-xl transition-all duration-300 group relative"
+                          onMouseEnter={() => setHoveredProduct(product._id)}
+                          onMouseLeave={() => setHoveredProduct(null)}
+                          whileHover={{ 
+                            scale: 1.02,
+                            transition: { duration: 0.3, ease: "easeOut" }
                           }}
-                          transition={{ duration: 0.4 }}
-                        />
-                        {product.imageURLs && Object.keys(product.imageURLs).length > 0 ? (
-                          <>
-                            {/* Default Image with Smooth Transition */}
+                        >
+                          {/* Product Image - Compact */}
+                          <div className="relative h-48 bg-white overflow-hidden">
+                            {product.discountPercentage && product.discountPercentage > 0 && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="absolute top-2 left-2 z-10"
+                              >
+                                <span className="px-2 py-1 text-[10px] font-semibold rounded-md bg-brass text-white shadow-lg">
+                                  {Math.round(product.discountPercentage)}% OFF
+                                </span>
+                              </motion.div>
+                            )}
                             <motion.div
-                              key={`default-${product._id}`}
-                              initial={{ opacity: 1, scale: 1 }}
+                              className="absolute inset-0 bg-gradient-to-br from-brass/5 to-transparent pointer-events-none"
+                              initial={{ opacity: 0 }}
                               animate={{ 
-                                opacity: hoveredProduct === product._id ? 0 : 1,
-                                scale: hoveredProduct === product._id ? 1.05 : 1
+                                opacity: hoveredProduct === product._id ? 1 : 0 
                               }}
-                              transition={{ 
-                                duration: 0.6, 
-                                ease: [0.25, 0.46, 0.45, 0.94] // Custom easing for smoothness
-                              }}
-                              className="absolute inset-0"
-                            >
-                              <Image
-                                src={getDefaultImage(product)}
-                                alt={product.name}
-                                fill
-                                className="object-contain p-4"
-                              />
-                            </motion.div>
-                            
-                            {/* Hover Image with Smooth Transition */}
-                            <AnimatePresence>
-                              {hoveredProduct === product._id && getHoverImage(product) && (
+                              transition={{ duration: 0.4 }}
+                            />
+                            {product.imageURLs && Object.keys(product.imageURLs).length > 0 ? (
+                              <>
                                 <motion.div
-                                  key={`hover-${product._id}`}
-                                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                  key={`default-${product._id}`}
+                                  initial={{ opacity: 1, scale: 1 }}
                                   animate={{ 
-                                    opacity: 1, 
-                                    scale: 1,
-                                    y: 0
-                                  }}
-                                  exit={{ 
-                                    opacity: 0, 
-                                    scale: 1.05,
-                                    y: -10
+                                    opacity: hoveredProduct === product._id ? 0 : 1,
+                                    scale: hoveredProduct === product._id ? 1.05 : 1
                                   }}
                                   transition={{ 
-                                    duration: 0.6,
-                                    ease: [0.25, 0.46, 0.45, 0.94],
-                                    delay: 0.1
+                                    duration: 0.6, 
+                                    ease: [0.25, 0.46, 0.45, 0.94]
                                   }}
                                   className="absolute inset-0"
                                 >
                                   <Image
-                                    src={getHoverImage(product)!}
-                                    alt={`${product.name} - ${getHoverFinishName(product)}`}
+                                    src={getDefaultImage(product)}
+                                    alt={product.name}
                                     fill
-                                    className="object-contain p-4"
+                                    className="object-contain p-3"
                                   />
-                                  
-                                  {/* Finish Caption Overlay with Enhanced Animation */}
-                                  <motion.div
-                                    initial={{ opacity: 0, y: 30, scale: 0.9, rotateX: 15 }}
-                                    animate={{ 
-                                      opacity: 1, 
-                                      y: 0,
-                                      scale: 1,
-                                      rotateX: 0
-                                    }}
-                                    exit={{ 
-                                      opacity: 0, 
-                                      y: 20,
-                                      scale: 0.95,
-                                      rotateX: -10
-                                    }}
-                                    transition={{ 
-                                      duration: 0.6, 
-                                      delay: 0.2,
-                                      ease: [0.25, 0.46, 0.45, 0.94]
-                                    }}
-                                    className="absolute bottom-4 left-4 right-4 bg-charcoal/90 backdrop-blur-md text-ivory px-3 py-2 rounded-lg border border-brass/40 shadow-lg"
-                                    style={{ transformStyle: 'preserve-3d' }}
-                                  >
-                                    <motion.div 
-                                      className="flex items-center gap-2"
-                                      initial={{ x: -10 }}
-                                      animate={{ x: 0 }}
-                                      transition={{ delay: 0.3, duration: 0.4 }}
-                                    >
-                                      <motion.div 
-                                        className="w-2 h-2 bg-brass rounded-full"
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        transition={{ delay: 0.4, duration: 0.3 }}
-                                      ></motion.div>
-                                      <motion.span 
-                                        className="text-sm font-medium"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: 0.5, duration: 0.3 }}
-                                      >
-                                        {getHoverFinishName(product)}
-                                      </motion.span>
-                                    </motion.div>
-                                  </motion.div>
                                 </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </>
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-ivory">
-                            <svg className="w-20 h-20 text-brass/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
+                                
+                                <AnimatePresence>
+                                  {hoveredProduct === product._id && getHoverImage(product) && (
+                                    <motion.div
+                                      key={`hover-${product._id}`}
+                                      initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                      animate={{ 
+                                        opacity: 1, 
+                                        scale: 1,
+                                        y: 0
+                                      }}
+                                      exit={{ 
+                                        opacity: 0, 
+                                        scale: 1.05,
+                                        y: -10
+                                      }}
+                                      transition={{ 
+                                        duration: 0.6,
+                                        ease: [0.25, 0.46, 0.45, 0.94],
+                                        delay: 0.1
+                                      }}
+                                      className="absolute inset-0"
+                                    >
+                                      <Image
+                                        src={getHoverImage(product)!}
+                                        alt={`${product.name} - ${getHoverFinishName(product)}`}
+                                        fill
+                                        className="object-contain p-3"
+                                      />
+                                      
+                                      <motion.div
+                                        initial={{ opacity: 0, y: 30 }}
+                                        animate={{ 
+                                          opacity: 1, 
+                                          y: 0
+                                        }}
+                                        exit={{ 
+                                          opacity: 0, 
+                                          y: 20
+                                        }}
+                                        transition={{ 
+                                          duration: 0.4, 
+                                          delay: 0.2
+                                        }}
+                                        className="absolute bottom-2 left-2 right-2 bg-charcoal/90 backdrop-blur-md text-ivory px-2 py-1 rounded border border-brass/40 shadow-lg"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-1.5 h-1.5 bg-brass rounded-full"></div>
+                                          <span className="text-xs font-medium">
+                                            {getHoverFinishName(product)}
+                                          </span>
+                                        </div>
+                                      </motion.div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </>
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-gradient-ivory">
+                                <svg className="w-16 h-16 text-brass/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
 
-                      {/* Product Info */}
-                      <div className="p-6">
-                        <p className="text-xs text-brass tracking-luxury mb-2">
-                          {product.productID}
-                        </p>
-                        <h3 className="text-xl font-sans font-semibold text-charcoal mb-2 group-hover:text-brass transition-colors leading-snug tracking-tight" style={{ letterSpacing: '-0.01em' }}>
-                          {product.name}
-                        </h3>
-                        <p className="text-sm text-charcoal/60 mb-4 line-clamp-2">
-                          {product.description || 'Premium quality product'}
-                        </p>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-charcoal">
-                            {product.materials?.length || 0} materials
-                          </span>
-                          <span className="text-brass font-medium text-sm group-hover:underline">
-                            View Details →
-                          </span>
-                        </div>
-                      </div>
+                          {/* Product Info - Compact */}
+                          <div className="p-4">
+                            <p className="text-[10px] text-brass tracking-luxury mb-1">
+                              {product.productID}
+                            </p>
+                            <h3 className="text-base font-sans font-semibold text-charcoal mb-1 group-hover:text-brass transition-colors leading-tight line-clamp-2">
+                              {product.name}
+                            </h3>
+                            <p className="text-xs text-charcoal/60 mb-3 line-clamp-2">
+                              {product.description || 'Premium quality product'}
+                            </p>
+                            
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-charcoal">
+                                {product.materials?.length || 0} materials
+                              </span>
+                              <span className="text-brass font-medium text-xs group-hover:underline">
+                                View →
+                              </span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      </Link>
                     </motion.div>
-                  </Link>
-                </motion.div>
-              ))}
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </main>
 
@@ -507,4 +903,3 @@ export default function ProductsPage() {
     </div>
   )
 }
-

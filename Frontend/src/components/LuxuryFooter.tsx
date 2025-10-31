@@ -144,7 +144,14 @@ export default function LuxuryFooter() {
           transition={{ duration: 2 }}
           className="absolute bottom-10 right-10 pointer-events-none"
         >
-          <div className="font-serif text-9xl text-brass embossed-text">GL</div>
+          <div className="relative w-96 h-96">
+            <Image
+              src="/images/business/G.png"
+              alt="Glister London Logo"
+              fill
+              className="object-contain"
+            />
+          </div>
         </motion.div>
       </div>
     </footer>

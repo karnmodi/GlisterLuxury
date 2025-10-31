@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import MobileNavigation from './MobileNavigation'
 import { useCart } from '@/contexts/CartContext'
@@ -17,6 +17,9 @@ export default function LuxuryNavigation() {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [bannerHeight, setBannerHeight] = useState(0)
+  const [hoveredCategory, setHoveredCategory] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [menuMaxHeight, setMenuMaxHeight] = useState(600)
   const { itemCount } = useCart()
   const { itemCount: wishlistCount } = useWishlist()
   const { user, isAuthenticated, logout } = useAuth()
@@ -63,6 +66,92 @@ export default function LuxuryNavigation() {
     }
     fetchCategories()
   }, [])
+
+  // Calculate viewport-aware menu height
+  useEffect(() => {
+    const calculateMenuHeight = () => {
+      const viewportHeight = window.innerHeight
+      const navHeight = 80 // Approximate navigation bar height
+      const padding = 40 // Top and bottom padding
+      const maxHeight = Math.min(600, viewportHeight - navHeight - padding)
+      setMenuMaxHeight(maxHeight)
+    }
+
+    calculateMenuHeight()
+    window.addEventListener('resize', calculateMenuHeight)
+    return () => window.removeEventListener('resize', calculateMenuHeight)
+  }, [])
+
+  // Filter categories and subcategories based on search query
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return categories
+    }
+
+    const query = searchQuery.toLowerCase().trim()
+    return categories
+      .map((category) => {
+        const categoryMatches = 
+          category.name.toLowerCase().includes(query) ||
+          category.description?.toLowerCase().includes(query)
+
+        const matchingSubcategories = category.subcategories?.filter(
+          (subcategory) =>
+            subcategory.name.toLowerCase().includes(query) ||
+            subcategory.description?.toLowerCase().includes(query)
+        ) || []
+
+        // Include category if it matches or has matching subcategories
+        if (categoryMatches || matchingSubcategories.length > 0) {
+          return {
+            ...category,
+            subcategories: categoryMatches
+              ? category.subcategories
+              : matchingSubcategories,
+          }
+        }
+
+        return null
+      })
+      .filter((category): category is Category => category !== null)
+  }, [categories, searchQuery])
+
+  // Helper function to highlight matching text (memoized search pattern)
+  const highlightText = useMemo(() => {
+    if (!searchQuery.trim()) return null
+    
+    const query = searchQuery.trim()
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+    
+    return (text: string) => {
+      const parts = text.split(regex)
+      return parts.map((part, index) => {
+        if (part.toLowerCase() === query.toLowerCase()) {
+          return (
+            <mark key={index} className="bg-brass/30 text-brass px-0.5 rounded">
+              {part}
+            </mark>
+          )
+        }
+        return <span key={index}>{part}</span>
+      })
+    }
+  }, [searchQuery])
+
+  // Helper to render text with or without highlighting
+  const renderText = (text: string) => {
+    if (!searchQuery.trim() || !highlightText) return text
+    return highlightText(text)
+  }
+
+  // Calculate optimal column count based on category count
+  const columnCount = useMemo(() => {
+    const count = filteredCategories.length
+    if (count <= 4) return 2
+    if (count <= 9) return 3
+    if (count <= 16) return 4
+    return 5
+  }, [filteredCategories.length])
 
   const collectionsSubmenu = [
     { name: 'Luxury Collection', href: '/collections/luxury' },
@@ -113,18 +202,16 @@ export default function LuxuryNavigation() {
             
             {/* Collections with Submenu */}
             <div 
-              className="relative"
+              className="relative inline-flex"
               onMouseEnter={() => setActiveMenu('collections')}
               onMouseLeave={() => setActiveMenu(null)}
             >
               <Link 
                 href="/collections" 
-                className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline flex items-center gap-1"
+                className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline-with-submenu whitespace-nowrap relative inline-flex items-center gap-3 group"
               >
-                Collections
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                Collections &nbsp;
+                <span className="submenu-indicator" aria-label="More options available"></span>
               </Link>
               
               <AnimatePresence>
@@ -152,59 +239,197 @@ export default function LuxuryNavigation() {
 
             {/* Products with Submenu - Dynamic Categories */}
             <div
-              className="relative"
+              data-products-nav
+              className="relative inline-flex"
               onMouseEnter={() => setActiveMenu('products')}
-              onMouseLeave={() => setActiveMenu(null)}
+              onMouseLeave={(e) => {
+                    // Only close if mouse is not moving to the menu
+                    const relatedTarget = e.relatedTarget as HTMLElement
+                    if (!relatedTarget || !relatedTarget.closest('[data-products-menu]')) {
+                      setActiveMenu(null)
+                      setHoveredCategory(null)
+                      setSearchQuery('')
+                    }
+                  }}
             >
               <Link
                 href="/products"
-                className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline flex items-center gap-1"
+                className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline-with-submenu whitespace-nowrap relative inline-flex items-center gap-3 group"
               >
-                Products
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                Products &nbsp;
+                <span className="submenu-indicator" aria-label="More options available"></span>
               </Link>
 
               <AnimatePresence>
                 {activeMenu === 'products' && (
                   <motion.div
+                    data-products-menu
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
                     transition={{ duration: 0.2 }}
-                    className="absolute top-full left-0 mt-2 w-72 bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg shadow-2xl overflow-hidden max-h-[80vh] overflow-y-auto"
+                    className="absolute top-full left-0 mt-2 min-w-[800px] max-w-[1100px] xl:max-w-[1200px] bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg shadow-2xl overflow-hidden z-50"
+                    style={{ maxHeight: `${menuMaxHeight}px` }}
+                    onMouseEnter={() => setActiveMenu('products')}
+                    onMouseLeave={(e) => {
+                      const relatedTarget = e.relatedTarget as HTMLElement
+                      if (!relatedTarget || !relatedTarget.closest('[data-products-nav]')) {
+                        setActiveMenu(null)
+                        setHoveredCategory(null)
+                        setSearchQuery('')
+                      }
+                    }}
                   >
                     {categories.length > 0 ? (
-                      categories.map((category) => (
-                        <div key={category._id} className="border-b border-brass/10 last:border-b-0">
-                          {/* Category Link */}
-                          <Link
-                            href={`/products?category=${category.slug}`}
-                            className="block px-6 py-3 text-sm font-semibold text-brass hover:bg-brass/10 transition-all duration-300"
-                          >
-                            {category.name}
-                          </Link>
+                      <div className="flex flex-col" style={{ maxHeight: `${menuMaxHeight}px` }}>
+                        {/* Search Bar */}
+                        <div className="p-4 border-b border-brass/20">
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              placeholder="Search categories and products..."
+                              className="w-full px-4 py-2.5 pl-10 bg-charcoal/80 border border-brass/30 rounded-sm text-ivory placeholder-ivory/50 focus:outline-none focus:ring-2 focus:ring-brass/50 focus:border-brass transition-all duration-300"
+                            />
+                            <svg
+                              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brass/60"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            {searchQuery && (
+                              <button
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-ivory/50 hover:text-brass transition-colors duration-300"
+                                aria-label="Clear search"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        </div>
 
-                          {/* Subcategories */}
-                          {category.subcategories && category.subcategories.length > 0 && (
-                            <div className="bg-charcoal/50">
-                              {category.subcategories.map((subcategory) => (
-                                <Link
-                                  key={subcategory._id}
-                                  href={`/products?category=${category.slug}&subcategory=${subcategory.slug}`}
-                                  className="block pl-10 pr-6 py-2 text-sm text-ivory hover:text-brass hover:bg-brass/10 transition-all duration-300"
-                                >
-                                  {subcategory.name}
-                                </Link>
-                              ))}
+                        {/* Categories Grid - Scrollable */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                          {filteredCategories.length > 0 ? (
+                            <div className={`grid gap-6 ${
+                              columnCount === 2 ? 'grid-cols-2' :
+                              columnCount === 3 ? 'grid-cols-3' :
+                              columnCount === 4 ? 'grid-cols-4' :
+                              'grid-cols-5'
+                            }`}>
+                              {filteredCategories.map((category) => {
+                                const isHovered = hoveredCategory === category._id
+                                const hasSubcategories = category.subcategories && category.subcategories.length > 0
+
+                                return (
+                                  <div
+                                    key={category._id}
+                                    className="min-w-0"
+                                    onMouseEnter={() => hasSubcategories && setHoveredCategory(category._id)}
+                                    onMouseLeave={() => setHoveredCategory(null)}
+                                  >
+                                    {/* Category Header */}
+                                    <Link
+                                      href={`/products?category=${category.slug || category._id}`}
+                                      className="block mb-3 pb-2 border-b border-brass/30 hover:border-brass/50 transition-colors duration-300"
+                                    >
+                                      <h3 className="text-base font-semibold text-brass hover:text-olive transition-colors duration-300">
+                                        {renderText(category.name)}
+                                      </h3>
+                                      {category.description && (
+                                        <p className="text-xs text-ivory/60 mt-1 line-clamp-2">
+                                          {renderText(category.description)}
+                                        </p>
+                                      )}
+                                    </Link>
+
+                                    {/* Subcategories List - Expand on hover */}
+                                    {hasSubcategories && (
+                                      <AnimatePresence>
+                                        {isHovered && (
+                                          <motion.ul
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            transition={{ duration: 0.2, ease: 'easeOut' }}
+                                            className="space-y-1.5 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar"
+                                          >
+                                            {category.subcategories.map((subcategory) => (
+                                              <li key={subcategory._id}>
+                                                <Link
+                                                  href={`/products?category=${category.slug || category._id}&subcategory=${subcategory.slug || subcategory._id}`}
+                                                  className="block px-2 py-1.5 text-sm text-ivory/90 hover:text-brass hover:bg-brass/10 rounded-sm transition-all duration-300 group"
+                                                >
+                                                  <span className="flex items-center gap-2">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-brass/30 group-hover:bg-brass transition-colors duration-300 flex-shrink-0"></span>
+                                                    <span className="truncate">
+                                                      {renderText(subcategory.name)}
+                                                    </span>
+                                                  </span>
+                                                </Link>
+                                              </li>
+                                            ))}
+                                          </motion.ul>
+                                        )}
+                                      </AnimatePresence>
+                                    )}
+
+                                    {/* Show subcategories count if not hovered and search is active */}
+                                    {!isHovered && hasSubcategories && searchQuery && (
+                                      <p className="text-xs text-ivory/50 italic px-2 py-1.5">
+                                        {category.subcategories.length} subcategories
+                                      </p>
+                                    )}
+
+                                    {!hasSubcategories && (
+                                      <p className="text-xs text-ivory/40 italic px-2 py-1.5">
+                                        No subcategories
+                                      </p>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          ) : (
+                            <div className="px-6 py-8 text-center">
+                              <p className="text-sm text-ivory/50 mb-2">No categories match "{searchQuery}"</p>
+                              <button
+                                onClick={() => setSearchQuery('')}
+                                className="text-sm text-brass hover:text-olive transition-colors duration-300 underline"
+                              >
+                                Clear search
+                              </button>
                             </div>
                           )}
                         </div>
-                      ))
+
+                        {/* View All Products Link */}
+                        <div className="p-4 pt-0 border-t border-brass/20">
+                          <Link
+                            href={searchQuery ? `/products?search=${encodeURIComponent(searchQuery)}` : '/products'}
+                            className="inline-flex items-center gap-2 text-sm font-medium text-brass hover:text-olive transition-colors duration-300 group"
+                          >
+                            {searchQuery ? 'View all matching products' : 'View All Products'}
+                            <svg
+                              className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </Link>
+                        </div>
+                      </div>
                     ) : (
-                      <div className="px-6 py-3 text-sm text-ivory/50">
-                        No categories available
+                      <div className="px-6 py-8 text-center">
+                        <p className="text-sm text-ivory/50">No categories available</p>
                       </div>
                     )}
                   </motion.div>

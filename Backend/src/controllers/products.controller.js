@@ -1,4 +1,5 @@
 const Product = require('../models/Product');
+const Finish = require('../models/Finish');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 
 /**
@@ -142,7 +143,7 @@ async function createProduct(req, res) {
 
 async function listProducts(req, res) {
 	try {
-		const { q, material, hasSize, finishId, category, subcategory, subcategoryId } = req.query;
+		const { q, material, hasSize, finishId, category, subcategory, subcategoryId, sortBy, sortOrder, hasDiscount } = req.query;
 		const Category = require('../models/Category');
 		const filter = {};
 
@@ -161,6 +162,11 @@ async function listProducts(req, res) {
 
 		// Finish filter
 		if (finishId) filter.finishes = { $in: [finishId] };
+
+		// Discount filter
+		if (hasDiscount === 'true') {
+			filter.discountPercentage = { $gt: 0 };
+		}
 
 		// Category filter - support both ID and slug
 		if (category) {
@@ -210,7 +216,28 @@ async function listProducts(req, res) {
 			}
 		}
 
-		const items = await Product.find(filter).populate('category', 'name slug description subcategories').lean();
+		// Build sort options
+		const sortOptions = {};
+		const order = sortOrder === 'asc' ? 1 : -1;
+		
+		if (sortBy === 'name') {
+			sortOptions.name = order;
+		} else if (sortBy === 'productID') {
+			sortOptions.productID = order;
+		} else if (sortBy === 'createdAt') {
+			sortOptions.createdAt = order;
+		} else if (sortBy === 'price' || sortBy === 'packagingPrice') {
+			sortOptions.packagingPrice = order;
+		}
+		// Default sorting by createdAt descending if no sortBy specified
+		if (Object.keys(sortOptions).length === 0) {
+			sortOptions.createdAt = -1;
+		}
+
+		const items = await Product.find(filter)
+			.populate('category', 'name slug description subcategories')
+			.sort(sortOptions)
+			.lean();
 
 		const transformedItems = items.map(item => transformMongoTypes(item));
 		return res.json(transformedItems);
@@ -602,6 +629,56 @@ async function updateImageFinishMapping(req, res) {
 	}
 }
 
+/**
+ * Get finishes available for a specific product
+ * GET /api/products/:id/finishes
+ */
+async function getProductFinishes(req, res) {
+	try {
+		const product = await Product.findById(req.params.id).lean();
+		if (!product) {
+			return res.status(404).json({ message: 'Product not found' });
+		}
+
+		// Extract finish IDs from product.finishes array
+		const finishIds = (product.finishes || []).map(f => f.finishID);
+
+		if (finishIds.length === 0) {
+			return res.json([]);
+		}
+
+		// Fetch finish details
+		const finishes = await Finish.find({ _id: { $in: finishIds } }).lean();
+
+		// Map finishes with price adjustments from product
+		const finishMap = new Map();
+		(product.finishes || []).forEach(f => {
+			const finishId = f.finishID?.toString ? f.finishID.toString() : String(f.finishID);
+			finishMap.set(finishId, f.priceAdjustment);
+		});
+
+		// Combine finish details with price adjustments
+		const result = finishes.map(finish => {
+			const finishId = finish._id?.toString ? finish._id.toString() : String(finish._id);
+			const priceAdjustment = finishMap.get(finishId);
+			
+			return {
+				...finish,
+				priceAdjustment: priceAdjustment !== undefined 
+					? parseFloat(priceAdjustment?.toString() || '0') 
+					: 0
+			};
+		});
+
+		// Transform MongoDB types
+		const transformedResult = transformMongoTypes(result);
+		return res.json(transformedResult);
+	} catch (err) {
+		console.error('Product finishes fetch error:', err);
+		return res.status(500).json({ message: err.message });
+	}
+}
+
 module.exports = { 
 	createProduct, 
 	listProducts, 
@@ -611,6 +688,7 @@ module.exports = {
 	uploadProductImages,
 	deleteProductImage,
 	updateImageFinishMapping,
+	getProductFinishes,
 };
 
 

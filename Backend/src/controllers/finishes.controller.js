@@ -1,4 +1,7 @@
 const Finish = require('../models/Finish');
+const Product = require('../models/Product');
+const Category = require('../models/Category');
+const mongoose = require('mongoose');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 
 async function createFinish(req, res) {
@@ -12,7 +15,76 @@ async function createFinish(req, res) {
 
 async function listFinishes(req, res) {
 	try {
+		const { includeUsage } = req.query;
 		const items = await Finish.find().lean();
+
+		// If includeUsage is requested, fetch product associations
+		if (includeUsage === 'true') {
+			// Enhance each finish with usage information
+			const enhancedItems = await Promise.all(
+				items.map(async (finish) => {
+					// Find products that use this finish
+					// Handle ObjectId conversion - finish._id from lean() might be ObjectId or string
+					let finishId = finish._id;
+					if (finish._id && !(finish._id instanceof mongoose.Types.ObjectId)) {
+						if (mongoose.Types.ObjectId.isValid(finish._id)) {
+							finishId = new mongoose.Types.ObjectId(finish._id);
+						}
+					}
+					
+					const products = await Product.find({
+						'finishes.finishID': finishId
+					})
+						.populate('category', 'name slug')
+						.select('_id productID name category subcategoryId')
+						.lean();
+
+					// Extract unique categories
+					const categoryIds = new Set();
+					const categoryNames = new Set();
+					
+					products.forEach(product => {
+						if (product.category) {
+							if (typeof product.category === 'object' && product.category._id) {
+								categoryIds.add(product.category._id.toString());
+								categoryNames.add(product.category.name);
+							} else if (typeof product.category === 'string') {
+								categoryIds.add(product.category);
+							}
+						}
+					});
+
+					// Get full category details if needed
+					let categoryDetails = [];
+					if (categoryIds.size > 0) {
+						categoryDetails = await Category.find({
+							_id: { $in: Array.from(categoryIds) }
+						})
+							.select('name slug')
+							.lean();
+					}
+
+					return {
+						...finish,
+						applicableProducts: products.map(p => ({
+							_id: p._id,
+							productID: p.productID,
+							name: p.name,
+							category: p.category,
+							subcategoryId: p.subcategoryId
+						})),
+						productCount: products.length,
+						categories: categoryDetails.length > 0 
+							? categoryDetails 
+							: Array.from(categoryNames).map(name => ({ name })),
+						categoryCount: categoryDetails.length || categoryNames.size
+					};
+				})
+			);
+
+			return res.json(enhancedItems);
+		}
+
 		return res.json(items);
 	} catch (err) {
 		return res.status(500).json({ message: err.message });

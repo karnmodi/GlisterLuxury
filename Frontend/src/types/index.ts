@@ -27,6 +27,23 @@ export interface Finish {
   photoURL?: string
   createdAt?: string
   updatedAt?: string
+  // Price adjustment when fetched from product (GET /products/:id/finishes)
+  priceAdjustment?: number
+  // Usage information (when includeUsage=true)
+  applicableProducts?: Array<{
+    _id: string
+    productID: string
+    name: string
+    category?: Category | string
+    subcategoryId?: string
+  }>
+  productCount?: number
+  categories?: Array<{
+    _id?: string
+    name: string
+    slug?: string
+  }>
+  categoryCount?: number
 }
 
 export interface Subcategory {

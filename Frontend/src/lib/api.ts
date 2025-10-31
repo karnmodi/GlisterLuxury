@@ -22,18 +22,35 @@ async function apiCall<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
 // Products API
 export const productsApi = {
-  getAll: (params?: { q?: string; material?: string; category?: string; subcategory?: string }) => {
+  getAll: (params?: { 
+    q?: string
+    material?: string
+    category?: string
+    subcategory?: string
+    finishId?: string
+    hasSize?: boolean
+    hasDiscount?: boolean
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+  }) => {
     const queryParams = new URLSearchParams()
     if (params?.q) queryParams.append('q', params.q)
     if (params?.material) queryParams.append('material', params.material)
     if (params?.category) queryParams.append('category', params.category)
     if (params?.subcategory) queryParams.append('subcategory', params.subcategory)
+    if (params?.finishId) queryParams.append('finishId', params.finishId)
+    if (params?.hasSize !== undefined) queryParams.append('hasSize', params.hasSize.toString())
+    if (params?.hasDiscount !== undefined) queryParams.append('hasDiscount', params.hasDiscount.toString())
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder)
 
     const query = queryParams.toString()
     return apiCall<Product[]>(`/products${query ? `?${query}` : ''}`)
   },
 
   getById: (id: string) => apiCall<Product>(`/products/${id}`),
+
+  getFinishes: (id: string) => apiCall<Finish[]>(`/products/${id}/finishes`),
 
   create: (data: Partial<Product>) => 
     apiCall<Product>('/products', {
@@ -132,7 +149,13 @@ export const categoriesApi = {
 
 // Finishes API
 export const finishesApi = {
-  getAll: () => apiCall<Finish[]>('/finishes'),
+  getAll: (params?: { includeUsage?: boolean }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.includeUsage) queryParams.append('includeUsage', 'true')
+    
+    const query = queryParams.toString()
+    return apiCall<Finish[]>(`/finishes${query ? `?${query}` : ''}`)
+  },
 
   getById: (id: string) => apiCall<Finish>(`/finishes/${id}`),
 
