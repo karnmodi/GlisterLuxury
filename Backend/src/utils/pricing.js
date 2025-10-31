@@ -37,6 +37,11 @@ async function computePriceAndValidate(payload) {
 	}
 
 	// Validate finishes are allowed for this product and calculate finish costs
+	// At least one finish is required
+	if (!selectedFinishes || selectedFinishes.length === 0) {
+		throw Object.assign(new Error('At least one finish must be selected'), { status: 400 });
+	}
+	
 	let finishTotalCost = 0;
 	for (const fid of selectedFinishes) {
 		const finishOption = (product.finishes || []).find(f => String(f.finishID) === String(fid));

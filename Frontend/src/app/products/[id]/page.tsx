@@ -42,6 +42,7 @@ export default function ProductDetailPage() {
   const [includePackaging, setIncludePackaging] = useState(true) // Default to included
   const [quantity, setQuantity] = useState(1)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [manualImageSelected, setManualImageSelected] = useState(false)
   const [showMobileHeader, setShowMobileHeader] = useState(false)
   const [showMobilePreview, setShowMobilePreview] = useState(true)
   const [imageRef, setImageRef] = useState<HTMLDivElement | null>(null)
@@ -102,9 +103,48 @@ export default function ProductDetailPage() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [imageRef])
 
+  // Reset manual selection when finish changes
+  useEffect(() => {
+    setManualImageSelected(false)
+  }, [selectedFinish])
+
+  // Update image index based on selected finish
+  useEffect(() => {
+    if (manualImageSelected) return // Don't auto-update if user manually selected
+    if (!product?.imageURLs) return
+    
+    const images = Object.values(product.imageURLs)
+    if (images.length === 0) return
+    
+    // Sort images: default image (mappedFinishID: null) first, then others
+    const sortedImages = [...images].sort((a, b) => {
+      if (a.mappedFinishID === null && b.mappedFinishID !== null) return -1
+      if (a.mappedFinishID !== null && b.mappedFinishID === null) return 1
+      return 0
+    })
+    
+    if (selectedFinish) {
+      const finishImageIndex = sortedImages.findIndex(img => img.mappedFinishID === selectedFinish)
+      if (finishImageIndex !== -1) {
+        setCurrentImageIndex(finishImageIndex)
+      }
+    } else {
+      const defaultImageIndex = sortedImages.findIndex(img => img.mappedFinishID === null)
+      if (defaultImageIndex !== -1) {
+        setCurrentImageIndex(defaultImageIndex)
+      }
+    }
+  }, [selectedFinish, manualImageSelected, product])
+
   const handleAddToCart = async () => {
     if (!product || !selectedMaterial) {
       toast.warning('Please select a material')
+      return
+    }
+
+    // Validate finish is selected
+    if (!selectedFinish) {
+      toast.warning('Please select a finish')
       return
     }
 
@@ -117,7 +157,7 @@ export default function ProductDetailPage() {
           basePrice: toNumber(selectedMaterial.basePrice),
         },
         selectedSize: selectedSize?.sizeMM,
-        selectedFinish: selectedFinish || undefined,
+        selectedFinish: selectedFinish,
         quantity,
         includePackaging,
       })
@@ -156,18 +196,23 @@ export default function ProductDetailPage() {
     if (images.length === 0) return []
     
     // Sort images: default image (mappedFinishID: null) first, then others
-    return images.sort((a, b) => {
+    return [...images].sort((a, b) => {
       if (a.mappedFinishID === null && b.mappedFinishID !== null) return -1
       if (a.mappedFinishID !== null && b.mappedFinishID === null) return 1
       return 0
     })
   }
 
-  // Get the current display image based on selected finish
+  // Get the current display image based on selected finish or manual selection
   const getCurrentImage = () => {
     const images = getSortedImages()
     
     if (images.length === 0) return null
+    
+    // If an image was manually selected, show that one
+    if (manualImageSelected && images[currentImageIndex]) {
+      return images[currentImageIndex].url
+    }
     
     // If a finish is selected, try to find a finish-specific image
     if (selectedFinish) {
@@ -278,7 +323,7 @@ export default function ProductDetailPage() {
                   
                   {/* Product Info */}
                   <div className="flex-1 min-w-0">
-                    <h1 className="text-lg font-bold text-charcoal truncate">
+                    <h1 className="text-lg font-sans font-semibold text-charcoal truncate leading-snug tracking-tight" style={{ letterSpacing: '-0.01em' }}>
                       {product?.name}
                     </h1>
                     {selectedMaterial && (
@@ -378,14 +423,15 @@ export default function ProductDetailPage() {
                       )}
                     </AnimatePresence>
                   </div>
+                  </div>
                   
-                  {/* Image Thumbnails */}
+                {/* Image Thumbnails - Below main image */}
                   {product.imageURLs && Object.keys(product.imageURLs).length > 1 && (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.3 }}
-                      className="absolute bottom-0 left-0 right-0 grid grid-cols-4 gap-2 p-3 bg-gradient-to-br from-ivory/50 to-cream/30 backdrop-blur-sm"
+                    className="mt-4 grid grid-cols-4 gap-2"
                     >
                       {getSortedImages().map((imageData, index) => {
                         const isCurrentImage = getCurrentImage() === imageData.url
@@ -394,8 +440,11 @@ export default function ProductDetailPage() {
                             key={index}
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => setCurrentImageIndex(index)}
-                            className={`relative h-16 rounded-lg overflow-hidden border-2 bg-white ${
+                            onClick={() => {
+                              setCurrentImageIndex(index)
+                              setManualImageSelected(true)
+                            }}
+                          className={`relative h-20 rounded-lg overflow-hidden border-2 bg-white ${
                               isCurrentImage ? 'border-brass shadow-lg ring-2 ring-brass/20' : 'border-brass/20'
                             } hover:border-brass/50 transition-all duration-300`}
                           >
@@ -405,7 +454,6 @@ export default function ProductDetailPage() {
                       })}
                     </motion.div>
                   )}
-                </div>
               </motion.div>
             </div>
 
@@ -536,7 +584,7 @@ export default function ProductDetailPage() {
                 availableFinishes={availableFinishes}
                 selectedFinish={selectedFinish}
                 onFinishSelect={setSelectedFinish}
-                onFinishClear={() => setSelectedFinish('')}
+                onFinishClear={() => {}} // No-op since finish is required
               />
 
               {/* Packaging Option */}
@@ -566,9 +614,10 @@ export default function ProductDetailPage() {
               {/* Add to Cart Button */}
               <AddToCartButton
                 onAddToCart={handleAddToCart}
-                    disabled={!selectedMaterial || cartLoading}
+                disabled={!selectedMaterial || !selectedFinish || cartLoading}
                 loading={cartLoading}
                 selectedMaterial={selectedMaterial}
+                selectedFinish={selectedFinish}
               />
             </motion.div>
           </div>

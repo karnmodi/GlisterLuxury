@@ -81,7 +81,8 @@ export default function ProductHeader({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="text-xl lg:text-2xl font-serif font-bold text-charcoal mb-2 leading-tight"
+        className="text-2xl lg:text-3xl font-sans font-semibold text-charcoal mb-3 leading-relaxed tracking-tight"
+        style={{ letterSpacing: '-0.02em' }}
       >
         {product.name}
       </motion.h1>

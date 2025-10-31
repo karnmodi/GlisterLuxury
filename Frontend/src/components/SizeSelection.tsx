@@ -50,7 +50,14 @@ export default function SizeSelection({
                   : 'border-brass/20 hover:border-brass/50 bg-white'
               }`}
             >
-              <p className="font-bold text-charcoal text-sm">{size.sizeMM}mm</p>
+              {size.name ? (
+                <>
+                  <p className="font-semibold text-charcoal text-xs">{size.name}</p>
+                  <p className="font-bold text-charcoal text-sm">{size.sizeMM}mm</p>
+                </>
+              ) : (
+                <p className="font-bold text-charcoal text-sm">{size.sizeMM}mm</p>
+              )}
               {toNumber(size.additionalCost) > 0 && (
                 <p className="text-xs text-brass font-semibold">+{formatCurrency(size.additionalCost)}</p>
               )}

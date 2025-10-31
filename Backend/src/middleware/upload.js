@@ -3,13 +3,26 @@ const multer = require('multer');
 // Configure multer to store files in memory
 const storage = multer.memoryStorage();
 
+// Allowed image MIME types
+const allowedImageTypes = [
+	'image/jpeg',
+	'image/jpg',
+	'image/png',
+	'image/gif',
+	'image/webp',
+	'image/bmp',
+	'image/svg+xml',
+	'image/tiff',
+	'image/x-icon'
+];
+
 // File filter to accept only images
 const fileFilter = (req, file, cb) => {
-	// Accept image files only
-	if (file.mimetype.startsWith('image/')) {
+	// Accept image files only - check both explicit list and image/ prefix for maximum compatibility
+	if (file.mimetype.startsWith('image/') || allowedImageTypes.includes(file.mimetype.toLowerCase())) {
 		cb(null, true);
 	} else {
-		cb(new Error('Only image files are allowed!'), false);
+		cb(new Error(`Only image files are allowed! Received: ${file.mimetype}. Supported types: JPG, JPEG, PNG, GIF, WEBP, BMP, SVG, TIFF, ICO`), false);
 	}
 };
 

@@ -9,21 +9,32 @@ import { toNumber, formatCurrency } from '@/lib/utils'
 import LuxuryNavigation from '@/components/LuxuryNavigation'
 import LuxuryFooter from '@/components/LuxuryFooter'
 import Button from '@/components/ui/Button'
+import OfferCodeInput from '@/components/OfferCodeInput'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { CartItem, Product } from '@/types'
 
 export default function CartPage() {
   const router = useRouter()
-  const { cart, loading, updateQuantity, removeItem, clearCart, refreshCart } = useCart()
-  const { isAuthenticated } = useAuth()
+  const { cart, loading, updateQuantity, removeItem, clearCart, refreshCart, sessionID } = useCart()
+  const { isAuthenticated, user } = useAuth()
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
+  const [localCart, setLocalCart] = useState<typeof cart>(cart)
+
+  // Sync local cart with context cart
+  useEffect(() => {
+    setLocalCart(cart)
+  }, [cart])
 
   useEffect(() => {
     refreshCart()
   }, [refreshCart])
 
   const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
-    if (newQuantity < 1) return
+    if (newQuantity < 1) {
+      // Remove item from cart if quantity reaches 0 (no confirmation)
+      await handleRemoveItem(itemId, false)
+      return
+    }
     try {
       await updateQuantity(itemId, newQuantity)
     } catch (error) {
@@ -31,8 +42,8 @@ export default function CartPage() {
     }
   }
 
-  const handleRemoveItem = async (itemId: string) => {
-    if (!confirm('Remove this item from cart?')) return
+  const handleRemoveItem = async (itemId: string, showConfirm = true) => {
+    if (showConfirm && !confirm('Remove this item from cart?')) return
     try {
       await removeItem(itemId)
     } catch (error) {
@@ -66,7 +77,9 @@ export default function CartPage() {
     return item.productID
   }
 
-  if (loading && !cart) {
+  const displayCart = localCart || cart
+
+  if (loading && !displayCart) {
     return (
       <div className="min-h-screen bg-ivory">
         <LuxuryNavigation />
@@ -78,7 +91,7 @@ export default function CartPage() {
     )
   }
 
-  const isEmpty = !cart || cart.items.length === 0
+  const isEmpty = !displayCart || displayCart.items.length === 0
 
   return (
     <div className="min-h-screen bg-ivory">
@@ -130,16 +143,16 @@ export default function CartPage() {
               <div className="lg:col-span-2 space-y-4">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-serif font-bold text-charcoal">
-                    Cart Items ({cart.items.length})
+                    Cart Items ({displayCart.items.length})
                   </h2>
-                  {cart.items.length > 0 && (
+                  {displayCart.items.length > 0 && (
                     <Button variant="ghost" size="sm" onClick={handleClearCart}>
                       Clear All
                     </Button>
                   )}
                 </div>
 
-                {cart.items.map((item, index) => {
+                {displayCart.items.map((item, index) => {
                   const product = getProductFromItem(item)
                   
                   return (
@@ -289,8 +302,8 @@ export default function CartPage() {
                             <div className="flex items-center gap-3">
                               <button
                                 onClick={() => handleUpdateQuantity(item._id, item.quantity - 1)}
-                                disabled={item.quantity <= 1}
-                                className="w-8 h-8 rounded border-2 border-brass/30 hover:border-brass hover:bg-brass/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                className="w-8 h-8 rounded border-2 border-brass/30 hover:border-brass hover:bg-brass/10 transition-all"
+                                title={item.quantity === 1 ? 'Remove from cart' : 'Decrease quantity'}
                               >
                                 -
                               </button>
@@ -300,6 +313,7 @@ export default function CartPage() {
                               <button
                                 onClick={() => handleUpdateQuantity(item._id, item.quantity + 1)}
                                 className="w-8 h-8 rounded border-2 border-brass/30 hover:border-brass hover:bg-brass/10 transition-all"
+                                title="Increase quantity"
                               >
                                 +
                               </button>
@@ -335,7 +349,7 @@ export default function CartPage() {
                   </h2>
 
                   <div className="space-y-4 mb-6">
-                    {cart.items.map((item) => (
+                    {displayCart.items.map((item) => (
                       <div key={item._id} className="flex justify-between text-sm">
                         <span className="text-charcoal/70">
                           {item.productName} × {item.quantity}
@@ -347,10 +361,47 @@ export default function CartPage() {
                     ))}
                   </div>
 
-                  <div className="border-t border-brass/20 pt-4 mb-6">
-                    <div className="flex justify-between text-lg font-bold">
+                  {/* Discount Code Input - Must be before pricing summary */}
+                  {sessionID && (
+                    <div className="mb-4">
+                      <OfferCodeInput
+                        cart={localCart || cart}
+                        sessionID={sessionID}
+                        userId={user?.id}
+                        onDiscountApplied={refreshCart}
+                        onCartUpdate={(updatedCart) => {
+                          setLocalCart(updatedCart)
+                          // Also refresh from server to ensure consistency
+                          refreshCart()
+                        }}
+                        showError={true}
+                      />
+                    </div>
+                  )}
+
+                  <div className="border-t border-brass/20 pt-4 space-y-2">
+                    <div className="flex justify-between text-sm">
                       <span className="text-charcoal">Subtotal</span>
-                      <span className="text-brass">{formatCurrency(cart.subtotal)}</span>
+                      <span className="text-charcoal font-medium">{formatCurrency(displayCart.subtotal)}</span>
+                    </div>
+                    
+                    {/* Discount Display - Shows in pricing summary when applied */}
+                    {displayCart.discountCode && displayCart.discountAmount && toNumber(displayCart.discountAmount) > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="flex justify-between text-sm text-green-600 font-medium"
+                      >
+                        <span>Discount ({displayCart.discountCode})</span>
+                        <span>-{formatCurrency(displayCart.discountAmount)}</span>
+                      </motion.div>
+                    )}
+                    
+                    <div className="flex justify-between text-lg font-bold border-t border-brass/20 pt-2 mt-2">
+                      <span className="text-charcoal">Total</span>
+                      <span className="text-brass">
+                        {formatCurrency(displayCart.total || (toNumber(displayCart.subtotal) - toNumber(displayCart.discountAmount || 0)))}
+                      </span>
                     </div>
                     <p className="text-xs text-charcoal/60 mt-2">
                       Shipping and taxes calculated at checkout

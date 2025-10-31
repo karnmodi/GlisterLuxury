@@ -37,24 +37,11 @@ export default function FinishSelection({
         transition={{ delay: 0.4 }}
         className="bg-white/80 backdrop-blur-xl rounded-xl p-3 shadow-lg border border-brass/20"
       >
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-brass"></span>
-            <label className="block text-sm font-bold text-charcoal">
-              Finish <span className="text-charcoal/40 text-xs font-normal">(Optional)</span>
-            </label>
-          </div>
-          {selectedFinish && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              whileHover={{ scale: 1.05 }}
-              onClick={onFinishClear}
-              className="text-xs text-brass hover:text-olive font-medium underline"
-            >
-              Clear
-            </motion.button>
-          )}
+        <div className="flex items-center gap-2 mb-3">
+          <span className="w-2 h-2 rounded-full bg-brass"></span>
+          <label className="block text-sm font-bold text-charcoal">
+            Finish <span className="text-red-500 text-xs">*</span>
+          </label>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {availableFinishes.map((finish, finishIdx) => {
@@ -68,7 +55,7 @@ export default function FinishSelection({
                 transition={{ delay: 0.5 + finishIdx * 0.05 }}
                 whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => onFinishSelect(isSelected ? '' : finish._id)}
+                onClick={() => onFinishSelect(finish._id)}
                 className={`p-2 rounded-lg border-2 transition-all duration-300 ${
                   isSelected
                     ? 'border-brass bg-gradient-to-br from-brass/20 to-olive/10 shadow-xl ring-2 ring-brass/30'

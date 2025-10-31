@@ -4,6 +4,7 @@ const { Schema } = mongoose;
 
 const SizeOptionSchema = new Schema(
 	{
+		name: { type: String },
 		sizeMM: { type: Number, required: true },
 		additionalCost: { type: Schema.Types.Decimal128, default: 0 },
 		isOptional: { type: Boolean, default: true },

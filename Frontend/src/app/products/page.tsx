@@ -471,7 +471,7 @@ export default function ProductsPage() {
                         <p className="text-xs text-brass tracking-luxury mb-2">
                           {product.productID}
                         </p>
-                        <h3 className="text-lg font-serif font-bold text-charcoal mb-2 group-hover:text-brass transition-colors">
+                        <h3 className="text-xl font-sans font-semibold text-charcoal mb-2 group-hover:text-brass transition-colors leading-snug tracking-tight" style={{ letterSpacing: '-0.01em' }}>
                           {product.name}
                         </h3>
                         <p className="text-sm text-charcoal/60 mb-4 line-clamp-2">

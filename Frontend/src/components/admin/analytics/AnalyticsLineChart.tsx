@@ -79,7 +79,7 @@ const AnalyticsLineChart: React.FC<AnalyticsLineChartProps> = ({
             tickFormatter={formatYAxis}
             width={50}
           />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#666', strokeWidth: 1, strokeDasharray: '3 3' }} />
           <Legend wrapperStyle={{ fontSize: '14px' }} />
           {lines.map((line) => (
             <Line

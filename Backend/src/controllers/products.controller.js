@@ -2,6 +2,20 @@ const Product = require('../models/Product');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 
 /**
+ * Sanitize productID for use in Cloudinary public_id
+ * Cloudinary public_id cannot contain special characters like &, spaces, etc.
+ */
+const sanitizeProductID = (productID) => {
+	if (!productID) return '';
+	return productID
+		.replace(/\s+/g, '_')           // Replace spaces with underscores
+		.replace(/[&<>#%{}|\\^~\[\]`]/g, '') // Remove invalid characters
+		.replace(/__+/g, '_')           // Replace multiple underscores with single
+		.replace(/^_+|_+$/g, '')        // Remove leading/trailing underscores
+		.toLowerCase();
+};
+
+/**
  * Transform MongoDB types to JSON-serializable types
  * Handles: ObjectId → string, Decimal128 → number, Map → object
  */
@@ -65,6 +79,7 @@ async function createProduct(req, res) {
 					materialID: materialID,
 					basePrice: parseFloat(material.basePrice) || 0,
 					sizeOptions: (material.sizeOptions || []).map(size => ({
+						name: size.name || undefined,
 						sizeMM: parseInt(size.sizeMM) || 0,
 						additionalCost: parseFloat(size.additionalCost) || 0,
 						isOptional: Boolean(size.isOptional)
@@ -264,7 +279,8 @@ async function updateProduct(req, res) {
 						const urlParts = imageData.url.split('/');
 						const fileWithExt = urlParts[urlParts.length - 1];
 						const fileNameWithoutExt = fileWithExt.split('.')[0];
-						const publicId = `glister/products/${existingProduct.productID}/${fileNameWithoutExt}`;
+						const sanitizedProductID = sanitizeProductID(existingProduct.productID);
+						const publicId = `glister/products/${sanitizedProductID}/${fileNameWithoutExt}`;
 						
 						return deleteFromCloudinary(publicId);
 					} catch (err) {
@@ -312,6 +328,7 @@ async function updateProduct(req, res) {
 					materialID: materialID,
 					basePrice: parseFloat(material.basePrice) || 0,
 					sizeOptions: (material.sizeOptions || []).map(size => ({
+						name: size.name || undefined,
 						sizeMM: parseInt(size.sizeMM) || 0,
 						additionalCost: parseFloat(size.additionalCost) || 0,
 						isOptional: Boolean(size.isOptional)
@@ -373,7 +390,8 @@ async function deleteProduct(req, res) {
 					const urlParts = imageData.url.split('/');
 					const fileWithExt = urlParts[urlParts.length - 1];
 					const fileNameWithoutExt = fileWithExt.split('.')[0];
-					const publicId = `glister/products/${product.productID}/${fileNameWithoutExt}`;
+					const sanitizedProductID = sanitizeProductID(product.productID);
+					const publicId = `glister/products/${sanitizedProductID}/${fileNameWithoutExt}`;
 					
 					deletePromises.push(deleteFromCloudinary(publicId));
 				} catch (err) {
@@ -410,9 +428,10 @@ async function uploadProductImages(req, res) {
 		}
 
 		// Upload all images to Cloudinary
+		const sanitizedProductID = sanitizeProductID(product.productID);
 		const uploadPromises = req.files.map((file) =>
 			uploadToCloudinary(file.buffer, {
-				folder: `glister/products/${product.productID}`,
+				folder: `glister/products/${sanitizedProductID}`,
 			})
 		);
 
@@ -478,7 +497,8 @@ async function deleteProductImage(req, res) {
 		// URL format: https://res.cloudinary.com/{cloud_name}/image/upload/v{version}/{public_id}.{format}
 		const urlParts = imageUrl.split('/');
 		const fileWithExt = urlParts[urlParts.length - 1];
-		const publicId = `glister/products/${product.productID}/${fileWithExt.split('.')[0]}`;
+		const sanitizedProductID = sanitizeProductID(product.productID);
+		const publicId = `glister/products/${sanitizedProductID}/${fileWithExt.split('.')[0]}`;
 
 		// Delete from Cloudinary
 		await deleteFromCloudinary(publicId);

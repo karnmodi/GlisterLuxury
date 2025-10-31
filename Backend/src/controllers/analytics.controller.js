@@ -225,36 +225,62 @@ exports.getWebsiteVisits = async (req, res) => {
 					page: { $not: { $regex: /^\/admin/ } } // Exclude admin pages
 				} 
 			},
-			// Extract product ID from URL pattern /products/[id]
+			// Clean up page URLs - remove query strings and normalize
+			{
+				$addFields: {
+					cleanedPage: {
+						$let: {
+							vars: {
+								// Split by ? to remove query string
+								pageWithoutQuery: { 
+									$arrayElemAt: [{ $split: ['$page', '?'] }, 0]
+								}
+							},
+							in: '$$pageWithoutQuery'
+						}
+					},
+					originalPage: '$page'
+				}
+			},
+			// Extract product ID from URL pattern /products/[id] or just the ID
 			{
 				$addFields: {
 					productId: {
-						$cond: {
-							if: { $regexMatch: { input: '$page', regex: /^\/products\/[a-fA-F0-9]{24}/ } },
-							then: {
-								$let: {
-									vars: {
-										parts: { $split: ['$page', '/'] },
-										queryParts: { $split: ['$page', '?'] }
-									},
-									in: {
-										$cond: {
-											if: { $gte: [{ $size: '$$parts' }, 3] },
-											then: {
-												$arrayElemAt: [
-													{ $split: [{ $arrayElemAt: ['$$queryParts', 0] }, '/'] },
-													2
-												]
+						$let: {
+							vars: {
+								// Check if it's a product page with /products/ prefix
+								isProductPage: { $regexMatch: { input: '$cleanedPage', regex: /^\/products\/[a-fA-F0-9]{24}/ } },
+								// Check if it's just a product ID (24 hex chars)
+								isJustProductId: { $regexMatch: { input: '$cleanedPage', regex: /^[a-fA-F0-9]{24}$/ } }
+							},
+							in: {
+								$cond: {
+									if: '$$isProductPage',
+									then: {
+										$let: {
+											vars: {
+												parts: { $split: ['$cleanedPage', '/'] }
 											},
+											in: {
+												$cond: {
+													if: { $gte: [{ $size: '$$parts' }, 3] },
+													then: { $arrayElemAt: ['$$parts', 2] },
+													else: null
+												}
+											}
+										}
+									},
+									else: {
+										$cond: {
+											if: '$$isJustProductId',
+											then: '$cleanedPage',
 											else: null
 										}
 									}
 								}
-							},
-							else: null
+							}
 						}
-					},
-					originalPage: '$page'
+					}
 				}
 			},
 			// Lookup product name if it's a product page
@@ -306,9 +332,30 @@ exports.getWebsiteVisits = async (req, res) => {
 						$cond: {
 							if: { $and: [{ $ne: ['$productId', null] }, { $gt: [{ $size: '$productInfo' }, 0] }] },
 							then: {
-								$concat: ['/products/', { $arrayElemAt: ['$productInfo.name', 0] }]
+								// If we found a product name, use it
+								$arrayElemAt: ['$productInfo.name', 0]
 							},
-							else: '$originalPage'
+							else: {
+								// Clean up the page display
+								$cond: {
+									if: { $regexMatch: { input: '$cleanedPage', regex: /undefined|null/i } },
+									then: {
+										// Handle malformed URLs with undefined
+										$cond: {
+											if: { $regexMatch: { input: '$cleanedPage', regex: /^\/products/ } },
+											then: 'Products Page',
+											else: {
+												$cond: {
+													if: { $regexMatch: { input: '$cleanedPage', regex: /^\/categories/ } },
+													then: 'Category Page',
+													else: '$cleanedPage'
+												}
+											}
+										}
+									},
+									else: '$cleanedPage'
+								}
+							}
 						}
 					}
 				}
@@ -472,7 +519,9 @@ exports.getRevenueAnalytics = async (req, res) => {
 			},
 			{
 				$project: {
-					name: '$_id',
+					name: {
+						$ifNull: ['$_id.name', { $toString: '$_id' }]
+					},
 					revenue: 1,
 					quantity: 1,
 					_id: 0
@@ -494,7 +543,9 @@ exports.getRevenueAnalytics = async (req, res) => {
 			},
 			{
 				$project: {
-					name: '$_id',
+					name: {
+						$ifNull: ['$_id.name', { $toString: '$_id' }]
+					},
 					revenue: 1,
 					quantity: 1,
 					_id: 0
@@ -509,8 +560,8 @@ exports.getRevenueAnalytics = async (req, res) => {
 		const result = {
 			timeSeries,
 			byCategory,
-			byMaterial: byMaterial.filter(m => m.name),
-			byFinish: byFinish.filter(f => f.name),
+			byMaterial: byMaterial.filter(m => m.name && typeof m.name === 'string'),
+			byFinish: byFinish.filter(f => f.name && typeof f.name === 'string'),
 			summary: {
 				totalRevenue,
 				totalOrders,

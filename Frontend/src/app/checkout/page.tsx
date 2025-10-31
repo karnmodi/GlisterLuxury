@@ -11,6 +11,7 @@ import { formatCurrency } from '@/lib/utils'
 import LuxuryNavigation from '@/components/LuxuryNavigation'
 import LuxuryFooter from '@/components/LuxuryFooter'
 import OrderSummary from '@/components/OrderSummary'
+import OfferCodeInput from '@/components/OfferCodeInput'
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -66,12 +67,24 @@ export default function CheckoutPage() {
         orderNotes: orderNotes.trim() || undefined
       }, token)
 
-      setOrderNumber(response.order.orderNumber)
-      setShowSuccess(true)
-      toast.success('Order placed successfully!')
-    } catch (error) {
+      if (response.success) {
+        setOrderNumber(response.order.orderNumber)
+        setShowSuccess(true)
+        toast.success('Order placed successfully!')
+      } else {
+        toast.error(response.message || 'Failed to place order. Please try again.')
+      }
+    } catch (error: any) {
       console.error('Failed to place order:', error)
-      toast.error('Failed to place order. Please try again.')
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to place order. Please try again.'
+      toast.error(errorMessage)
+      
+      // If error is about missing address, redirect to profile
+      if (errorMessage.includes('address') || errorMessage.includes('Address')) {
+        setTimeout(() => {
+          router.push('/profile')
+        }, 3000)
+      }
     } finally {
       setProcessing(false)
     }
@@ -220,8 +233,19 @@ export default function CheckoutPage() {
             </div>
 
             {/* Right Column - Order Summary */}
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 space-y-6">
               <OrderSummary data={cart} type="cart" />
+              
+              {/* Discount Code Input */}
+              {sessionID && (
+                <OfferCodeInput
+                  cart={cart}
+                  sessionID={sessionID}
+                  userId={user?.id}
+                  onDiscountApplied={() => window.location.reload()}
+                  showError={true}
+                />
+              )}
               
               <button
                 onClick={handlePlaceOrder}

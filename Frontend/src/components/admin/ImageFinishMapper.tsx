@@ -32,6 +32,7 @@ export default function ImageFinishMapper({
   const toast = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [deleting, setDeleting] = useState<number | null>(null)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
 
   const handleFileSelect = async (files: FileList | null) => {
@@ -122,9 +123,45 @@ export default function ImageFinishMapper({
     }
   }
 
-  const removeImage = (index: number) => {
-    const newImages = images.filter((_, i) => i !== index)
-    onChange(newImages)
+  const removeImage = async (index: number) => {
+    const imageToRemove = images[index]
+    
+    // Check if this is an uploaded image (no file property and has a Cloudinary URL)
+    const isUploadedImage = !imageToRemove.file && imageToRemove.url
+    
+    // If it's an uploaded image and we have a productId, delete from server
+    if (isUploadedImage && productId) {
+      // Check if productId is a valid ObjectId (24 character hex string)
+      const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(productId)
+      
+      if (isValidObjectId) {
+        try {
+          setDeleting(index)
+          
+          // Delete from Cloudinary and database
+          await productsApi.deleteImage(productId, imageToRemove.url)
+          
+          // Remove from local state
+          const newImages = images.filter((_, i) => i !== index)
+          onChange(newImages)
+          
+          toast.success('Image deleted successfully')
+        } catch (error) {
+          console.error('Failed to delete image:', error)
+          toast.error('Failed to delete image. Please try again.')
+        } finally {
+          setDeleting(null)
+        }
+      } else {
+        // Invalid productId, just remove from local state
+        const newImages = images.filter((_, i) => i !== index)
+        onChange(newImages)
+      }
+    } else {
+      // Local preview image (has file property) or no productId, just remove from local state
+      const newImages = images.filter((_, i) => i !== index)
+      onChange(newImages)
+    }
   }
 
   const updateFinishMapping = async (index: number, finishID: string) => {
@@ -258,6 +295,7 @@ export default function ImageFinishMapper({
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               isDefault={!image.mappedFinishID}
+              isDeleting={deleting === index}
             />
           ))}
         </div>
@@ -298,6 +336,7 @@ interface ImageCardProps {
   onDragOver: (e: React.DragEvent) => void
   onDrop: (e: React.DragEvent, dropIndex: number) => void
   isDefault: boolean
+  isDeleting?: boolean
 }
 
 function ImageCard({
@@ -311,7 +350,8 @@ function ImageCard({
   onDragStart,
   onDragOver,
   onDrop,
-  isDefault
+  isDefault,
+  isDeleting = false
 }: ImageCardProps) {
   const [isHovered, setIsHovered] = useState(false)
 
@@ -351,25 +391,34 @@ function ImageCard({
     >
       {/* Image */}
       <div className="relative aspect-square">
+        {isDeleting && (
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-10 rounded-t-md">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-[10px] text-white">Deleting...</span>
+            </div>
+          </div>
+        )}
         <Image
           src={image.url}
           alt={`Image ${index + 1}`}
           fill
-          className="object-cover"
+          className={`object-cover ${isDeleting ? 'opacity-50' : ''}`}
         />
         
         {/* Overlay */}
         <AnimatePresence>
-          {isHovered && (
+          {isHovered && !isDeleting && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/50 flex items-center justify-center"
+              className="absolute inset-0 bg-black/50 flex items-center justify-center z-10"
             >
               <button
                 onClick={() => onRemove(index)}
-                className="px-1.5 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200 border border-red-300 rounded"
+                disabled={isDeleting}
+                className="px-1.5 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200 border border-red-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

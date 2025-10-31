@@ -8,6 +8,8 @@ const {
 	clearCart,
 	getCheckoutSummary,
 	linkCartToUser,
+	applyDiscountCode,
+	removeDiscountCode,
 } = require('../controllers/cart.controller');
 
 const router = express.Router();
@@ -32,6 +34,12 @@ router.delete('/item/:itemId', removeCartItem);
 
 // Clear cart
 router.delete('/:sessionID', clearCart);
+
+// Apply discount code
+router.post('/:sessionID/apply-discount', applyDiscountCode);
+
+// Remove discount code
+router.delete('/:sessionID/remove-discount', removeDiscountCode);
 
 module.exports = router;
 

@@ -33,6 +33,7 @@ export default function CreateProductPage() {
       name: string
       basePrice: number
       sizeOptions: Array<{
+        name?: string
         sizeMM: number
         additionalCost: number
         isOptional: boolean
@@ -120,6 +121,7 @@ export default function CreateProductPage() {
             name: material.name,
             basePrice: material.basePrice,
             sizeOptions: material.sizeOptions.map(size => ({
+              name: size.name || undefined,
               sizeMM: size.sizeMM,
               additionalCost: size.additionalCost,
               isOptional: size.isOptional

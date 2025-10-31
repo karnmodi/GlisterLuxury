@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 
 interface SizeOption {
+  name?: string
   sizeMM: number
   additionalCost: number
   isOptional: boolean
@@ -71,6 +72,7 @@ export default function MaterialConfigSection({
   const addSizeOption = (materialIndex: number) => {
     const newMaterials = [...materials]
     newMaterials[materialIndex].sizeOptions.push({
+      name: '',
       sizeMM: 0,
       additionalCost: 0,
       isOptional: true
@@ -234,7 +236,14 @@ export default function MaterialConfigSection({
                         exit={{ opacity: 0, x: 10 }}
                         className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 p-2 bg-cream/20 rounded border border-brass/10"
                       >
-                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-2">
+                          <Input
+                            label="Size Name"
+                            type="text"
+                            value={sizeOption.name || ''}
+                            onChange={(e) => updateSizeOption(materialIndex, sizeIndex, 'name', e.target.value)}
+                            placeholder="e.g., Rose Key"
+                          />
                           <Input
                             label="Size (MM)"
                             type="number"

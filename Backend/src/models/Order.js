@@ -64,8 +64,12 @@ const OrderSchema = new Schema(
 			country: { type: String, default: 'United Kingdom' },
 		},
 		orderNotes: { type: String },
+		discountCode: { type: String },
+		discountAmount: { type: Schema.Types.Decimal128, default: 0 },
+		offerID: { type: Schema.Types.ObjectId, ref: 'Offer' },
 		pricing: {
 			subtotal: { type: Schema.Types.Decimal128, required: true },
+			discount: { type: Schema.Types.Decimal128, default: 0 },
 			shipping: { type: Schema.Types.Decimal128, default: 0 },
 			tax: { type: Schema.Types.Decimal128, default: 0 },
 			total: { type: Schema.Types.Decimal128, required: true },
@@ -185,9 +189,10 @@ OrderSchema.pre('save', async function (next) {
 // Calculate total before saving
 OrderSchema.pre('save', function (next) {
 	const subtotal = parseFloat(this.pricing.subtotal?.toString() || 0);
+	const discount = parseFloat(this.pricing.discount?.toString() || 0);
 	const shipping = parseFloat(this.pricing.shipping?.toString() || 0);
 	const tax = parseFloat(this.pricing.tax?.toString() || 0);
-	this.pricing.total = subtotal + shipping + tax;
+	this.pricing.total = Math.max(0, subtotal - discount + shipping + tax);
 	next();
 });
 

@@ -75,7 +75,11 @@ apiRouter.use('/cart', require('./src/routes/cart.routes'));
 apiRouter.use('/orders', require('./src/routes/orders.routes'));
 apiRouter.use('/wishlist', require('./src/routes/wishlist.routes'));
 apiRouter.use('/faqs', require('./src/routes/faq.routes'));
+apiRouter.use('/announcements', require('./src/routes/announcements.routes'));
+apiRouter.use('/about-us', require('./src/routes/aboutUs.routes'));
+apiRouter.use('/contact', require('./src/routes/contact.routes'));
 apiRouter.use('/analytics', require('./src/routes/analytics.routes'));
+apiRouter.use('/offers', require('./src/routes/offers.routes'));
 
 app.use(apiRouter); // no prefix
 app.use('/api', apiRouter); // with /api prefix

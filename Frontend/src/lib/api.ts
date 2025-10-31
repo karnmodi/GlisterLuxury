@@ -1,4 +1,4 @@
-import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, CartItem, Order, OrderStats, Wishlist, DashboardSummary, WebsiteVisitAnalytics, RevenueAnalytics, ProductAnalytics, UserAnalytics, OrderAnalytics, ConversionAnalytics } from '@/types'
+import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, Announcement, AboutUs, ContactInfo, ContactInquiry, CartItem, Order, OrderStats, Wishlist, DashboardSummary, WebsiteVisitAnalytics, RevenueAnalytics, ProductAnalytics, UserAnalytics, OrderAnalytics, ConversionAnalytics } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
@@ -14,7 +14,7 @@ async function apiCall<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }))
-    throw new Error(error.message || `HTTP error! status: ${response.status}`)
+    throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`)
   }
 
   return response.json()
@@ -267,6 +267,137 @@ export const cartApi = {
       },
       body: JSON.stringify({ sessionID }),
     }),
+
+  applyDiscount: (sessionID: string, code: string, userId?: string) =>
+    apiCall<{ message: string; cart: Cart }>(`/cart/${sessionID}/apply-discount`, {
+      method: 'POST',
+      body: JSON.stringify({ code, userId }),
+    }),
+
+  removeDiscount: (sessionID: string) =>
+    apiCall<{ message: string; cart: Cart }>(`/cart/${sessionID}/remove-discount`, {
+      method: 'DELETE',
+    }),
+}
+
+// Offers API
+export const offersApi = {
+  validate: (code: string, amount: number, userId?: string) =>
+    apiCall<{
+      valid: boolean
+      offer?: {
+        _id: string
+        code: string
+        description: string
+        discountType: 'percentage' | 'fixed'
+        discountValue: number
+        discountAmount: number
+      }
+      error?: string
+    }>('/offers/validate', {
+      method: 'POST',
+      body: JSON.stringify({ code, amount, userId }),
+    }),
+
+  list: (token: string, active?: boolean) =>
+    apiCall<Array<{
+      _id: string
+      code: string
+      description: string
+      discountType: 'percentage' | 'fixed'
+      discountValue: number
+      minOrderAmount: number
+      maxUses?: number
+      usedCount: number
+      validFrom: string
+      validTo?: string
+      isActive: boolean
+      applicableTo: 'all' | 'new_users'
+    }>>(`/offers${active ? '?active=true' : ''}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  getById: (id: string, token: string) =>
+    apiCall<{
+      _id: string
+      code: string
+      description: string
+      discountType: 'percentage' | 'fixed'
+      discountValue: number
+      minOrderAmount: number
+      maxUses?: number
+      usedCount: number
+      validFrom: string
+      validTo?: string
+      isActive: boolean
+      applicableTo: 'all' | 'new_users'
+    }>(`/offers/${id}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  create: (data: {
+    code: string
+    description: string
+    discountType: 'percentage' | 'fixed'
+    discountValue: number
+    minOrderAmount?: number
+    maxUses?: number
+    validFrom?: string
+    validTo?: string
+    isActive?: boolean
+    applicableTo?: 'all' | 'new_users'
+  }, token: string) =>
+    apiCall<{
+      _id: string
+      code: string
+      description: string
+      discountType: 'percentage' | 'fixed'
+      discountValue: number
+    }>('/offers', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: {
+    code?: string
+    description?: string
+    discountType?: 'percentage' | 'fixed'
+    discountValue?: number
+    minOrderAmount?: number
+    maxUses?: number
+    validFrom?: string
+    validTo?: string
+    isActive?: boolean
+    applicableTo?: 'all' | 'new_users'
+  }, token: string) =>
+    apiCall<{
+      _id: string
+      code: string
+      description: string
+    }>(`/offers/${id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string, token: string) =>
+    apiCall<{ message: string }>(`/offers/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
 }
 
 // Orders API
@@ -487,6 +618,237 @@ export const faqApi = {
     apiCall<{ message: string }>('/faqs/reorder', {
       method: 'PATCH',
       body: JSON.stringify({ orderedIds }),
+    }),
+}
+
+// Announcements API
+export const announcementsApi = {
+  // Public endpoint - get active announcements
+  getPublic: () => {
+    return apiCall<Announcement[]>('/announcements/public?public=true&sortBy=order')
+  },
+
+  // Admin endpoints - require authentication
+  getAll: (token: string, params?: { q?: string; isActive?: boolean; sortBy?: string }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.q) queryParams.append('q', params.q)
+    if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString())
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+    
+    const query = queryParams.toString()
+    return apiCall<Announcement[]>(`/announcements${query ? `?${query}` : ''}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+  },
+
+  getById: (id: string, token: string) =>
+    apiCall<Announcement>(`/announcements/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  create: (data: Partial<Announcement>, token: string) =>
+    apiCall<Announcement>('/announcements', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: Partial<Announcement>, token: string) =>
+    apiCall<Announcement>(`/announcements/${id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string, token: string) =>
+    apiCall<{ message: string }>(`/announcements/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  reorder: (orderedIds: string[], token: string) =>
+    apiCall<{ message: string }>('/announcements/reorder', {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ orderedIds }),
+    }),
+}
+
+// About Us API
+export const aboutUsApi = {
+  getAll: (params?: { section?: string; q?: string; isActive?: boolean; sortBy?: string }, token?: string) => {
+    const queryParams = new URLSearchParams()
+    if (params?.section) queryParams.append('section', params.section)
+    if (params?.q) queryParams.append('q', params.q)
+    if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString())
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+    
+    const query = queryParams.toString()
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    return apiCall<AboutUs[]>(`/about-us${query ? `?${query}` : ''}`, {
+      headers
+    })
+  },
+
+  getById: (id: string, token?: string) => {
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    return apiCall<AboutUs>(`/about-us/${id}`, { headers })
+  },
+
+  create: (data: Partial<AboutUs>, token: string) =>
+    apiCall<AboutUs>('/about-us', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: Partial<AboutUs>, token: string) =>
+    apiCall<AboutUs>(`/about-us/${id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string, token: string) =>
+    apiCall<{ message: string }>(`/about-us/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  reorder: (orderedIds: string[], token: string) =>
+    apiCall<{ message: string }>('/about-us/reorder', {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ orderedIds }),
+    }),
+}
+
+// Contact API
+export const contactApi = {
+  // Contact Info
+  getInfo: (params?: { type?: string; isActive?: boolean }, token?: string) => {
+    const queryParams = new URLSearchParams()
+    if (params?.type) queryParams.append('type', params.type)
+    if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString())
+    
+    const query = queryParams.toString()
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    return apiCall<ContactInfo[]>(`/contact/info${query ? `?${query}` : ''}`, {
+      headers
+    })
+  },
+
+  createInfo: (data: Partial<ContactInfo>, token: string) =>
+    apiCall<ContactInfo>('/contact/info', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  getInfoById: (id: string, token: string) =>
+    apiCall<ContactInfo>(`/contact/info/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  updateInfo: (id: string, data: Partial<ContactInfo>, token: string) =>
+    apiCall<ContactInfo>(`/contact/info/${id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  deleteInfo: (id: string, token: string) =>
+    apiCall<{ message: string }>(`/contact/info/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  // Contact Inquiries
+  submitInquiry: (data: { name: string; email: string; phone?: string; subject: string; message: string }) =>
+    apiCall<{ message: string; inquiry: ContactInquiry }>('/contact/inquiry', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  listInquiries: (token: string, params?: { status?: string; q?: string; sortBy?: string }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.q) queryParams.append('q', params.q)
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+    
+    const query = queryParams.toString()
+    return apiCall<ContactInquiry[]>(`/contact/inquiries${query ? `?${query}` : ''}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+  },
+
+  getInquiry: (id: string, token: string) =>
+    apiCall<ContactInquiry>(`/contact/inquiries/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  updateInquiry: (id: string, data: { status?: string; adminNotes?: string }, token: string) =>
+    apiCall<ContactInquiry>(`/contact/inquiries/${id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  deleteInquiry: (id: string, token: string) =>
+    apiCall<{ message: string }>(`/contact/inquiries/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
     }),
 }
 

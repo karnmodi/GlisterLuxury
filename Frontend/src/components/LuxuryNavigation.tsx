@@ -16,6 +16,7 @@ export default function LuxuryNavigation() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
+  const [bannerHeight, setBannerHeight] = useState(0)
   const { itemCount } = useCart()
   const { itemCount: wishlistCount } = useWishlist()
   const { user, isAuthenticated, logout } = useAuth()
@@ -26,6 +27,28 @@ export default function LuxuryNavigation() {
     }
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Detect announcement banner height
+  useEffect(() => {
+    const checkBanner = () => {
+      const banner = document.querySelector('[data-announcement-banner]') as HTMLElement
+      if (banner) {
+        setBannerHeight(banner.offsetHeight)
+      } else {
+        setBannerHeight(0)
+      }
+    }
+    
+    // Check immediately and after a delay for announcements to load
+    checkBanner()
+    const timeout = setTimeout(checkBanner, 1000)
+    const interval = setInterval(checkBanner, 2000)
+    
+    return () => {
+      clearTimeout(timeout)
+      clearInterval(interval)
+    }
   }, [])
 
   // Fetch categories on mount
@@ -53,11 +76,12 @@ export default function LuxuryNavigation() {
       initial={{ y: -100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className={`fixed top-0 left-0 right-0 z-[9998] transition-all duration-500 ${
+      className={`fixed left-0 right-0 z-[9998] transition-all duration-500 ${
         scrolled 
           ? 'bg-charcoal/95 backdrop-blur-md shadow-lg' 
           : 'bg-charcoal/80 backdrop-blur-sm'
       }`}
+      style={{ top: `${bannerHeight}px` }}
     >
       <div className="w-full px-4 sm:px-6 lg:px-12 xl:px-16">
         <div className="flex justify-between items-center h-20">
