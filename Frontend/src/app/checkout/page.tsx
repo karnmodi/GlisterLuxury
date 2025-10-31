@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCart } from '@/contexts/CartContext'
 import { useToast } from '@/contexts/ToastContext'
@@ -12,10 +12,11 @@ import LuxuryNavigation from '@/components/LuxuryNavigation'
 import LuxuryFooter from '@/components/LuxuryFooter'
 import OrderSummary from '@/components/OrderSummary'
 import OfferCodeInput from '@/components/OfferCodeInput'
+import type { Address } from '@/types'
 
 export default function CheckoutPage() {
   const router = useRouter()
-  const { user, isAuthenticated, token, loading: authLoading } = useAuth()
+  const { user, isAuthenticated, token, loading: authLoading, addAddress, updateAddress } = useAuth()
   const { cart, sessionID, loading: cartLoading } = useCart()
   const toast = useToast()
   const [selectedAddressId, setSelectedAddressId] = useState<string>('')
@@ -23,6 +24,21 @@ export default function CheckoutPage() {
   const [processing, setProcessing] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
+  
+  // Address modal state
+  const [showAddressModal, setShowAddressModal] = useState(false)
+  const [editingAddress, setEditingAddress] = useState<Address | null>(null)
+  const [addressFormData, setAddressFormData] = useState({
+    label: 'Home',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    county: '',
+    postcode: '',
+    country: 'United Kingdom',
+    isDefault: false
+  })
+  const [updatingAddress, setUpdatingAddress] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -40,6 +56,82 @@ export default function CheckoutPage() {
       }
     }
   }, [user])
+
+  const openAddressModal = (address?: Address) => {
+    if (address) {
+      setEditingAddress(address)
+      setAddressFormData({
+        label: address.label,
+        addressLine1: address.addressLine1,
+        addressLine2: address.addressLine2 || '',
+        city: address.city,
+        county: address.county || '',
+        postcode: address.postcode,
+        country: address.country,
+        isDefault: address.isDefault
+      })
+    } else {
+      setEditingAddress(null)
+      setAddressFormData({
+        label: 'Home',
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        county: '',
+        postcode: '',
+        country: 'United Kingdom',
+        isDefault: user?.addresses.length === 0
+      })
+    }
+    setShowAddressModal(true)
+  }
+
+  const closeAddressModal = () => {
+    setShowAddressModal(false)
+    setEditingAddress(null)
+  }
+
+  const handleAddressSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setUpdatingAddress(true)
+
+    try {
+      if (editingAddress) {
+        await updateAddress(editingAddress._id, {
+          label: addressFormData.label,
+          addressLine1: addressFormData.addressLine1,
+          addressLine2: addressFormData.addressLine2 || undefined,
+          city: addressFormData.city,
+          county: addressFormData.county || undefined,
+          postcode: addressFormData.postcode,
+          country: addressFormData.country,
+          isDefault: addressFormData.isDefault
+        })
+        toast.success('Address updated successfully!')
+      } else {
+        await addAddress({
+          label: addressFormData.label,
+          addressLine1: addressFormData.addressLine1,
+          addressLine2: addressFormData.addressLine2 || undefined,
+          city: addressFormData.city,
+          county: addressFormData.county || undefined,
+          postcode: addressFormData.postcode,
+          country: addressFormData.country,
+          isDefault: addressFormData.isDefault
+        })
+        toast.success('Address added successfully!')
+        // If this is the first address or it's set as default, select it
+        if (addressFormData.isDefault || !user || user.addresses.length === 0) {
+          // The address will be selected automatically via useEffect when user updates
+        }
+      }
+      closeAddressModal()
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to save address')
+    } finally {
+      setUpdatingAddress(false)
+    }
+  }
 
   const handlePlaceOrder = async () => {
     if (!cart || cart.items.length === 0) {
@@ -151,13 +243,36 @@ export default function CheckoutPage() {
             <div className="lg:col-span-2 space-y-6">
               {/* Delivery Address */}
               <div className="bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg p-6">
-                <h2 className="text-2xl font-serif font-bold text-ivory mb-4">Delivery Address</h2>
+                <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
+                  <h2 className="text-2xl font-serif font-bold text-ivory">Delivery Address</h2>
+                  <div className="flex gap-2">
+                    {user.addresses.length > 0 && (
+                      <button
+                        onClick={() => {
+                          const addressToEdit = user.addresses.find(addr => addr._id === selectedAddressId)
+                          if (addressToEdit) {
+                            openAddressModal(addressToEdit)
+                          }
+                        }}
+                        className="px-3 py-1.5 text-xs bg-ivory/10 text-ivory rounded border border-ivory/30 hover:bg-ivory/20 transition-colors"
+                      >
+                        Change Address
+                      </button>
+                    )}
+                    <button
+                      onClick={() => openAddressModal()}
+                      className="px-3 py-1.5 text-xs bg-brass/20 text-brass rounded border border-brass/30 hover:bg-brass/30 transition-colors"
+                    >
+                      Add New
+                    </button>
+                  </div>
+                </div>
                 
                 {user.addresses.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-ivory/70 mb-4">No delivery addresses found</p>
                     <button
-                      onClick={() => router.push('/profile')}
+                      onClick={() => openAddressModal()}
                       className="px-6 py-3 bg-brass text-charcoal font-medium rounded-md hover:bg-olive transition-all duration-300"
                     >
                       Add Address
@@ -302,6 +417,170 @@ export default function CheckoutPage() {
           </motion.div>
         </div>
       )}
+
+      {/* Address Modal */}
+      <AnimatePresence>
+        {showAddressModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4"
+            onClick={closeAddressModal}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-charcoal border border-brass/20 rounded-lg p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-2xl font-serif font-bold text-ivory mb-6">
+                {editingAddress ? 'Edit Address' : 'Add New Address'}
+              </h3>
+
+              <form onSubmit={handleAddressSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-ivory text-sm font-medium mb-2">
+                    Address Label <span className="text-brass">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={addressFormData.label}
+                    onChange={(e) => setAddressFormData({ ...addressFormData, label: e.target.value })}
+                    className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
+                    placeholder="e.g., Home, Work, Office"
+                    required
+                    disabled={updatingAddress}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-ivory text-sm font-medium mb-2">
+                    Address Line 1 <span className="text-brass">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={addressFormData.addressLine1}
+                    onChange={(e) => setAddressFormData({ ...addressFormData, addressLine1: e.target.value })}
+                    className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
+                    placeholder="House number and street name"
+                    required
+                    disabled={updatingAddress}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-ivory text-sm font-medium mb-2">
+                    Address Line 2
+                  </label>
+                  <input
+                    type="text"
+                    value={addressFormData.addressLine2}
+                    onChange={(e) => setAddressFormData({ ...addressFormData, addressLine2: e.target.value })}
+                    className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
+                    placeholder="Apartment, suite, etc. (optional)"
+                    disabled={updatingAddress}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-ivory text-sm font-medium mb-2">
+                      City <span className="text-brass">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={addressFormData.city}
+                      onChange={(e) => setAddressFormData({ ...addressFormData, city: e.target.value })}
+                      className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
+                      placeholder="e.g., London"
+                      required
+                      disabled={updatingAddress}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-ivory text-sm font-medium mb-2">
+                      County
+                    </label>
+                    <input
+                      type="text"
+                      value={addressFormData.county}
+                      onChange={(e) => setAddressFormData({ ...addressFormData, county: e.target.value })}
+                      className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
+                      placeholder="e.g., Greater London"
+                      disabled={updatingAddress}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-ivory text-sm font-medium mb-2">
+                      Postcode <span className="text-brass">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={addressFormData.postcode}
+                      onChange={(e) => setAddressFormData({ ...addressFormData, postcode: e.target.value.toUpperCase() })}
+                      className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass uppercase"
+                      placeholder="e.g., SW1A 1AA"
+                      required
+                      disabled={updatingAddress}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-ivory text-sm font-medium mb-2">
+                      Country
+                    </label>
+                    <input
+                      type="text"
+                      value={addressFormData.country}
+                      onChange={(e) => setAddressFormData({ ...addressFormData, country: e.target.value })}
+                      className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
+                      disabled={updatingAddress}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="isDefault"
+                    checked={addressFormData.isDefault}
+                    onChange={(e) => setAddressFormData({ ...addressFormData, isDefault: e.target.checked })}
+                    className="w-4 h-4 text-brass bg-charcoal border-brass/30 rounded focus:ring-brass"
+                    disabled={updatingAddress}
+                  />
+                  <label htmlFor="isDefault" className="text-ivory text-sm">
+                    Set as default delivery address
+                  </label>
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    type="submit"
+                    disabled={updatingAddress}
+                    className="flex-1 px-6 py-3 bg-brass text-charcoal font-medium tracking-wide rounded-md hover:bg-olive transition-all duration-300 disabled:opacity-50"
+                  >
+                    {updatingAddress ? 'Saving...' : editingAddress ? 'Update Address' : 'Add Address'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeAddressModal}
+                    disabled={updatingAddress}
+                    className="px-6 py-3 text-ivory border border-brass/50 rounded-md hover:bg-brass/10 transition-all duration-300 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <LuxuryFooter />
     </div>

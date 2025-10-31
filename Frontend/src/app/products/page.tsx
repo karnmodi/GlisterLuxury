@@ -345,6 +345,13 @@ export default function ProductsPage() {
                     >
                       {/* Product Image */}
                       <div className="relative h-64 bg-white overflow-hidden">
+                        {product.discountPercentage && product.discountPercentage > 0 && (
+                          <div className="absolute top-2 left-2 z-10">
+                            <span className="px-2 py-1 text-[11px] font-semibold rounded-md bg-brass text-white shadow">
+                              {Math.round(product.discountPercentage)}% OFF
+                            </span>
+                          </div>
+                        )}
                         {/* Subtle Glow Effect */}
                         <motion.div
                           className="absolute inset-0 bg-gradient-to-br from-brass/5 to-transparent pointer-events-none"

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { MaterialMaster } from '@/types'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import { formatCurrency } from '@/lib/utils'
 
 interface SizeOption {
   name?: string
@@ -24,12 +25,16 @@ interface MaterialConfigSectionProps {
   materials: Material[]
   onChange: (materials: Material[]) => void
   availableMaterials: MaterialMaster[]
+  discountPercentage?: number
+  onDiscountChange?: (value: number | undefined) => void
 }
 
 export default function MaterialConfigSection({ 
   materials, 
   onChange, 
-  availableMaterials 
+  availableMaterials,
+  discountPercentage,
+  onDiscountChange
 }: MaterialConfigSectionProps) {
   const [showAddMaterial, setShowAddMaterial] = useState(false)
   const [selectedMaterialId, setSelectedMaterialId] = useState('')
@@ -191,7 +196,7 @@ export default function MaterialConfigSection({
               </div>
 
               {/* Base Price */}
-              <div className="mb-2">
+              <div className="mb-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Input
                   label="Base Price *"
                   type="number"
@@ -202,7 +207,44 @@ export default function MaterialConfigSection({
                   placeholder="0.00"
                   required
                 />
+                <Input
+                  label="Discount Percentage"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  value={discountPercentage ?? ''}
+                  onChange={(e) => {
+                    if (!onDiscountChange) return
+                    const raw = e.target.value
+                    const val = raw === '' ? undefined : Math.max(0, Math.min(100, Number(raw)))
+                    onDiscountChange(val)
+                  }}
+                  placeholder="e.g., 10 for 10%"
+                />
               </div>
+                {discountPercentage && discountPercentage > 0 && material.basePrice > 0 && (
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-green-700">Discount: {discountPercentage}%</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="flex items-center gap-2">
+                          <span className="line-through text-charcoal/60">
+                            {formatCurrency(material.basePrice)}
+                          </span>
+                          <span className="font-bold text-green-700">
+                            {formatCurrency(material.basePrice * (1 - discountPercentage / 100))}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-green-600 mt-0.5">
+                          Save: {formatCurrency(material.basePrice * (discountPercentage / 100))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
               {/* Size Options */}
               <div className="border-t border-brass/20 pt-2">

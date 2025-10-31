@@ -327,8 +327,21 @@ export default function ProductDetailPage() {
                       {product?.name}
                     </h1>
                     {selectedMaterial && (
-                      <p className="text-sm text-brass font-semibold">
-                        {formatCurrency(selectedMaterial.basePrice)}
+                      <p className="text-sm text-brass font-semibold flex items-center gap-2">
+                        {product.discountPercentage && product.discountPercentage > 0 ? (
+                          <>
+                            <span className="line-through text-charcoal/60">
+                              {formatCurrency(selectedMaterial.basePrice)}
+                            </span>
+                            <span>
+                              {formatCurrency(
+                                (toNumber(selectedMaterial.basePrice) * (1 - (product.discountPercentage || 0) / 100))
+                              )}
+                            </span>
+                          </>
+                        ) : (
+                          <span>{formatCurrency(selectedMaterial.basePrice)}</span>
+                        )}
                       </p>
                     )}
                   </div>

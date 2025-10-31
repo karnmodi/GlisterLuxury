@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { productsApi, categoriesApi, materialsApi, finishesApi } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 import type { Product, Category, MaterialMaster, Finish } from '@/types'
-import ProductFormTabs from '@/components/admin/ProductFormTabs'
+import ProductFormTabs, { type FormData as ProductFormData } from '@/components/admin/ProductFormTabs'
 
 export default function EditProductPage() {
   const params = useParams()
@@ -24,7 +24,7 @@ export default function EditProductPage() {
   const [materials, setMaterials] = useState<MaterialMaster[]>([])
   const [finishes, setFinishes] = useState<Finish[]>([])
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProductFormData>({
     basicInfo: {
       productID: '',
       productUID: '',
@@ -140,16 +140,17 @@ export default function EditProductPage() {
       
       // Populate form with existing product data
       setFormData({
-        basicInfo: {
+        basicInfo: ({
           productID: productData.productID,
           productUID: productData.productUID || '',
           name: productData.name,
           description: productData.description || '',
           category: typeof productData.category === 'string' ? productData.category : productData.category?._id || '',
           subcategoryId: productData.subcategoryId || '',
+          discountPercentage: productData.discountPercentage ?? undefined,
           packagingPrice: Number(productData.packagingPrice) || 0,
           packagingUnit: productData.packagingUnit,
-        },
+        }) as ProductFormData['basicInfo'],
         materials: (productData.materials || []).map(material => {
           // Handle materialID conversion - ensure it's a string
           let materialID: string = material.materialID || '';
@@ -245,6 +246,7 @@ export default function EditProductPage() {
         description: formData.basicInfo.description || undefined,
         category: formData.basicInfo.category || undefined,
         subcategoryId: formData.basicInfo.subcategoryId || undefined,
+        discountPercentage: formData.basicInfo.discountPercentage,
         packagingPrice: formData.basicInfo.packagingPrice,
         packagingUnit: formData.basicInfo.packagingUnit,
         materials: formData.materials.map(material => {

@@ -24,7 +24,10 @@ async function computePriceAndValidate(payload) {
 		throw Object.assign(new Error('Selected material not available for product'), { status: 400 });
 	}
 
-	const materialCost = toNumber(selectedMaterial.basePrice ?? materialMatch.basePrice);
+    const originalMaterialCost = toNumber(selectedMaterial.basePrice ?? materialMatch.basePrice);
+    const discountPercentage = product.discountPercentage != null ? Number(product.discountPercentage) : null;
+    const discountAmount = discountPercentage ? (originalMaterialCost * (discountPercentage / 100)) : 0;
+    const materialCost = originalMaterialCost - discountAmount;
 
 	// Validate size if provided
 	let sizeCost = 0;
@@ -55,15 +58,16 @@ async function computePriceAndValidate(payload) {
 	const unitPrice = materialCost + sizeCost + finishTotalCost + packagingPrice;
 	const totalAmount = unitPrice * Number(quantity || 1);
 
-	return {
+    return {
 		product,
 		breakdown: {
-			material: materialCost,
+            material: originalMaterialCost,
 			size: sizeCost,
 			finishes: finishTotalCost,
 			packaging: packagingPrice,
+            discount: discountAmount,
 		},
-		unitPrice,
+        unitPrice,
 		totalAmount,
 		resolved: { materialMatch },
 		includePackaging

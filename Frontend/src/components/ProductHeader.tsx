@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, toNumber } from '@/lib/utils'
 import type { Product, Material } from '@/types'
 
 interface ProductHeaderProps {
@@ -114,8 +114,24 @@ export default function ProductHeader({
               </p>
             </div>
             <div className="text-right">
-              <p className="text-lg font-bold text-brass">
-                {formatCurrency(selectedMaterial.basePrice)}
+              <p className="text-lg font-bold text-brass flex items-center gap-2 flex-wrap">
+                {product.discountPercentage && product.discountPercentage > 0 ? (
+                  <>
+                    <span className="line-through text-charcoal/60 font-medium">
+                      {formatCurrency(selectedMaterial.basePrice)}
+                    </span>
+                    <span>
+                      {formatCurrency(
+                        (toNumber(selectedMaterial.basePrice) * (1 - (product.discountPercentage || 0) / 100))
+                      )}
+                    </span>
+                    <span className="px-1.5 py-0.5 text-[10px] leading-none font-semibold bg-brass/15 text-brass rounded md:ml-1">
+                      -{Math.round(product.discountPercentage || 0)}%
+                    </span>
+                  </>
+                ) : (
+                  <span>{formatCurrency(selectedMaterial.basePrice)}</span>
+                )}
               </p>
               <p className="text-xs text-charcoal/60">Base price</p>
             </div>

@@ -29,7 +29,10 @@ export default function PriceSummary({
 
   // Calculate unit price
   const calculateUnitPrice = () => {
-    let total = toNumber(selectedMaterial.basePrice)
+    const base = toNumber(selectedMaterial.basePrice)
+    const dp = product.discountPercentage ?? 0
+    const discountedBase = dp > 0 ? base * (1 - dp / 100) : base
+    let total = discountedBase
     if (selectedSize) total += toNumber(selectedSize.additionalCost)
     if (selectedFinish) {
       const finishOption = product.finishes?.find(f => f.finishID === selectedFinish)
@@ -78,7 +81,23 @@ export default function PriceSummary({
                 <span className="w-1.5 h-1.5 rounded-full bg-brass"></span>
                 Material ({selectedMaterial.name})
               </span>
-              <span className="font-bold text-ivory">{formatCurrency(selectedMaterial.basePrice)}</span>
+              <span className="font-bold text-ivory flex items-center gap-2 flex-wrap">
+                {product.discountPercentage && product.discountPercentage > 0 ? (
+                  <>
+                    <span className="line-through opacity-70">{formatCurrency(selectedMaterial.basePrice)}</span>
+                    <span>
+                      {formatCurrency(
+                        (toNumber(selectedMaterial.basePrice) * (1 - (product.discountPercentage || 0) / 100))
+                      )}
+                    </span>
+                    <span className="px-1.5 py-0.5 text-[10px] leading-none font-semibold bg-brass/20 text-brass rounded">
+                      -{Math.round(product.discountPercentage || 0)}%
+                    </span>
+                  </>
+                ) : (
+                  <span>{formatCurrency(selectedMaterial.basePrice)}</span>
+                )}
+              </span>
             </motion.div>
             
             <AnimatePresence>

@@ -95,7 +95,7 @@ export default function OfferCodeInput({
       
       {!hasDiscount ? (
         <div className="space-y-2">
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-col sm:flex-row">
             <input
               type="text"
               value={code}
@@ -113,7 +113,7 @@ export default function OfferCodeInput({
               onClick={handleApplyCode}
               disabled={applying || !code.trim()}
               size="sm"
-              className="px-4"
+              className="px-4 sm:w-auto w-full"
             >
               {applying ? 'Applying...' : 'Apply'}
             </Button>

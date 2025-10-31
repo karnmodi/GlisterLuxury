@@ -9,7 +9,7 @@ import FinishConfigSection from './FinishConfigSection'
 import ImageFinishMapper from './ImageFinishMapper'
 import ProductFormSummary from './ProductFormSummary'
 
-interface FormData {
+export interface FormData {
   basicInfo: {
     productID: string
     productUID: string
@@ -17,6 +17,7 @@ interface FormData {
     description: string
     category: string
     subcategoryId: string
+    discountPercentage?: number
     packagingPrice: number
     packagingUnit: string
   }
@@ -25,6 +26,7 @@ interface FormData {
     name: string
     basePrice: number
     sizeOptions: Array<{
+      name?: string
       sizeMM: number
       additionalCost: number
       isOptional: boolean
@@ -140,6 +142,10 @@ export default function ProductFormTabs({
             materials={formData.materials}
             onChange={(materials) => updateFormData('materials', materials)}
             availableMaterials={materials}
+            discountPercentage={formData.basicInfo.discountPercentage}
+            onDiscountChange={(val) =>
+              updateFormData('basicInfo', { ...formData.basicInfo, discountPercentage: val })
+            }
           />
         )
       case 'finishes':

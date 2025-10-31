@@ -65,6 +65,7 @@ export interface Product {
     slug: string
     description?: string
   }
+  discountPercentage?: number
   packagingPrice: number
   packagingUnit: string
   materials: Material[]
@@ -101,6 +102,7 @@ export interface CartItem {
     size: number
     finishes: number
     packaging: number
+    discount?: number
   }
 }
 
@@ -287,6 +289,7 @@ export interface OrderItem {
     size: number
     finishes: number
     packaging: number
+    discount?: number
   }
 }
 

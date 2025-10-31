@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { productsApi, categoriesApi, materialsApi, finishesApi } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 import type { Product, Category, MaterialMaster, Finish } from '@/types'
-import ProductFormTabs from '@/components/admin/ProductFormTabs'
+import ProductFormTabs, { type FormData as ProductFormData } from '@/components/admin/ProductFormTabs'
 
 export default function CreateProductPage() {
   const router = useRouter()
@@ -17,7 +17,7 @@ export default function CreateProductPage() {
   const [materials, setMaterials] = useState<MaterialMaster[]>([])
   const [finishes, setFinishes] = useState<Finish[]>([])
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProductFormData>({
     basicInfo: {
       productID: '',
       productUID: '',
@@ -104,6 +104,7 @@ export default function CreateProductPage() {
         description: formData.basicInfo.description || undefined,
         category: formData.basicInfo.category || undefined,
         subcategoryId: formData.basicInfo.subcategoryId || undefined,
+        discountPercentage: formData.basicInfo.discountPercentage,
         packagingPrice: formData.basicInfo.packagingPrice,
         packagingUnit: formData.basicInfo.packagingUnit,
         materials: formData.materials.map(material => {

@@ -29,6 +29,7 @@ const CartItemSchema = new Schema(
 			size: { type: Schema.Types.Decimal128 },
 			finishes: { type: Schema.Types.Decimal128 },
 			packaging: { type: Schema.Types.Decimal128 },
+			discount: { type: Schema.Types.Decimal128, default: 0 },
 		},
 	},
 	{ _id: true }

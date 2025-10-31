@@ -38,6 +38,7 @@ const ProductSchema = new Schema(
 		description: { type: String },
 		category: { type: Schema.Types.ObjectId, ref: 'Category', index: true },
 		subcategoryId: { type: Schema.Types.ObjectId },
+		discountPercentage: { type: Number, min: 0, max: 100, default: null },
 		packagingPrice: { type: Schema.Types.Decimal128, default: 0 },
 		packagingUnit: { type: String, default: 'Set' },
 		materials: { type: [MaterialSchema], default: [] },

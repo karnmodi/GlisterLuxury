@@ -113,6 +113,23 @@ async function createProduct(req, res) {
 			req.body.packagingPrice = parseFloat(req.body.packagingPrice) || 0;
 		}
 
+		// Validate and normalize discountPercentage if provided
+		if (req.body.discountPercentage !== undefined) {
+			let dp = req.body.discountPercentage;
+			dp = dp === null || dp === '' ? null : Number(dp);
+			if (dp !== null) {
+				if (Number.isNaN(dp)) {
+					return res.status(400).json({ message: 'Invalid discountPercentage' });
+				}
+				if (dp < 0 || dp > 100) {
+					return res.status(400).json({ message: 'discountPercentage must be between 0 and 100' });
+				}
+				req.body.discountPercentage = dp;
+			} else {
+				req.body.discountPercentage = null;
+			}
+		}
+
 		const product = await Product.create(req.body);
 
 		const transformedProduct = transformMongoTypes(product.toObject());
@@ -360,6 +377,25 @@ async function updateProduct(req, res) {
 		// Ensure packagingPrice is properly converted
 		if (req.body.packagingPrice !== undefined) {
 			req.body.packagingPrice = parseFloat(req.body.packagingPrice) || 0;
+		}
+
+		// Validate and normalize discountPercentage if provided
+		if (req.body.discountPercentage !== undefined) {
+			let dp = req.body.discountPercentage;
+			dp = dp === null || dp === '' ? null : Number(dp);
+			if (dp !== null) {
+				if (Number.isNaN(dp)) {
+					return res.status(400).json({ message: 'Invalid discountPercentage' });
+				}
+				if (dp < 0 || dp > 100) {
+					return res.status(400).json({ message: 'discountPercentage must be between 0 and 100' });
+				}
+				existingProduct.discountPercentage = dp;
+			} else {
+				existingProduct.discountPercentage = null;
+			}
+			// Remove from req.body to avoid overwriting again below in assign
+			delete req.body.discountPercentage;
 		}
 
 		// Update other fields

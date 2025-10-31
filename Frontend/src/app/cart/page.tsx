@@ -249,15 +249,17 @@ export default function CartPage() {
                                   <div className="bg-gradient-ivory/50 rounded-b-md px-3 py-3 text-xs space-y-2 border-t border-charcoal/10">
                                     <p className="font-semibold text-charcoal mb-2 text-xs uppercase tracking-wide">Price Components:</p>
                                     
-                                    <div className="flex justify-between text-charcoal/70">
+                                    <div className="flex items-center justify-between text-charcoal/70 flex-wrap gap-2">
                                       <span className="flex items-center gap-1">
                                         <span className="w-1.5 h-1.5 rounded-full bg-brass"></span>
                                         Material ({item.selectedMaterial.name})
                                       </span>
-                                      <span className="font-medium text-charcoal">{formatCurrency(item.priceBreakdown.material)}</span>
+                                      <span className="font-medium text-charcoal">
+                                        {formatCurrency(item.priceBreakdown.material)}
+                                      </span>
                                     </div>
 
-                                    <div className="flex justify-between text-charcoal/70">
+                                    <div className="flex items-center justify-between text-charcoal/70 flex-wrap gap-2">
                                       <span className="flex items-center gap-1">
                                         <span className="w-1.5 h-1.5 rounded-full bg-brass"></span>
                                         Size {item.selectedSize ? `(${item.selectedSize}mm)` : 'Adjustment'}
@@ -267,7 +269,7 @@ export default function CartPage() {
                                       </span>
                                     </div>
 
-                                    <div className="flex justify-between text-charcoal/70">
+                                    <div className="flex items-center justify-between text-charcoal/70 flex-wrap gap-2">
                                       <span className="flex items-center gap-1">
                                         <span className="w-1.5 h-1.5 rounded-full bg-brass"></span>
                                         Finish {item.selectedFinish ? `(${item.selectedFinish.name})` : 'Cost'}
@@ -287,7 +289,27 @@ export default function CartPage() {
                                       </span>
                                     </div>
 
-                                    <div className="flex justify-between text-charcoal font-bold border-t border-charcoal/20 pt-2 mt-2">
+                                    {/* Discount Line */}
+                                    {item.priceBreakdown?.discount && toNumber(item.priceBreakdown.discount) > 0 && (
+                                      <motion.div
+                                        initial={{ opacity: 0, y: -5 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="flex items-center justify-between text-green-700 font-medium border-t border-green-200/30 pt-2 mt-2 flex-wrap gap-2 bg-green-50/50 rounded-md px-2 py-1.5"
+                                      >
+                                        <span className="flex items-center gap-1.5">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span>
+                                          <span>Product Discount</span>
+                                          <span className="px-1.5 py-0.5 text-[10px] leading-none font-semibold bg-green-100 text-green-700 rounded border border-green-200">
+                                            -{Math.round((toNumber(item.priceBreakdown.discount) / Math.max(1, toNumber(item.priceBreakdown.material))) * 100)}%
+                                          </span>
+                                        </span>
+                                        <span className="font-semibold text-green-700">
+                                          -{formatCurrency(item.priceBreakdown.discount)}
+                                        </span>
+                                      </motion.div>
+                                    )}
+
+                                    <div className="flex items-center justify-between text-charcoal font-bold border-t border-charcoal/20 pt-2 mt-2 flex-wrap gap-2">
                                       <span>Total Unit Price</span>
                                       <span className="text-brass">{formatCurrency(item.unitPrice)}</span>
                                     </div>
