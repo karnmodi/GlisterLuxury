@@ -23,6 +23,7 @@ export default function ProductsPage() {
   const [materials, setMaterials] = useState<MaterialMaster[]>([])
   const [loading, setLoading] = useState(true)
   const [hoveredProduct, setHoveredProduct] = useState<string | null>(null)
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState('')
@@ -370,10 +371,10 @@ export default function ProductsPage() {
               transition={{ duration: 0.4 }}
               className="text-center"
             >
-              <h1 className="text-4xl font-serif font-bold mb-2 tracking-wide">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold mb-2 tracking-wide">
                 {activeCategory ? activeCategory.name : 'Our Products'}
               </h1>
-              <p className="text-lg text-brass tracking-luxury">
+              <p className="text-base sm:text-lg text-brass tracking-luxury">
                 {activeSubcategory
                   ? activeSubcategory.name
                   : activeCategory
@@ -410,11 +411,351 @@ export default function ProductsPage() {
           </div>
         </section>
 
-        <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-8">
+        <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-4 sm:py-8">
+          {/* Mobile Filter Toggle Button */}
+          <div className="lg:hidden mb-4 flex items-center justify-between">
+            <Button
+              onClick={() => setMobileFiltersOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-semibold">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+            <div className="text-sm text-charcoal/60">
+              {loading ? 'Loading...' : `${products.length} ${products.length === 1 ? 'product' : 'products'}`}
+            </div>
+          </div>
+
           <div className="flex gap-4 lg:gap-6 xl:gap-8">
             {/* Left Sidebar - Filters */}
+            {/* Mobile Overlay */}
+            <AnimatePresence>
+              {mobileFiltersOpen && (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="fixed inset-0 bg-charcoal/50 backdrop-blur-sm z-40 lg:hidden"
+                    onClick={() => setMobileFiltersOpen(false)}
+                  />
+                  <motion.aside
+                    initial={{ x: '-100%' }}
+                    animate={{ x: 0 }}
+                    exit={{ x: '-100%' }}
+                    transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                    className="fixed left-0 top-0 h-full w-80 max-w-[85vw] bg-white shadow-2xl z-50 lg:hidden overflow-y-auto"
+                    style={{
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: 'rgba(218, 165, 32, 0.3) transparent',
+                    }}
+                  >
+              <style dangerouslySetInnerHTML={{
+                __html: `
+                  .filter-sidebar::-webkit-scrollbar {
+                    width: 6px;
+                  }
+                  .filter-sidebar::-webkit-scrollbar-track {
+                    background: transparent;
+                  }
+                  .filter-sidebar::-webkit-scrollbar-thumb {
+                    background: rgba(218, 165, 32, 0.3);
+                    border-radius: 3px;
+                  }
+                  .filter-sidebar::-webkit-scrollbar-thumb:hover {
+                    background: rgba(218, 165, 32, 0.5);
+                  }
+                `
+              }} />
+                    <div className="sticky top-0 bg-white border-b border-brass/20 p-4 flex items-center justify-between z-10">
+                      <h2 className="text-lg font-serif font-semibold text-charcoal flex items-center gap-2">
+                        <span className="w-1 h-6 bg-brass"></span>
+                        Filters
+                      </h2>
+                      <button
+                        onClick={() => setMobileFiltersOpen(false)}
+                        className="p-2 hover:bg-brass/10 rounded-full transition-colors"
+                        aria-label="Close filters"
+                      >
+                        <svg className="w-6 h-6 text-charcoal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="p-6 space-y-6">
+                      {activeFilterCount > 0 && (
+                        <p className="text-sm text-charcoal/60 mb-4">
+                          {activeFilterCount} {activeFilterCount === 1 ? 'filter' : 'filters'} active
+                        </p>
+                      )}
+
+                      {/* Search */}
+                      <div>
+                        <label className="block text-sm font-medium text-charcoal mb-2">
+                          Search Products
+                        </label>
+                        <Input
+                          placeholder="Search by name, ID..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
+
+                      {/* Category */}
+                      <div>
+                        <label className="block text-sm font-medium text-charcoal mb-2">
+                          Category
+                        </label>
+                        <select
+                          value={selectedCategory}
+                          onChange={(e) => {
+                            setSelectedCategory(e.target.value)
+                            setSelectedSubcategory('')
+                          }}
+                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                        >
+                          <option value="">All Categories</option>
+                          {categories.map((cat) => (
+                            <option key={cat._id} value={cat._id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Subcategory */}
+                      <div>
+                        <label className="block text-sm font-medium text-charcoal mb-2">
+                          Subcategory
+                        </label>
+                        <select
+                          value={selectedSubcategory}
+                          onChange={(e) => setSelectedSubcategory(e.target.value)}
+                          disabled={!selectedCategory || availableSubcategories.length === 0}
+                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <option value="">All Subcategories</option>
+                          {availableSubcategories.map((sub: any) => (
+                            <option key={sub._id} value={sub._id}>
+                              {sub.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Material */}
+                      <div>
+                        <label className="block text-sm font-medium text-charcoal mb-2">
+                          Material
+                        </label>
+                        <select
+                          value={selectedMaterial}
+                          onChange={(e) => setSelectedMaterial(e.target.value)}
+                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                        >
+                          <option value="">All Materials</option>
+                          {materials.map((mat) => (
+                            <option key={mat._id} value={mat.name}>
+                              {mat.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Finish */}
+                      <div>
+                        <label className="block text-sm font-medium text-charcoal mb-2">
+                          Finish
+                        </label>
+                        <select
+                          value={selectedFinish}
+                          onChange={(e) => setSelectedFinish(e.target.value)}
+                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                        >
+                          <option value="">All Finishes</option>
+                          {finishes.map((fin) => (
+                            <option key={fin._id} value={fin._id}>
+                              {fin.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Sort */}
+                      <div>
+                        <label className="block text-sm font-medium text-charcoal mb-2">
+                          Sort By
+                        </label>
+                        <select
+                          value={sortOption}
+                          onChange={(e) => setSortOption(e.target.value as SortOption)}
+                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                        >
+                          <option value="newest">Newest First</option>
+                          <option value="name-asc">Name A-Z</option>
+                          <option value="name-desc">Name Z-A</option>
+                          <option value="price-asc">Price Low-High</option>
+                          <option value="price-desc">Price High-Low</option>
+                        </select>
+                      </div>
+
+                      {/* Toggle Filters */}
+                      <div className="space-y-3 border-t border-brass/20 pt-4">
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={hasSize}
+                            onChange={(e) => setHasSize(e.target.checked)}
+                            className="w-5 h-5 text-brass border-brass/30 rounded focus:ring-brass transition-all group-hover:border-brass"
+                          />
+                          <span className="text-sm text-charcoal group-hover:text-brass transition-colors">
+                            Has Size Options
+                          </span>
+                        </label>
+
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={hasDiscount}
+                            onChange={(e) => setHasDiscount(e.target.checked)}
+                            className="w-5 h-5 text-brass border-brass/30 rounded focus:ring-brass transition-all group-hover:border-brass"
+                          />
+                          <span className="text-sm text-charcoal group-hover:text-brass transition-colors">
+                            Discounted Items
+                          </span>
+                        </label>
+                      </div>
+
+                      {/* Clear Filters */}
+                      {activeFilterCount > 0 && (
+                        <div className="border-t border-brass/20 pt-4">
+                          <button
+                            onClick={() => {
+                              clearFilters()
+                              setMobileFiltersOpen(false)
+                            }}
+                            className="w-full px-4 py-2.5 bg-brass/10 hover:bg-brass/20 text-brass border border-brass/40 rounded-sm text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 group"
+                          >
+                            <svg className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Clear All Filters
+                            <span className="bg-brass/20 px-1.5 py-0.5 rounded text-xs font-semibold">
+                              {activeFilterCount}
+                            </span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Active Filter Badges */}
+                      {(activeCategory || activeSubcategory || debouncedSearchQuery || selectedMaterial || selectedFinish || hasSize || hasDiscount) && (
+                        <div className="border-t border-brass/20 pt-4">
+                          <p className="text-xs font-medium text-charcoal/60 mb-2">Active Filters:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {activeCategory && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                                {activeCategory.name}
+                                <button
+                                  onClick={() => {
+                                    setSelectedCategory('')
+                                    setSelectedSubcategory('')
+                                  }}
+                                  className="hover:text-charcoal transition-colors"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            )}
+                            {activeSubcategory && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                                {activeSubcategory.name}
+                                <button
+                                  onClick={() => setSelectedSubcategory('')}
+                                  className="hover:text-charcoal transition-colors"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            )}
+                            {debouncedSearchQuery && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                                "{debouncedSearchQuery}"
+                                <button
+                                  onClick={() => {
+                                    setSearchQuery('')
+                                    setDebouncedSearchQuery('')
+                                  }}
+                                  className="hover:text-charcoal transition-colors"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            )}
+                            {selectedMaterial && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                                {selectedMaterial}
+                                <button
+                                  onClick={() => setSelectedMaterial('')}
+                                  className="hover:text-charcoal transition-colors"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            )}
+                            {selectedFinish && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                                {finishes.find(f => f._id === selectedFinish)?.name || selectedFinish}
+                                <button
+                                  onClick={() => setSelectedFinish('')}
+                                  className="hover:text-charcoal transition-colors"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            )}
+                            {hasSize && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                                Size Options
+                                <button
+                                  onClick={() => setHasSize(false)}
+                                  className="hover:text-charcoal transition-colors"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            )}
+                            {hasDiscount && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                                Discounted
+                                <button
+                                  onClick={() => setHasDiscount(false)}
+                                  className="hover:text-charcoal transition-colors"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.aside>
+                </>
+              )}
+            </AnimatePresence>
+
+            {/* Desktop Sidebar - Filters */}
             <aside 
-              className="filter-sidebar w-72 lg:w-80 flex-shrink-0 sticky top-20 self-start h-[calc(100vh-8rem)] overflow-y-auto pr-2"
+              className="hidden lg:block filter-sidebar w-72 lg:w-80 flex-shrink-0 sticky top-20 self-start h-[calc(100vh-8rem)] overflow-y-auto pr-2"
               style={{
                 scrollbarWidth: 'thin',
                 scrollbarColor: 'rgba(218, 165, 32, 0.3) transparent',
@@ -707,12 +1048,12 @@ export default function ProductsPage() {
 
             {/* Right Content Area - Products */}
             <div className="flex-1 min-w-0">
-              {/* Results Header */}
+              {/* Results Header - Desktop Only */}
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
-                className="flex items-center justify-between mb-6"
+                className="hidden lg:flex items-center justify-between mb-6"
               >
                 <div className="text-charcoal/60">
                   {loading ? (
@@ -740,7 +1081,7 @@ export default function ProductsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
                   {products.map((product, index) => (
                     <motion.div
                       key={product._id}
@@ -759,7 +1100,7 @@ export default function ProductsPage() {
                           }}
                         >
                           {/* Product Image - Compact */}
-                          <div className="relative h-48 bg-white overflow-hidden">
+                          <div className="relative h-32 sm:h-40 md:h-48 bg-white overflow-hidden">
                             {product.discountPercentage && product.discountPercentage > 0 && (
                               <motion.div
                                 initial={{ scale: 0 }}
@@ -868,22 +1209,22 @@ export default function ProductsPage() {
                           </div>
 
                           {/* Product Info - Compact */}
-                          <div className="p-4">
-                            <p className="text-[10px] text-brass tracking-luxury mb-1">
+                          <div className="p-3 sm:p-4">
+                            <p className="text-[9px] sm:text-[10px] text-brass tracking-luxury mb-1">
                               {product.productID}
                             </p>
-                            <h3 className="text-base font-sans font-semibold text-charcoal mb-1 group-hover:text-brass transition-colors leading-tight line-clamp-2">
+                            <h3 className="text-sm sm:text-base font-sans font-semibold text-charcoal mb-1 group-hover:text-brass transition-colors leading-tight line-clamp-2">
                               {product.name}
                             </h3>
-                            <p className="text-xs text-charcoal/60 mb-3 line-clamp-2">
+                            <p className="hidden sm:block text-xs text-charcoal/60 mb-3 line-clamp-2">
                               {product.description || 'Premium quality product'}
                             </p>
                             
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-charcoal">
+                            <div className="flex items-center justify-between mt-2 sm:mt-0">
+                              <span className="text-[10px] sm:text-xs text-charcoal">
                                 {product.materials?.length || 0} materials
                               </span>
-                              <span className="text-brass font-medium text-xs group-hover:underline">
+                              <span className="hidden sm:inline text-brass font-medium text-xs group-hover:underline">
                                 View →
                               </span>
                             </div>
