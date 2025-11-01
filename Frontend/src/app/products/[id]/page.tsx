@@ -240,7 +240,7 @@ export default function ProductDetailPage() {
   }
 
   // Build URL with customer selections for breadcrumb navigation
-  const buildProductsUrl = useCallback((categorySlug?: string, subcategorySlug?: string) => {
+  const buildProductsUrl = (categorySlug?: string, subcategorySlug?: string) => {
     const params = new URLSearchParams()
     
     if (categorySlug) {
@@ -259,7 +259,7 @@ export default function ProductDetailPage() {
     
     const queryString = params.toString()
     return queryString ? `/products?${queryString}` : '/products'
-  }, [selectedMaterial, selectedFinish])
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-ivory via-cream to-ivory relative overflow-hidden">
