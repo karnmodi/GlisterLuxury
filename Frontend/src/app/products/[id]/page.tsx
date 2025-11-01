@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Image from 'next/image'
 import { productsApi, finishesApi } from '@/lib/api'
 import { useCart } from '@/contexts/CartContext'
@@ -238,6 +239,28 @@ export default function ProductDetailPage() {
     return availableFinishes.find(f => f._id === selectedFinish)
   }
 
+  // Build URL with customer selections for breadcrumb navigation
+  const buildProductsUrl = useCallback((categorySlug?: string, subcategorySlug?: string) => {
+    const params = new URLSearchParams()
+    
+    if (categorySlug) {
+      params.set('category', categorySlug)
+    }
+    if (subcategorySlug) {
+      params.set('subcategory', subcategorySlug)
+    }
+    // Include customer selections if available
+    if (selectedMaterial?.materialID) {
+      params.set('material', selectedMaterial.materialID)
+    }
+    if (selectedFinish) {
+      params.set('finishId', selectedFinish)
+    }
+    
+    const queryString = params.toString()
+    return queryString ? `/products?${queryString}` : '/products'
+  }, [selectedMaterial, selectedFinish])
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-ivory via-cream to-ivory relative overflow-hidden">
       {/* Animated Background Elements */}
@@ -368,17 +391,41 @@ export default function ProductDetailPage() {
       <main className="pt-20 pb-8 relative z-10">
         <div className="container mx-auto px-4 py-4">
           {/* Breadcrumb with animation */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 text-sm text-charcoal/60 mb-4"
-          >
-            <button onClick={() => router.push('/')} className="hover:text-brass transition-colors">Home</button>
-            <span>/</span>
-            <button onClick={() => router.push('/products')} className="hover:text-brass transition-colors">Products</button>
-            <span>/</span>
-            <span className="text-charcoal font-medium">{product.name}</span>
-          </motion.div>
+          {product.category && typeof product.category === 'object' && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 text-sm text-charcoal/60 mb-4 flex-wrap"
+            >
+              <Link href="/" className="hover:text-brass transition-colors">
+                Home
+              </Link>
+              <span>/</span>
+              <Link href={buildProductsUrl()} className="hover:text-brass transition-colors">
+                Products
+              </Link>
+              <span>/</span>
+              <Link
+                href={buildProductsUrl(product.category.slug)}
+                className="hover:text-brass transition-colors"
+              >
+                {product.category.name}
+              </Link>
+              {product.subcategory && (
+                <>
+                  <span>/</span>
+                  <Link
+                    href={buildProductsUrl(product.category.slug, product.subcategory.slug)}
+                    className="hover:text-brass transition-colors"
+                  >
+                    {product.subcategory.name}
+                  </Link>
+                </>
+              )}
+              <span>/</span>
+              <span className="text-charcoal font-medium">{product.name}</span>
+            </motion.div>
+          )}
 
           <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
             {/* Sticky Product Images Section */}
@@ -485,29 +532,29 @@ export default function ProductDetailPage() {
                   transition={{ duration: 0.4 }}
                   className="flex items-center gap-2 text-sm text-charcoal/60 mb-4 flex-wrap"
                 >
-                  <a href="/" className="hover:text-brass transition-colors">
+                  <Link href="/" className="hover:text-brass transition-colors">
                     Home
-                  </a>
+                  </Link>
                   <span>/</span>
-                  <a href="/products" className="hover:text-brass transition-colors">
+                  <Link href={buildProductsUrl()} className="hover:text-brass transition-colors">
                     Products
-                  </a>
+                  </Link>
                   <span>/</span>
-                  <a
-                    href={`/products?category=${product.category.slug}`}
+                  <Link
+                    href={buildProductsUrl(product.category.slug)}
                     className="hover:text-brass transition-colors"
                   >
                     {product.category.name}
-                  </a>
+                  </Link>
                   {product.subcategory && (
                     <>
                       <span>/</span>
-                      <a
-                        href={`/products?category=${product.category.slug}&subcategory=${product.subcategory.slug}`}
+                      <Link
+                        href={buildProductsUrl(product.category.slug, product.subcategory.slug)}
                         className="hover:text-brass transition-colors"
                       >
                         {product.subcategory.name}
-                      </a>
+                      </Link>
                     </>
                   )}
                   <span>/</span>
@@ -524,26 +571,26 @@ export default function ProductDetailPage() {
                   className="flex items-center gap-2 mb-3"
                 >
                   {product.category && typeof product.category === 'object' && (
-                    <a
-                      href={`/products?category=${product.category.slug}`}
+                    <Link
+                      href={buildProductsUrl(product.category.slug)}
                       className="inline-flex items-center px-3 py-1.5 bg-brass/10 text-brass text-xs font-medium rounded-full border border-brass/30 hover:bg-brass/20 hover:shadow-md transition-all duration-300"
                     >
                       <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                       </svg>
                       {product.category.name}
-                    </a>
+                    </Link>
                   )}
                   {product.subcategory && product.category && typeof product.category === 'object' && (
-                    <a
-                      href={`/products?category=${product.category.slug}&subcategory=${product.subcategory.slug}`}
+                    <Link
+                      href={buildProductsUrl(product.category.slug, product.subcategory.slug)}
                       className="inline-flex items-center px-3 py-1.5 bg-olive/10 text-olive text-xs font-medium rounded-full border border-olive/30 hover:bg-olive/20 hover:shadow-md transition-all duration-300"
                     >
                       <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                       </svg>
                       {product.subcategory.name}
-                    </a>
+                    </Link>
                   )}
                 </motion.div>
               ) : null}

@@ -462,14 +462,6 @@ export default function LuxuryNavigation() {
           {/* Action Icons - Visible on Desktop */}
           <div className="hidden lg:flex items-center gap-6">
             {/* Search Icon */}
-            <button 
-              className="text-ivory hover:text-brass transition-colors duration-300"
-              aria-label="Search"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
 
             {/* Profile Icon with Dropdown */}
             <div 
@@ -592,15 +584,6 @@ export default function LuxuryNavigation() {
 
           {/* Mobile Icons & Menu */}
           <div className="flex lg:hidden items-center gap-4">
-            {/* Search Icon - Mobile */}
-            <button 
-              className="text-ivory hover:text-brass transition-colors duration-300"
-              aria-label="Search"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
 
             {/* Profile Icon - Mobile */}
             <Link 
