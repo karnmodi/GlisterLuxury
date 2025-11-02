@@ -15,5 +15,12 @@
   "regions": ["lhr1"],
   "env": {
     "NODE_ENV": "production"
+  },
+  "functions": {
+    "index.js": {
+      "maxDuration": 30,
+      "memory": 1024,
+      "maxBodySize": "10mb"
+    }
   }
 }

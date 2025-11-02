@@ -2,14 +2,14 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import MobileNavigation from './MobileNavigation'
 import { useCart } from '@/contexts/CartContext'
 import { useWishlist } from '@/contexts/WishlistContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { categoriesApi } from '@/lib/api'
-import type { Category } from '@/types'
+import { categoriesApi, productsApi } from '@/lib/api'
+import type { Category, Product } from '@/types'
 
 export default function LuxuryNavigation() {
   const [scrolled, setScrolled] = useState(false)
@@ -17,9 +17,12 @@ export default function LuxuryNavigation() {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [bannerHeight, setBannerHeight] = useState(0)
-  const [hoveredCategory, setHoveredCategory] = useState<string | null>(null)
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [menuMaxHeight, setMenuMaxHeight] = useState(600)
+  const [categoriesWithProducts, setCategoriesWithProducts] = useState<Set<string>>(new Set())
+  const [subcategoriesWithProducts, setSubcategoriesWithProducts] = useState<Set<string>>(new Set())
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { itemCount } = useCart()
   const { itemCount: wishlistCount } = useWishlist()
   const { user, isAuthenticated, logout } = useAuth()
@@ -54,17 +57,44 @@ export default function LuxuryNavigation() {
     }
   }, [])
 
-  // Fetch categories on mount
+  // Fetch categories and products to determine which categories/subcategories have products
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchData = async () => {
       try {
-        const data = await categoriesApi.getAll()
-        setCategories(data)
+        // Fetch categories
+        const categoriesData = await categoriesApi.getAll()
+        setCategories(categoriesData)
+        
+        // Fetch all products to check which categories/subcategories have products
+        const allProducts = await productsApi.getAll()
+        
+        // Create sets to track categories and subcategories with products
+        const categorySet = new Set<string>()
+        const subcategorySet = new Set<string>()
+        
+        allProducts.forEach((product: Product) => {
+          // Check if product has a category
+          const categoryId = typeof product.category === 'string' 
+            ? product.category 
+            : product.category?._id
+          
+          if (categoryId) {
+            categorySet.add(categoryId)
+          }
+          
+          // Check if product has a subcategory
+          if (product.subcategoryId) {
+            subcategorySet.add(product.subcategoryId)
+          }
+        })
+        
+        setCategoriesWithProducts(categorySet)
+        setSubcategoriesWithProducts(subcategorySet)
       } catch (error) {
-        console.error('Failed to fetch categories:', error)
+        console.error('Failed to fetch categories or products:', error)
       }
     }
-    fetchCategories()
+    fetchData()
   }, [])
 
   // Calculate viewport-aware menu height
@@ -82,14 +112,50 @@ export default function LuxuryNavigation() {
     return () => window.removeEventListener('resize', calculateMenuHeight)
   }, [])
 
-  // Filter categories and subcategories based on search query
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // Filter categories and subcategories based on search query and products availability
   const filteredCategories = useMemo(() => {
+    // Filter categories to show those with products (either directly or through subcategories)
+    const categoriesWithProductsList = categories.filter((category) => {
+      const categoryId = category._id
+      const hasDirectProducts = categoriesWithProducts.has(categoryId)
+      
+      // Check if any subcategory has products
+      const hasSubcategoriesWithProducts = category.subcategories?.some((subcategory) => {
+        return subcategoriesWithProducts.has(subcategory._id)
+      }) || false
+      
+      // Show category if it has products directly OR has subcategories with products
+      return hasDirectProducts || hasSubcategoriesWithProducts
+    })
+
+    // Then filter subcategories within each category to only show those with products
+    const categoriesWithFilteredSubcategories = categoriesWithProductsList.map((category) => {
+      const filteredSubcategories = category.subcategories?.filter((subcategory) => {
+        return subcategoriesWithProducts.has(subcategory._id)
+      }) || []
+      
+      return {
+        ...category,
+        subcategories: filteredSubcategories,
+      }
+    })
+
+    // Apply search query filter if present
     if (!searchQuery.trim()) {
-      return categories
+      return categoriesWithFilteredSubcategories
     }
 
     const query = searchQuery.toLowerCase().trim()
-    return categories
+    return categoriesWithFilteredSubcategories
       .map((category) => {
         const categoryMatches = 
           category.name.toLowerCase().includes(query) ||
@@ -114,7 +180,7 @@ export default function LuxuryNavigation() {
         return null
       })
       .filter((category): category is Category => category !== null)
-  }, [categories, searchQuery])
+  }, [categories, searchQuery, categoriesWithProducts, subcategoriesWithProducts])
 
   // Helper function to highlight matching text (memoized search pattern)
   const highlightText = useMemo(() => {
@@ -203,8 +269,18 @@ export default function LuxuryNavigation() {
             {/* Collections with Submenu */}
             <div 
               className="relative inline-flex"
-              onMouseEnter={() => setActiveMenu('collections')}
-              onMouseLeave={() => setActiveMenu(null)}
+              onMouseEnter={() => {
+                if (closeTimeoutRef.current) {
+                  clearTimeout(closeTimeoutRef.current)
+                  closeTimeoutRef.current = null
+                }
+                setActiveMenu('collections')
+              }}
+              onMouseLeave={() => {
+                closeTimeoutRef.current = setTimeout(() => {
+                  setActiveMenu(null)
+                }, 200)
+              }}
             >
               <Link 
                 href="/collections" 
@@ -221,7 +297,19 @@ export default function LuxuryNavigation() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
                     transition={{ duration: 0.2 }}
-                    className="absolute top-full left-0 mt-2 w-56 bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg shadow-2xl overflow-hidden"
+                    className="absolute top-full left-0 pt-2 w-56 bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg shadow-2xl overflow-hidden"
+                    onMouseEnter={() => {
+                      if (closeTimeoutRef.current) {
+                        clearTimeout(closeTimeoutRef.current)
+                        closeTimeoutRef.current = null
+                      }
+                      setActiveMenu('collections')
+                    }}
+                    onMouseLeave={() => {
+                      closeTimeoutRef.current = setTimeout(() => {
+                        setActiveMenu(null)
+                      }, 200)
+                    }}
                   >
                     {collectionsSubmenu.map((item, index) => (
                       <Link
@@ -241,14 +329,22 @@ export default function LuxuryNavigation() {
             <div
               data-products-nav
               className="relative inline-flex"
-              onMouseEnter={() => setActiveMenu('products')}
+              onMouseEnter={() => {
+                if (closeTimeoutRef.current) {
+                  clearTimeout(closeTimeoutRef.current)
+                  closeTimeoutRef.current = null
+                }
+                setActiveMenu('products')
+              }}
               onMouseLeave={(e) => {
                     // Only close if mouse is not moving to the menu
                     const relatedTarget = e.relatedTarget as HTMLElement
                     if (!relatedTarget || !relatedTarget.closest('[data-products-menu]')) {
-                      setActiveMenu(null)
-                      setHoveredCategory(null)
-                      setSearchQuery('')
+                      closeTimeoutRef.current = setTimeout(() => {
+                        setActiveMenu(null)
+                        setExpandedCategories(new Set())
+                        setSearchQuery('')
+                      }, 200)
                     }
                   }}
             >
@@ -268,15 +364,23 @@ export default function LuxuryNavigation() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
                     transition={{ duration: 0.2 }}
-                    className="absolute top-full left-0 mt-2 min-w-[800px] max-w-[1100px] xl:max-w-[1200px] bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg shadow-2xl overflow-hidden z-50"
+                    className="absolute top-full left-0 pt-2 min-w-[800px] max-w-[1100px] xl:max-w-[1200px] bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg shadow-2xl overflow-hidden z-50"
                     style={{ maxHeight: `${menuMaxHeight}px` }}
-                    onMouseEnter={() => setActiveMenu('products')}
+                    onMouseEnter={() => {
+                      if (closeTimeoutRef.current) {
+                        clearTimeout(closeTimeoutRef.current)
+                        closeTimeoutRef.current = null
+                      }
+                      setActiveMenu('products')
+                    }}
                     onMouseLeave={(e) => {
                       const relatedTarget = e.relatedTarget as HTMLElement
                       if (!relatedTarget || !relatedTarget.closest('[data-products-nav]')) {
-                        setActiveMenu(null)
-                        setHoveredCategory(null)
-                        setSearchQuery('')
+                        closeTimeoutRef.current = setTimeout(() => {
+                          setActiveMenu(null)
+                          setExpandedCategories(new Set())
+                          setSearchQuery('')
+                        }, 200)
                       }
                     }}
                   >
@@ -324,64 +428,112 @@ export default function LuxuryNavigation() {
                               'grid-cols-5'
                             }`}>
                               {filteredCategories.map((category) => {
-                                const isHovered = hoveredCategory === category._id
+                                const isExpanded = expandedCategories.has(category._id)
                                 const hasSubcategories = category.subcategories && category.subcategories.length > 0
+
+                                const toggleCategory = (e: React.MouseEvent) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  setExpandedCategories((prev) => {
+                                    const newSet = new Set(prev)
+                                    if (newSet.has(category._id)) {
+                                      newSet.delete(category._id)
+                                    } else {
+                                      newSet.add(category._id)
+                                    }
+                                    return newSet
+                                  })
+                                }
 
                                 return (
                                   <div
                                     key={category._id}
                                     className="min-w-0"
-                                    onMouseEnter={() => hasSubcategories && setHoveredCategory(category._id)}
-                                    onMouseLeave={() => setHoveredCategory(null)}
                                   >
                                     {/* Category Header */}
-                                    <Link
-                                      href={`/products?category=${category.slug || category._id}`}
-                                      className="block mb-3 pb-2 border-b border-brass/30 hover:border-brass/50 transition-colors duration-300"
-                                    >
-                                      <h3 className="text-base font-semibold text-brass hover:text-olive transition-colors duration-300">
-                                        {renderText(category.name)}
-                                      </h3>
-                                      {category.description && (
-                                        <p className="text-xs text-ivory/60 mt-1 line-clamp-2">
-                                          {renderText(category.description)}
-                                        </p>
-                                      )}
-                                    </Link>
+                                    <div className="mb-3 pb-2 border-b border-brass/30 hover:border-brass/50 transition-colors duration-300">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <Link
+                                          href={`/products?category=${category.slug || category._id}`}
+                                          className="flex-1"
+                                        >
+                                          <h3 className="text-base font-semibold text-brass hover:text-olive transition-colors duration-300">
+                                            {renderText(category.name)}
+                                          </h3>
+                                          {category.description && (
+                                            <p className="text-xs text-ivory/60 mt-1 line-clamp-2">
+                                              {renderText(category.description)}
+                                            </p>
+                                          )}
+                                        </Link>
+                                        {hasSubcategories && (
+                                          <button
+                                            onClick={toggleCategory}
+                                            className="flex-shrink-0 mt-0.5 p-1 rounded-sm hover:bg-brass/10 transition-colors duration-200 group"
+                                            aria-label={isExpanded ? 'Collapse subcategories' : 'Expand subcategories'}
+                                            aria-expanded={isExpanded}
+                                          >
+                                            <svg
+                                              className={`w-4 h-4 text-brass/70 group-hover:text-brass transition-all duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                                              fill="none"
+                                              stroke="currentColor"
+                                              viewBox="0 0 24 24"
+                                            >
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
 
-                                    {/* Subcategories List - Expand on hover */}
+                                    {/* Subcategories List - Expand on click */}
                                     {hasSubcategories && (
                                       <AnimatePresence>
-                                        {isHovered && (
+                                        {isExpanded && (
                                           <motion.ul
                                             initial={{ opacity: 0, height: 0 }}
                                             animate={{ opacity: 1, height: 'auto' }}
                                             exit={{ opacity: 0, height: 0 }}
                                             transition={{ duration: 0.2, ease: 'easeOut' }}
-                                            className="space-y-1.5 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar"
+                                            className="space-y-1.5 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar mb-2"
                                           >
-                                            {category.subcategories.map((subcategory) => (
-                                              <li key={subcategory._id}>
-                                                <Link
-                                                  href={`/products?category=${category.slug || category._id}&subcategory=${subcategory.slug || subcategory._id}`}
-                                                  className="block px-2 py-1.5 text-sm text-ivory/90 hover:text-brass hover:bg-brass/10 rounded-sm transition-all duration-300 group"
-                                                >
-                                                  <span className="flex items-center gap-2">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-brass/30 group-hover:bg-brass transition-colors duration-300 flex-shrink-0"></span>
-                                                    <span className="truncate">
-                                                      {renderText(subcategory.name)}
+                                            {category.subcategories.map((subcategory) => {
+                                              // Construct URL with proper encoding using URLSearchParams
+                                              const categoryParam = category.slug || category._id
+                                              const subcategoryParam = subcategory.slug || subcategory._id
+                                              const params = new URLSearchParams({
+                                                category: categoryParam,
+                                                subcategory: subcategoryParam
+                                              })
+                                              const subcategoryUrl = `/products?${params.toString()}`
+                                              
+                                              return (
+                                                <li key={subcategory._id}>
+                                                  <Link
+                                                    href={subcategoryUrl}
+                                                    className="block px-2 py-1.5 text-sm text-ivory/90 hover:text-brass hover:bg-brass/10 rounded-sm transition-all duration-300 group"
+                                                    onClick={(e) => {
+                                                      // Ensure click is handled properly
+                                                      e.stopPropagation()
+                                                    }}
+                                                  >
+                                                    <span className="flex items-center gap-2">
+                                                      <span className="w-1.5 h-1.5 rounded-full bg-brass/30 group-hover:bg-brass transition-colors duration-300 flex-shrink-0"></span>
+                                                      <span className="truncate">
+                                                        {renderText(subcategory.name)}
+                                                      </span>
                                                     </span>
-                                                  </span>
-                                                </Link>
-                                              </li>
-                                            ))}
+                                                  </Link>
+                                                </li>
+                                              )
+                                            })}
                                           </motion.ul>
                                         )}
                                       </AnimatePresence>
                                     )}
 
-                                    {/* Show subcategories count if not hovered and search is active */}
-                                    {!isHovered && hasSubcategories && searchQuery && (
+                                    {/* Show subcategories count if not expanded and search is active */}
+                                    {!isExpanded && hasSubcategories && searchQuery && (
                                       <p className="text-xs text-ivory/50 italic px-2 py-1.5">
                                         {category.subcategories.length} subcategories
                                       </p>

@@ -26,7 +26,7 @@ export interface FormData {
     name: string
     basePrice: number
     sizeOptions: Array<{
-      name?: string
+      name: string
       sizeMM: number
       additionalCost: number
       isOptional: boolean
@@ -83,10 +83,17 @@ export default function ProductFormTabs({
 
   const validateMaterials = () => {
     if (formData.materials.length === 0) return false
-    return formData.materials.every(material => 
-      material.basePrice > 0 && 
-      material.sizeOptions.every(size => size.additionalCost >= 0)
-    )
+    return formData.materials.every(material => {
+      // Base price must be > 0
+      if (material.basePrice <= 0) return false
+      
+      // All size options must have names and valid values
+      return material.sizeOptions.every(size => 
+        size.name && size.name.trim() !== '' && 
+        size.sizeMM >= 0 && 
+        size.additionalCost >= 0
+      )
+    })
   }
 
   const validateFinishes = () => {

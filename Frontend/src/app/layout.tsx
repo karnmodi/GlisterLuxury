@@ -35,6 +35,25 @@ export const metadata: Metadata = {
     shortcut: '/images/business/G.png',
     apple: '/images/business/G.png',
   },
+  openGraph: {
+    title: 'Glister London - The Soul of Interior',
+    description: 'Crafting the finest solid brass cabinet hardware and interior accessories since 2025. Premium hardware for discerning customers.',
+    type: 'website',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Glister London - The Soul of Interior',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Glister London - The Soul of Interior',
+    description: 'Crafting the finest solid brass cabinet hardware and interior accessories since 2025.',
+    images: ['/opengraph-image'],
+  },
 }
 
 export default function RootLayout({

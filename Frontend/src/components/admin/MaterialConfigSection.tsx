@@ -8,7 +8,7 @@ import Input from '@/components/ui/Input'
 import { formatCurrency } from '@/lib/utils'
 
 interface SizeOption {
-  name?: string
+  name: string
   sizeMM: number
   additionalCost: number
   isOptional: boolean
@@ -83,6 +83,20 @@ export default function MaterialConfigSection({
       isOptional: true
     })
     onChange(newMaterials)
+  }
+
+  // Validate that all size options have names
+  const validateSizeOptions = (materialsToValidate: Material[]): string | null => {
+    for (const material of materialsToValidate) {
+      if (material.sizeOptions && material.sizeOptions.length > 0) {
+        for (const sizeOption of material.sizeOptions) {
+          if (!sizeOption.name || sizeOption.name.trim() === '') {
+            return `Size name is required for all size options in material "${material.name}". Each size option must have a name, sizeMM, and additionalCost.`
+          }
+        }
+      }
+    }
+    return null
   }
 
   const removeSizeOption = (materialIndex: number, sizeIndex: number) => {
@@ -280,11 +294,12 @@ export default function MaterialConfigSection({
                       >
                         <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-2">
                           <Input
-                            label="Size Name"
+                            label="Size Name *"
                             type="text"
                             value={sizeOption.name || ''}
                             onChange={(e) => updateSizeOption(materialIndex, sizeIndex, 'name', e.target.value)}
                             placeholder="e.g., Rose Key"
+                            required
                           />
                           <Input
                             label="Size (MM)"

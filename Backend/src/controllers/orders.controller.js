@@ -383,6 +383,7 @@ exports.createOrder = async (req, res, next) => {
 				productCode: item.productCode,
 				selectedMaterial: item.selectedMaterial,
 				selectedSize: item.selectedSize,
+				selectedSizeName: item.selectedSizeName,
 				sizeCost: item.sizeCost,
 				selectedFinish: item.selectedFinish,
 				finishCost: item.finishCost,

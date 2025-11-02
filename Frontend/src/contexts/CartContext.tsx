@@ -13,6 +13,7 @@ interface CartContextType {
     productID: string
     selectedMaterial: { materialID?: string; name: string; basePrice?: number }
     selectedSize?: number
+    selectedSizeName?: string
     selectedFinish?: string
     quantity?: number
     includePackaging?: boolean
@@ -80,6 +81,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     productID: string
     selectedMaterial: { materialID?: string; name: string; basePrice?: number }
     selectedSize?: number
+    selectedSizeName?: string
     selectedFinish?: string
     quantity?: number
     includePackaging?: boolean

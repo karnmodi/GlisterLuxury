@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -38,6 +38,17 @@ export default function ProductsPage() {
   
   const [activeCategory, setActiveCategory] = useState<Category | null>(null)
   const [activeSubcategory, setActiveSubcategory] = useState<{ _id: string; name: string; slug: string } | null>(null)
+  
+  // Track if we're fetching from URL params to prevent duplicate fetches
+  const isFetchingFromUrlRef = useRef(false)
+  // Track if we're initializing from URL params to prevent URL overwrites
+  const isInitializingFromUrlRef = useRef(false)
+  
+  // Track which filter options have products
+  const [categoriesWithProducts, setCategoriesWithProducts] = useState<Set<string>>(new Set())
+  const [subcategoriesWithProducts, setSubcategoriesWithProducts] = useState<Set<string>>(new Set())
+  const [materialsWithProducts, setMaterialsWithProducts] = useState<Set<string>>(new Set())
+  const [finishesWithProducts, setFinishesWithProducts] = useState<Set<string>>(new Set())
 
   // Debounce search query
   useEffect(() => {
@@ -59,6 +70,9 @@ export default function ProductsPage() {
     const sortBy = searchParams.get('sortBy') || ''
     const sortOrder = searchParams.get('sortOrder') || ''
 
+    // Mark that we're initializing from URL params
+    isInitializingFromUrlRef.current = true
+
     setSearchQuery(q)
     setDebouncedSearchQuery(q)
     setSelectedCategory(category)
@@ -78,20 +92,104 @@ export default function ProductsPage() {
         setSortOption('newest')
       }
     }
+
+    // Fetch products immediately using URL params (before state updates complete)
+    // This ensures products are filtered correctly when navigating from menu
+    const fetchProductsFromUrl = async () => {
+      try {
+        isFetchingFromUrlRef.current = true
+        setLoading(true)
+        
+        // Parse sort params
+        let sortParams: { sortBy: string; sortOrder: 'asc' | 'desc' } = { sortBy: 'createdAt', sortOrder: 'desc' }
+        if (sortBy && sortOrder) {
+          sortParams = { sortBy, sortOrder: sortOrder as 'asc' | 'desc' }
+        }
+        
+        const params: any = { ...sortParams }
+        if (q) params.q = q
+        if (category) params.category = category
+        if (subcategory) params.subcategory = subcategory
+        if (material) params.material = material
+        if (finishId) params.finishId = finishId
+        if (hasSizeParam) params.hasSize = true
+        if (hasDiscountParam) params.hasDiscount = true
+
+        const results = await productsApi.getAll(params)
+        setProducts(results)
+      } catch (error) {
+        console.error('Failed to fetch products from URL params:', error)
+      } finally {
+        setLoading(false)
+        // Reset flags after a delay to allow state updates to complete
+        setTimeout(() => {
+          isFetchingFromUrlRef.current = false
+          isInitializingFromUrlRef.current = false
+        }, 200)
+      }
+    }
+
+    // Fetch products from URL params immediately
+    fetchProductsFromUrl()
   }, [searchParams])
 
-  // Fetch initial data (categories, finishes, materials)
+  // Fetch initial data (categories, finishes, materials) and products to determine which options have products
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [categoriesData, finishesData, materialsData] = await Promise.all([
+        const [categoriesData, finishesData, materialsData, allProducts] = await Promise.all([
           categoriesApi.getAll(),
           finishesApi.getAll(),
           materialsApi.getAll(),
+          productsApi.getAll(), // Fetch all products to analyze which options are used
         ])
         setCategories(categoriesData)
         setFinishes(finishesData)
         setMaterials(materialsData)
+        
+        // Analyze which categories, subcategories, materials, and finishes have products
+        const categorySet = new Set<string>()
+        const subcategorySet = new Set<string>()
+        const materialSet = new Set<string>()
+        const finishSet = new Set<string>()
+        
+        allProducts.forEach((product: Product) => {
+          // Track categories with products
+          const categoryId = typeof product.category === 'string' 
+            ? product.category 
+            : product.category?._id
+          if (categoryId) {
+            categorySet.add(categoryId)
+          }
+          
+          // Track subcategories with products
+          if (product.subcategoryId) {
+            subcategorySet.add(product.subcategoryId)
+          }
+          
+          // Track materials with products (from materials array)
+          if (product.materials && Array.isArray(product.materials)) {
+            product.materials.forEach((material: any) => {
+              if (material.name) {
+                materialSet.add(material.name)
+              }
+            })
+          }
+          
+          // Track finishes with products (from finishes array)
+          if (product.finishes && Array.isArray(product.finishes)) {
+            product.finishes.forEach((finish: any) => {
+              if (finish.finishID) {
+                finishSet.add(finish.finishID)
+              }
+            })
+          }
+        })
+        
+        setCategoriesWithProducts(categorySet)
+        setSubcategoriesWithProducts(subcategorySet)
+        setMaterialsWithProducts(materialSet)
+        setFinishesWithProducts(finishSet)
       } catch (error) {
         console.error('Failed to fetch initial data:', error)
       }
@@ -100,43 +198,103 @@ export default function ProductsPage() {
   }, [])
 
   // Resolve category/subcategory from URL params after categories load
+  // This converts slugs to IDs and updates the selected state for dropdowns
   useEffect(() => {
-    if (categories.length > 0 && selectedCategory) {
-      const category = categories.find((c: Category) => 
-        c.slug === selectedCategory || c._id === selectedCategory
-      )
-      if (category) {
-        setActiveCategory(category)
+    if (categories.length > 0) {
+      const urlCategory = searchParams.get('category') || ''
+      const urlSubcategory = searchParams.get('subcategory') || ''
+      
+      if (urlCategory) {
+        // Find category by slug or ID
+        const category = categories.find((c: Category) => 
+          c.slug === urlCategory || c._id === urlCategory
+        )
         
-        if (selectedSubcategory && category.subcategories) {
-          const subcategory = category.subcategories.find((s: any) => 
-            s.slug === selectedSubcategory || s._id === selectedSubcategory
-          )
-          if (subcategory) {
-            setActiveSubcategory(subcategory)
+        if (category) {
+          // Update selectedCategory to use ID (for dropdown)
+          setSelectedCategory(category._id)
+          setActiveCategory(category)
+          
+          // Handle subcategory if present in URL
+          if (urlSubcategory && category.subcategories) {
+            const subcategory = category.subcategories.find((s: any) => 
+              s.slug === urlSubcategory || s._id === urlSubcategory
+            )
+            if (subcategory) {
+              // Update selectedSubcategory to use ID (for dropdown)
+              setSelectedSubcategory(subcategory._id)
+              setActiveSubcategory(subcategory)
+            } else {
+              // Subcategory from URL not found, clear it
+              setSelectedSubcategory('')
+              setActiveSubcategory(null)
+            }
+          } else if (!urlSubcategory) {
+            // Clear subcategory if not in URL
+            setSelectedSubcategory('')
+            setActiveSubcategory(null)
           }
+        } else {
+          // Category from URL not found, clear selection
+          setSelectedCategory('')
+          setActiveCategory(null)
+          setSelectedSubcategory('')
+          setActiveSubcategory(null)
         }
+      } else {
+        // No category in URL, clear selection
+        setSelectedCategory('')
+        setActiveCategory(null)
+        setSelectedSubcategory('')
+        setActiveSubcategory(null)
       }
     }
-  }, [categories, selectedCategory, selectedSubcategory])
+  }, [categories, searchParams])
 
-  // Update active category when selection changes
+  // Update active category when selection changes manually (not from URL initialization)
+  // This handles manual filter changes in the dropdowns
   useEffect(() => {
+    // Skip if we're initializing from URL params to avoid conflicts
+    if (isInitializingFromUrlRef.current || categories.length === 0) {
+      return
+    }
+    
     if (selectedCategory && categories.length > 0) {
       const category = categories.find(c => c._id === selectedCategory)
       setActiveCategory(category || null)
     } else {
       setActiveCategory(null)
     }
-    // Reset subcategory when category changes
+    // Reset subcategory when category changes manually
     if (!selectedCategory) {
       setSelectedSubcategory('')
       setActiveSubcategory(null)
     }
   }, [selectedCategory, categories])
 
-  // Get available subcategories based on selected category
-  const availableSubcategories = activeCategory?.subcategories || []
+  // Get available subcategories based on selected category, filtered to only show those with products
+  const availableSubcategories = activeCategory?.subcategories?.filter((sub) => {
+    return subcategoriesWithProducts.has(sub._id)
+  }) || []
+  
+  // Filter categories to only show those with products
+  const filteredCategories = categories.filter((cat) => {
+    const hasDirectProducts = categoriesWithProducts.has(cat._id)
+    const hasSubcategoriesWithProducts = cat.subcategories?.some((sub) => {
+      return subcategoriesWithProducts.has(sub._id)
+    }) || false
+    return hasDirectProducts || hasSubcategoriesWithProducts
+  })
+  
+  // Filter materials to only show those with products
+  const filteredMaterials = materials.filter((mat) => {
+    return materialsWithProducts.has(mat.name)
+  })
+  
+  // Filter finishes to only show those with products
+  const filteredFinishes = finishes.filter((fin) => {
+    return finishesWithProducts.has(fin._id)
+  })
 
   // Parse sort option to backend params
   const getSortParams = () => {
@@ -182,13 +340,22 @@ export default function ProductsPage() {
     }
   }, [debouncedSearchQuery, selectedCategory, selectedSubcategory, selectedMaterial, selectedFinish, hasSize, hasDiscount, sortOption])
 
-  // Auto-fetch products when filters change
+  // Auto-fetch products when filters change (but skip if we're fetching from URL params)
   useEffect(() => {
+    // Skip if we just fetched from URL params to prevent duplicate fetches
+    if (isFetchingFromUrlRef.current) {
+      return
+    }
     fetchProducts()
   }, [fetchProducts])
 
-  // Update URL when filters change
+  // Update URL when filters change (but skip during initialization from URL params)
   useEffect(() => {
+    // Skip if we're currently initializing from URL params to prevent overwriting the URL
+    if (isFetchingFromUrlRef.current || isInitializingFromUrlRef.current) {
+      return
+    }
+
     const params = new URLSearchParams()
     
     if (debouncedSearchQuery) params.set('q', debouncedSearchQuery)
@@ -208,7 +375,13 @@ export default function ProductsPage() {
     const queryString = params.toString()
     const newUrl = queryString ? `/products?${queryString}` : '/products'
     
-    router.push(newUrl, { scroll: false })
+    // Get current URL to compare
+    const currentUrl = window.location.pathname + window.location.search
+    
+    // Only update URL if it's different to avoid unnecessary navigation
+    if (newUrl !== currentUrl) {
+      router.replace(newUrl, { scroll: false }) // Use replace instead of push to avoid history entries
+    }
   }, [debouncedSearchQuery, selectedCategory, selectedSubcategory, selectedMaterial, selectedFinish, hasSize, hasDiscount, sortOption, router])
 
   // Update active subcategory when selection changes
@@ -524,7 +697,7 @@ export default function ProductsPage() {
                           className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
                         >
                           <option value="">All Categories</option>
-                          {categories.map((cat) => (
+                          {filteredCategories.map((cat) => (
                             <option key={cat._id} value={cat._id}>
                               {cat.name}
                             </option>
@@ -563,7 +736,7 @@ export default function ProductsPage() {
                           className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
                         >
                           <option value="">All Materials</option>
-                          {materials.map((mat) => (
+                          {filteredMaterials.map((mat) => (
                             <option key={mat._id} value={mat.name}>
                               {mat.name}
                             </option>
@@ -582,7 +755,7 @@ export default function ProductsPage() {
                           className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
                         >
                           <option value="">All Finishes</option>
-                          {finishes.map((fin) => (
+                          {filteredFinishes.map((fin) => (
                             <option key={fin._id} value={fin._id}>
                               {fin.name}
                             </option>
@@ -823,7 +996,7 @@ export default function ProductsPage() {
                     className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
                   >
                     <option value="">All Categories</option>
-                    {categories.map((cat) => (
+                    {filteredCategories.map((cat) => (
                       <option key={cat._id} value={cat._id}>
                         {cat.name}
                       </option>
@@ -862,7 +1035,7 @@ export default function ProductsPage() {
                     className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
                   >
                     <option value="">All Materials</option>
-                    {materials.map((mat) => (
+                    {filteredMaterials.map((mat) => (
                       <option key={mat._id} value={mat.name}>
                         {mat.name}
                       </option>
@@ -881,7 +1054,7 @@ export default function ProductsPage() {
                     className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
                   >
                     <option value="">All Finishes</option>
-                    {finishes.map((fin) => (
+                    {filteredFinishes.map((fin) => (
                       <option key={fin._id} value={fin._id}>
                         {fin.name}
                       </option>
@@ -1216,7 +1389,7 @@ export default function ProductsPage() {
                             <h3 className="text-sm sm:text-base font-sans font-semibold text-charcoal mb-1 group-hover:text-brass transition-colors leading-tight line-clamp-2">
                               {product.name}
                             </h3>
-                            <p className="hidden sm:block text-xs text-charcoal/60 mb-3 line-clamp-2">
+                            <p className="text-xs text-charcoal/60 mb-3 line-clamp-2 overflow-hidden">
                               {product.description || 'Premium quality product'}
                             </p>
                             

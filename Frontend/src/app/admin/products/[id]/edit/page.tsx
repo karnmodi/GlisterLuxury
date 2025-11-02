@@ -40,7 +40,7 @@ export default function EditProductPage() {
       name: string
       basePrice: number
       sizeOptions: Array<{
-        name?: string
+        name: string
         sizeMM: number
         additionalCost: number
         isOptional: boolean
@@ -167,6 +167,7 @@ export default function EditProductPage() {
             name: material.name,
             basePrice: Number(material.basePrice) || 0,
             sizeOptions: (material.sizeOptions || []).map(size => ({
+              name: size.name || '',
               sizeMM: Number(size.sizeMM),
               additionalCost: Number(size.additionalCost) || 0,
               isOptional: Boolean(size.isOptional)
@@ -226,6 +227,18 @@ export default function EditProductPage() {
         return
       }
 
+      // Validate that all size options have names
+      for (const material of formData.materials) {
+        if (material.sizeOptions && material.sizeOptions.length > 0) {
+          for (const sizeOption of material.sizeOptions) {
+            if (!sizeOption.name || sizeOption.name.trim() === '') {
+              toast.error(`Size name is required for all size options in material "${material.name}". Each size option must have a name, sizeMM, and additionalCost.`)
+              return
+            }
+          }
+        }
+      }
+
       // Debug: Log the form data before conversion
       console.log('Form data before conversion:', formData)
       console.log('Materials before conversion:', formData.materials)
@@ -271,7 +284,7 @@ export default function EditProductPage() {
             name: material.name,
             basePrice: material.basePrice,
             sizeOptions: material.sizeOptions.map(size => ({
-              name: size.name || undefined,
+              name: size.name.trim(),
               sizeMM: size.sizeMM,
               additionalCost: size.additionalCost,
               isOptional: size.isOptional

@@ -205,8 +205,8 @@ export default function CartPage() {
 
                           <div className="space-y-1 text-sm text-charcoal/70 mb-4">
                             <p>Material: <span className="font-medium text-charcoal">{item.selectedMaterial.name}</span></p>
-                            {item.selectedSize && (
-                              <p>Size: <span className="font-medium text-charcoal">{item.selectedSize}mm</span></p>
+                            {item.selectedSize != null && (
+                              <p>Size: <span className="font-medium text-charcoal">{item.selectedSizeName ? `${item.selectedSizeName} ${item.selectedSize}mm` : `${item.selectedSize}mm`}</span></p>
                             )}
                             {item.selectedFinish && (
                               <p>Finish: <span className="font-medium text-charcoal">{item.selectedFinish.name}</span></p>
@@ -259,15 +259,17 @@ export default function CartPage() {
                                       </span>
                                     </div>
 
+                                    {item.selectedSize != null && (
                                     <div className="flex items-center justify-between text-charcoal/70 flex-wrap gap-2">
                                       <span className="flex items-center gap-1">
                                         <span className="w-1.5 h-1.5 rounded-full bg-brass"></span>
-                                        Size {item.selectedSize ? `(${item.selectedSize}mm)` : 'Adjustment'}
+                                        Size {item.selectedSizeName ? `${item.selectedSizeName} ${item.selectedSize}mm` : `${item.selectedSize}mm`}
                                       </span>
                                       <span className="font-medium text-charcoal">
                                         {toNumber(item.priceBreakdown.size) > 0 ? `+${formatCurrency(item.priceBreakdown.size)}` : formatCurrency(0)}
                                       </span>
                                     </div>
+                                    )}
 
                                     <div className="flex items-center justify-between text-charcoal/70 flex-wrap gap-2">
                                       <span className="flex items-center gap-1">

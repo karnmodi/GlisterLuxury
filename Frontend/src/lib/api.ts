@@ -52,17 +52,49 @@ export const productsApi = {
 
   getFinishes: (id: string) => apiCall<Finish[]>(`/products/${id}/finishes`),
 
-  create: (data: Partial<Product>) => 
-    apiCall<Product>('/products', {
+  // Validate product data before sending
+  validateProductData: (data: Partial<Product>): string | null => {
+    if (!data.materials || !Array.isArray(data.materials)) {
+      return null // Materials are optional in the type, validation will happen on backend
+    }
+    
+    for (const material of data.materials) {
+      if (material.sizeOptions && Array.isArray(material.sizeOptions)) {
+        for (const sizeOption of material.sizeOptions) {
+          if (!sizeOption.name || typeof sizeOption.name !== 'string' || sizeOption.name.trim() === '') {
+            return `Size name is required for all size options in material "${material.name}". Each size option must have a name, sizeMM, and additionalCost.`
+          }
+        }
+      }
+    }
+    return null
+  },
+
+  create: (data: Partial<Product>) => {
+    // Validate size names before sending
+    const validationError = productsApi.validateProductData(data)
+    if (validationError) {
+      return Promise.reject(new Error(validationError))
+    }
+    
+    return apiCall<Product>('/products', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    })
+  },
 
-  update: (id: string, data: Partial<Product>) =>
-    apiCall<Product>(`/products/${id}`, {
+  update: (id: string, data: Partial<Product>) => {
+    // Validate size names before sending
+    const validationError = productsApi.validateProductData(data)
+    if (validationError) {
+      return Promise.reject(new Error(validationError))
+    }
+    
+    return apiCall<Product>(`/products/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
-    }),
+    })
+  },
 
   delete: (id: string) =>
     apiCall<{ message: string }>(`/products/${id}`, {
@@ -78,6 +110,7 @@ export const productsApi = {
     const response = await fetch(`${API_BASE_URL}/products/${id}/images`, {
       method: 'POST',
       body: formData,
+      credentials: 'include', // Add this line to fix CORS issue
     })
 
     if (!response.ok) {
@@ -232,6 +265,7 @@ export const cartApi = {
     productID: string
     selectedMaterial: { materialID?: string; name: string; basePrice?: number }
     selectedSize?: number
+    selectedSizeName?: string
     selectedFinish?: string
     quantity?: number
     includePackaging?: boolean

@@ -149,6 +149,13 @@ export default function ProductDetailPage() {
       return
     }
 
+    // Validate size is selected if size options are available
+    const hasSizeOptions = selectedMaterial?.sizeOptions && selectedMaterial.sizeOptions.length > 0
+    if (hasSizeOptions && selectedSize == null) {
+      toast.warning('Please select a size')
+      return
+    }
+
     try {
       await addToCart({
         productID: product._id,
@@ -158,6 +165,7 @@ export default function ProductDetailPage() {
           basePrice: toNumber(selectedMaterial.basePrice),
         },
         selectedSize: selectedSize?.sizeMM,
+        selectedSizeName: selectedSize?.name,
         selectedFinish: selectedFinish,
         quantity,
         includePackaging,
@@ -674,10 +682,17 @@ export default function ProductDetailPage() {
               {/* Add to Cart Button */}
               <AddToCartButton
                 onAddToCart={handleAddToCart}
-                disabled={!selectedMaterial || !selectedFinish || cartLoading}
+                disabled={Boolean(
+                  !selectedMaterial || 
+                  !selectedFinish || 
+                  !!cartLoading ||
+                  (selectedMaterial?.sizeOptions && selectedMaterial.sizeOptions.length > 0 && selectedSize == null)
+                )}
                 loading={cartLoading}
                 selectedMaterial={selectedMaterial}
                 selectedFinish={selectedFinish}
+                selectedSize={selectedSize}
+                sizeOptions={selectedMaterial?.sizeOptions || []}
               />
             </motion.div>
           </div>

@@ -5,28 +5,56 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
-import { categoriesApi } from '@/lib/api'
-import type { Category } from '@/types'
+import { categoriesApi, productsApi } from '@/lib/api'
+import type { Category, Product } from '@/types'
 
 export default function MobileNavigation() {
   const [isOpen, setIsOpen] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  const [categoriesWithProducts, setCategoriesWithProducts] = useState<Set<string>>(new Set())
+  const [subcategoriesWithProducts, setSubcategoriesWithProducts] = useState<Set<string>>(new Set())
   const { user, isAuthenticated } = useAuth()
 
   const closeMenu = () => setIsOpen(false)
 
-  // Fetch categories on mount
+  // Fetch categories and products to determine which categories/subcategories have products
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchData = async () => {
       try {
-        const data = await categoriesApi.getAll()
-        setCategories(data)
+        // Fetch categories and products
+        const [categoriesData, allProducts] = await Promise.all([
+          categoriesApi.getAll(),
+          productsApi.getAll(),
+        ])
+        
+        // Create sets to track categories and subcategories with products
+        const categorySet = new Set<string>()
+        const subcategorySet = new Set<string>()
+        
+        allProducts.forEach((product: Product) => {
+          // Track categories with products
+          const categoryId = typeof product.category === 'string' 
+            ? product.category 
+            : product.category?._id
+          if (categoryId) {
+            categorySet.add(categoryId)
+          }
+          
+          // Track subcategories with products
+          if (product.subcategoryId) {
+            subcategorySet.add(product.subcategoryId)
+          }
+        })
+        
+        setCategories(categoriesData)
+        setCategoriesWithProducts(categorySet)
+        setSubcategoriesWithProducts(subcategorySet)
       } catch (error) {
-        console.error('Failed to fetch categories:', error)
+        console.error('Failed to fetch categories or products:', error)
       }
     }
-    fetchCategories()
+    fetchData()
   }, [])
 
   const toggleCategory = (categoryId: string) => {
@@ -185,68 +213,90 @@ export default function MobileNavigation() {
                         Products
                       </Link>
                       <div className="space-y-1 pb-2">
-                        {categories.length > 0 ? (
-                          categories.map((category) => (
-                            <div key={category._id}>
-                              {/* Category with toggle */}
-                              <div className="flex items-center justify-between">
-                                <Link
-                                  href={`/products?category=${category.slug}`}
-                                  className="flex-1 block text-sm text-brass font-medium hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-4 rounded-sm"
-                                  onClick={closeMenu}
-                                >
-                                  {category.name}
-                                </Link>
-                                {category.subcategories && category.subcategories.length > 0 && (
-                                  <button
-                                    onClick={() => toggleCategory(category._id)}
-                                    className="px-3 py-2 text-ivory hover:text-brass transition-colors duration-300"
-                                    aria-label={`Toggle ${category.name} subcategories`}
-                                  >
-                                    <svg
-                                      className={`w-4 h-4 transition-transform duration-300 ${
-                                        expandedCategory === category._id ? 'rotate-180' : ''
-                                      }`}
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                  </button>
-                                )}
-                              </div>
+                        {categories.length > 0 ? (() => {
+                          // Filter categories to only show those with products
+                          const filteredCategories = categories.filter((category) => {
+                            const hasDirectProducts = categoriesWithProducts.has(category._id)
+                            const hasSubcategoriesWithProducts = category.subcategories?.some((sub) => {
+                              return subcategoriesWithProducts.has(sub._id)
+                            }) || false
+                            return hasDirectProducts || hasSubcategoriesWithProducts
+                          })
 
-                              {/* Subcategories - Expandable */}
-                              {category.subcategories && category.subcategories.length > 0 && (
-                                <AnimatePresence>
-                                  {expandedCategory === category._id && (
-                                    <motion.div
-                                      initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: 'auto', opacity: 1 }}
-                                      exit={{ height: 0, opacity: 0 }}
-                                      transition={{ duration: 0.2 }}
-                                      className="overflow-hidden"
+                          return filteredCategories.length > 0 ? (
+                            filteredCategories.map((category) => {
+                              // Filter subcategories to only show those with products
+                              const filteredSubcategories = category.subcategories?.filter((sub) => {
+                                return subcategoriesWithProducts.has(sub._id)
+                              }) || []
+
+                              return (
+                                <div key={category._id}>
+                                  {/* Category with toggle */}
+                                  <div className="flex items-center justify-between">
+                                    <Link
+                                      href={`/products?category=${category.slug}`}
+                                      className="flex-1 block text-sm text-brass font-medium hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-4 rounded-sm"
+                                      onClick={closeMenu}
                                     >
-                                      {category.subcategories.map((subcategory) => (
-                                        <Link
-                                          key={subcategory._id}
-                                          href={`/products?category=${category.slug}&subcategory=${subcategory.slug}`}
-                                          className="block text-sm text-ivory/70 hover:text-brass hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-12 rounded-sm"
-                                          onClick={closeMenu}
+                                      {category.name}
+                                    </Link>
+                                    {filteredSubcategories.length > 0 && (
+                                      <button
+                                        onClick={() => toggleCategory(category._id)}
+                                        className="px-3 py-2 text-ivory hover:text-brass transition-colors duration-300"
+                                        aria-label={`Toggle ${category.name} subcategories`}
+                                      >
+                                        <svg
+                                          className={`w-4 h-4 transition-transform duration-300 ${
+                                            expandedCategory === category._id ? 'rotate-180' : ''
+                                          }`}
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
                                         >
-                                          {subcategory.name}
-                                        </Link>
-                                      ))}
-                                    </motion.div>
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Subcategories - Expandable (only show those with products) */}
+                                  {filteredSubcategories.length > 0 && (
+                                    <AnimatePresence>
+                                      {expandedCategory === category._id && (
+                                        <motion.div
+                                          initial={{ height: 0, opacity: 0 }}
+                                          animate={{ height: 'auto', opacity: 1 }}
+                                          exit={{ height: 0, opacity: 0 }}
+                                          transition={{ duration: 0.2 }}
+                                          className="overflow-hidden"
+                                        >
+                                          {filteredSubcategories.map((subcategory) => (
+                                            <Link
+                                              key={subcategory._id}
+                                              href={`/products?category=${category.slug}&subcategory=${subcategory.slug}`}
+                                              className="block text-sm text-ivory/70 hover:text-brass hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-12 rounded-sm"
+                                              onClick={closeMenu}
+                                            >
+                                              {subcategory.name}
+                                            </Link>
+                                          ))}
+                                        </motion.div>
+                                      )}
+                                    </AnimatePresence>
                                   )}
-                                </AnimatePresence>
-                              )}
+                                </div>
+                              )
+                            })
+                          ) : (
+                            <div className="px-4 py-2 text-sm text-ivory/50 ml-4">
+                              No categories with products available
                             </div>
-                          ))
-                        ) : (
+                          )
+                        })() : (
                           <div className="px-4 py-2 text-sm text-ivory/50 ml-4">
-                            No categories available
+                            Loading categories...
                           </div>
                         )}
                       </div>

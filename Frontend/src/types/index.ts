@@ -7,7 +7,7 @@ export interface Material {
 }
 
 export interface SizeOption {
-  name?: string
+  name: string
   sizeMM: number
   additionalCost: number
   isOptional: boolean
@@ -103,6 +103,7 @@ export interface CartItem {
     basePrice: number
   }
   selectedSize?: number
+  selectedSizeName?: string
   sizeCost: number
   selectedFinish?: {
     finishID: string
@@ -290,6 +291,7 @@ export interface OrderItem {
     basePrice: number
   }
   selectedSize?: number
+  selectedSizeName?: string
   sizeCost: number
   selectedFinish?: {
     finishID: string

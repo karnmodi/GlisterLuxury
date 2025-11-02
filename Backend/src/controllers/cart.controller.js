@@ -123,6 +123,7 @@ async function addToCart(req, res, next) {
 			productID,
 			selectedMaterial,
 			selectedSize,
+			selectedSizeName,
 			selectedFinish,
 			quantity = 1,
 			includePackaging = true,
@@ -178,6 +179,16 @@ async function addToCart(req, res, next) {
 			cart = new Cart({ sessionID, items: [] });
 		}
 
+		// Get size name from product if not provided
+		let sizeName = selectedSizeName;
+		if (!sizeName && selectedSize != null) {
+			const materialMatch = priceData.resolved.materialMatch;
+			const sizeOption = (materialMatch.sizeOptions || []).find(s => Number(s.sizeMM) === Number(selectedSize));
+			if (sizeOption && sizeOption.name) {
+				sizeName = sizeOption.name;
+			}
+		}
+
 		// Create cart item
 		const cartItem = {
 			productID: product._id,
@@ -189,6 +200,7 @@ async function addToCart(req, res, next) {
 				basePrice: breakdown.material,
 			},
 			selectedSize,
+			selectedSizeName: sizeName,
 			sizeCost: breakdown.size,
 			selectedFinish: finishDetail,
 			finishCost: breakdown.finishes,
@@ -408,7 +420,7 @@ async function getCheckoutSummary(req, res, next) {
 			},
 			selections: {
 				material: item.selectedMaterial.name,
-				size: item.selectedSize ? `${item.selectedSize}mm` : 'Standard',
+				size: item.selectedSizeName && item.selectedSize ? `${item.selectedSizeName} ${item.selectedSize}mm` : item.selectedSize ? `${item.selectedSize}mm` : 'Standard',
 				finish: item.selectedFinish ? item.selectedFinish.name : 'None',
 			},
 			pricing: {

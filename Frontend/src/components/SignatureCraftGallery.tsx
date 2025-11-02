@@ -23,7 +23,7 @@ export default function SignatureCraftGallery() {
     {
       title: "Polished Chrome",
       subtitle: "Modern Elegance",
-      image: "/images/gallery/Knowb.jpg",
+      image: "/images/gallery/Sample.jpg",
       description: "Mirror-like finish that reflects contemporary design excellence"
     },
     {

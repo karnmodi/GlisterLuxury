@@ -28,12 +28,12 @@ export default function CreateProductPage() {
       packagingPrice: 0,
       packagingUnit: 'Set',
     },
-    materials: [] as Array<{
+      materials: [] as Array<{
       materialID: string
       name: string
       basePrice: number
       sizeOptions: Array<{
-        name?: string
+        name: string
         sizeMM: number
         additionalCost: number
         isOptional: boolean
@@ -96,6 +96,18 @@ export default function CreateProductPage() {
         return
       }
 
+      // Validate that all size options have names
+      for (const material of formData.materials) {
+        if (material.sizeOptions && material.sizeOptions.length > 0) {
+          for (const sizeOption of material.sizeOptions) {
+            if (!sizeOption.name || sizeOption.name.trim() === '') {
+              toast.error(`Size name is required for all size options in material "${material.name}". Each size option must have a name, sizeMM, and additionalCost.`)
+              return
+            }
+          }
+        }
+      }
+
       // Prepare product data with proper ObjectId conversion
       const productData = {
         productID: formData.basicInfo.productID,
@@ -122,7 +134,7 @@ export default function CreateProductPage() {
             name: material.name,
             basePrice: material.basePrice,
             sizeOptions: material.sizeOptions.map(size => ({
-              name: size.name || undefined,
+              name: size.name.trim(),
               sizeMM: size.sizeMM,
               additionalCost: size.additionalCost,
               isOptional: size.isOptional

@@ -63,6 +63,21 @@ function transformMongoTypes(obj) {
 
 async function createProduct(req, res) {
 	try {
+		// Validate that sizeOptions have names
+		if (req.body.materials && Array.isArray(req.body.materials)) {
+			for (const material of req.body.materials) {
+				if (material.sizeOptions && Array.isArray(material.sizeOptions)) {
+					for (const sizeOption of material.sizeOptions) {
+						if (!sizeOption.name || typeof sizeOption.name !== 'string' || sizeOption.name.trim() === '') {
+							return res.status(400).json({ 
+								message: 'Size name is required for all size options. Each size option must have a name, sizeMM, and additionalCost.' 
+							});
+						}
+					}
+				}
+			}
+		}
+
 		// Ensure materials have proper ObjectId conversion
 		if (req.body.materials && Array.isArray(req.body.materials)) {
 			req.body.materials = req.body.materials.map(material => {
@@ -80,7 +95,7 @@ async function createProduct(req, res) {
 					materialID: materialID,
 					basePrice: parseFloat(material.basePrice) || 0,
 					sizeOptions: (material.sizeOptions || []).map(size => ({
-						name: size.name || undefined,
+						name: size.name.trim(),
 						sizeMM: parseInt(size.sizeMM) || 0,
 						additionalCost: parseFloat(size.additionalCost) || 0,
 						isOptional: Boolean(size.isOptional)
@@ -355,6 +370,21 @@ async function updateProduct(req, res) {
 			delete req.body.imageURLs;
 		}
 
+		// Validate that sizeOptions have names
+		if (req.body.materials && Array.isArray(req.body.materials)) {
+			for (const material of req.body.materials) {
+				if (material.sizeOptions && Array.isArray(material.sizeOptions)) {
+					for (const sizeOption of material.sizeOptions) {
+						if (!sizeOption.name || typeof sizeOption.name !== 'string' || sizeOption.name.trim() === '') {
+							return res.status(400).json({ 
+								message: 'Size name is required for all size options. Each size option must have a name, sizeMM, and additionalCost.' 
+							});
+						}
+					}
+				}
+			}
+		}
+
 		// Ensure materials have proper ObjectId conversion
 		if (req.body.materials && Array.isArray(req.body.materials)) {
 			req.body.materials = req.body.materials.map(material => {
@@ -372,7 +402,7 @@ async function updateProduct(req, res) {
 					materialID: materialID,
 					basePrice: parseFloat(material.basePrice) || 0,
 					sizeOptions: (material.sizeOptions || []).map(size => ({
-						name: size.name || undefined,
+						name: size.name.trim(),
 						sizeMM: parseInt(size.sizeMM) || 0,
 						additionalCost: parseFloat(size.additionalCost) || 0,
 						isOptional: Boolean(size.isOptional)

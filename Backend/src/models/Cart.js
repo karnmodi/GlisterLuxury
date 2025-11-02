@@ -13,6 +13,7 @@ const CartItemSchema = new Schema(
 			basePrice: { type: Schema.Types.Decimal128, required: true },
 		},
 		selectedSize: { type: Number },
+		selectedSizeName: { type: String },
 		sizeCost: { type: Schema.Types.Decimal128, default: 0 },
 		selectedFinish: {
 			finishID: { type: Schema.Types.ObjectId, ref: 'Finish' },
