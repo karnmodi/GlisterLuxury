@@ -57,7 +57,7 @@ app.use(async (req, res, next) => {
 
 // Basic route
 app.get('/', (req, res) => {
-  res.json({ message: 'Glister Backend API is running!' });
+  res.json({ message: 'Glister Backend API is configured and running!' });
 });
 
 // Visit tracking middleware (before routes, after auth)
