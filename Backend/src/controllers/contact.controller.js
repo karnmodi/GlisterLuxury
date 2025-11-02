@@ -1,10 +1,79 @@
 const ContactInfo = require('../models/ContactInfo');
 const ContactInquiry = require('../models/ContactInquiry');
 
+// Helper function to validate URL format
+function isValidUrl(url) {
+	if (!url || url.trim() === '') return true; // Allow empty strings
+	try {
+		const urlObj = new URL(url);
+		return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+	} catch {
+		return false;
+	}
+}
+
+// Helper function to validate WhatsApp number format (E.164)
+function isValidWhatsAppNumber(number) {
+	if (!number || number.trim() === '') return true; // Allow empty strings
+	return /^\+[1-9]\d{1,14}$/.test(number);
+}
+
+// Helper function to clean and validate social media data
+function validateAndCleanSocialMedia(socialMedia) {
+	if (!socialMedia || typeof socialMedia !== 'object') {
+		return {};
+	}
+
+	const cleaned = {};
+	const platforms = ['instagram', 'facebook', 'linkedin', 'twitter', 'youtube', 'pinterest', 'tiktok'];
+
+	platforms.forEach(platform => {
+		if (socialMedia[platform] !== undefined) {
+			const url = socialMedia[platform];
+			if (url && url.trim() !== '') {
+				if (!isValidUrl(url)) {
+					throw new Error(`Invalid ${platform} URL format. Must be a valid HTTP/HTTPS URL.`);
+				}
+				cleaned[platform] = url.trim();
+			} else {
+				cleaned[platform] = '';
+			}
+		}
+	});
+
+	return cleaned;
+}
+
 // Contact Info CRUD operations
 async function createContactInfo(req, res) {
 	try {
-		const contactInfo = await ContactInfo.create(req.body);
+		const { socialMedia, businessWhatsApp, ...restData } = req.body;
+
+		// Validate WhatsApp number if provided
+		if (businessWhatsApp !== undefined && !isValidWhatsAppNumber(businessWhatsApp)) {
+			return res.status(400).json({ 
+				message: 'WhatsApp number must be in E.164 format (e.g., +1234567890) with country code' 
+			});
+		}
+
+		// Validate and clean social media URLs
+		let cleanedSocialMedia = {};
+		if (socialMedia !== undefined) {
+			try {
+				cleanedSocialMedia = validateAndCleanSocialMedia(socialMedia);
+			} catch (err) {
+				return res.status(400).json({ message: err.message });
+			}
+		}
+
+		// Prepare data for creation
+		const contactData = {
+			...restData,
+			...(Object.keys(cleanedSocialMedia).length > 0 && { socialMedia: cleanedSocialMedia }),
+			...(businessWhatsApp !== undefined && { businessWhatsApp: businessWhatsApp.trim() })
+		};
+
+		const contactInfo = await ContactInfo.create(contactData);
 		return res.status(201).json(contactInfo);
 	} catch (err) {
 		return res.status(400).json({ message: err.message });
@@ -49,9 +118,43 @@ async function getContactInfo(req, res) {
 
 async function updateContactInfo(req, res) {
 	try {
+		const { socialMedia, businessWhatsApp, ...restData } = req.body;
+
+		// Validate WhatsApp number if provided
+		if (businessWhatsApp !== undefined && !isValidWhatsAppNumber(businessWhatsApp)) {
+			return res.status(400).json({ 
+				message: 'WhatsApp number must be in E.164 format (e.g., +1234567890) with country code' 
+			});
+		}
+
+		// Validate and clean social media URLs if provided
+		let updateData = { ...restData };
+		
+		if (socialMedia !== undefined) {
+			try {
+				// Get existing contact info to merge with existing social media
+				const existing = await ContactInfo.findById(req.params.id).lean();
+				if (!existing) {
+					return res.status(404).json({ message: 'Contact info not found' });
+				}
+
+				// Merge existing social media with new updates
+				const existingSocialMedia = existing.socialMedia || {};
+				const mergedSocialMedia = { ...existingSocialMedia, ...socialMedia };
+				const cleanedSocialMedia = validateAndCleanSocialMedia(mergedSocialMedia);
+				updateData.socialMedia = cleanedSocialMedia;
+			} catch (err) {
+				return res.status(400).json({ message: err.message });
+			}
+		}
+
+		if (businessWhatsApp !== undefined) {
+			updateData.businessWhatsApp = businessWhatsApp.trim();
+		}
+
 		const item = await ContactInfo.findByIdAndUpdate(
 			req.params.id, 
-			req.body, 
+			updateData, 
 			{ new: true, runValidators: true }
 		);
 		if (!item) return res.status(404).json({ message: 'Contact info not found' });

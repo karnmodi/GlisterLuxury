@@ -212,6 +212,16 @@ export interface ContactInfo {
   value: string
   displayOrder: number
   isActive: boolean
+  socialMedia?: {
+    instagram?: string
+    facebook?: string
+    linkedin?: string
+    twitter?: string
+    youtube?: string
+    pinterest?: string
+    tiktok?: string
+  }
+  businessWhatsApp?: string
   createdAt?: string
   updatedAt?: string
 }
