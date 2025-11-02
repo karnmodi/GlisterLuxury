@@ -3,6 +3,12 @@
   "buildCommand": "echo 'No build needed for Express API'",
   "installCommand": "npm install",
   "framework": null,
+  "builds": [
+    {
+      "src": "index.js",
+      "use": "@vercel/node"
+    }
+  ],
   "routes": [
     {
       "src": "/(.*)",
@@ -12,12 +18,5 @@
   "regions": ["lhr1"],
   "env": {
     "NODE_ENV": "production"
-  },
-  "functions": {
-    "index.js": {
-      "runtime": "@vercel/node",
-      "maxDuration": 30,
-      "memory": 1024
-    }
   }
 }

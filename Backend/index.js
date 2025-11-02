@@ -16,6 +16,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL_2,
   'https://glister-londonn.vercel.app',
   'https://glister-london.vercel.app',
+  'https://glister-london-l2w3.vercel.app',
   'http://localhost:3000'
 ]
   .filter(Boolean)
@@ -29,16 +30,21 @@ const corsOptions = {
     if (allowedOrigins.includes(normalized)) {
       return callback(null, true);
     }
+    // Log for debugging
+    console.log(`CORS: Origin ${origin} (normalized: ${normalized}) not in allowed list:`, allowedOrigins);
     return callback(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-ID']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-ID', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'X-Session-ID'],
+  maxAge: 86400 // 24 hours
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Increase body size limits for image uploads (50MB limit)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
 // Middleware to ensure database connection
