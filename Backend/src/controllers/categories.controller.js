@@ -48,13 +48,19 @@ async function getCategoryBySlug(req, res) {
 
 async function updateCategory(req, res) {
 	try {
-		const item = await Category.findByIdAndUpdate(
-			req.params.id,
-			req.body,
-			{ new: true, runValidators: true }
-		);
-		if (!item) return res.status(404).json({ message: 'Category not found' });
-		return res.json(item);
+		const { name, description } = req.body;
+		const category = await Category.findById(req.params.id);
+		if (!category) return res.status(404).json({ message: 'Category not found' });
+		
+		// Update name and regenerate slug if name changed
+		if (name && name !== category.name) {
+			category.name = name;
+			category.slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+		}
+		if (description !== undefined) category.description = description;
+		
+		await category.save();
+		return res.json(category);
 	} catch (err) {
 		return res.status(400).json({ message: err.message });
 	}
