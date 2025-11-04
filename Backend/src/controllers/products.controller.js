@@ -546,11 +546,115 @@ async function updateImageFinishMapping(req, res) {
 	}
 }
 
-module.exports = { 
-	createProduct, 
-	listProducts, 
-	getProduct, 
-	updateProduct, 
+/**
+ * List products with minimal data for product listing page
+ * Returns only essential fields: id, productID, name, description,
+ * materialsCount, and up to 2 images (default + hover)
+ * GET /api/products/listing
+ */
+async function listProductsMinimal(req, res) {
+	try {
+		const { q, material, hasSize, finishId, category, subcategory, subcategoryId } = req.query;
+		const Category = require('../models/Category');
+		const filter = {};
+
+		// Search query
+		if (q) filter.$or = [
+			{ name: { $regex: q, $options: 'i' } },
+			{ productID: { $regex: q, $options: 'i' } },
+			{ productUID: { $regex: q, $options: 'i' } },
+		];
+
+		// Material filter
+		if (material) filter['materials.name'] = { $regex: material, $options: 'i' };
+
+		// Size filter
+		if (hasSize === 'true') filter['materials.sizeOptions.0'] = { $exists: true };
+
+		// Finish filter
+		if (finishId) filter.finishes = { $in: [finishId] };
+
+		// Category filter - support both ID and slug
+		if (category) {
+			const mongoose = require('mongoose');
+			if (mongoose.Types.ObjectId.isValid(category) && category.length === 24) {
+				filter.category = category;
+			} else {
+				const categoryDoc = await Category.findOne({ slug: category });
+				if (categoryDoc) {
+					filter.category = categoryDoc._id;
+				} else {
+					return res.json([]);
+				}
+			}
+		}
+
+		// Subcategory filter - support both ID and slug
+		if (subcategory || subcategoryId) {
+			const subcategoryValue = subcategory || subcategoryId;
+			const mongoose = require('mongoose');
+
+			if (mongoose.Types.ObjectId.isValid(subcategoryValue) && subcategoryValue.length === 24) {
+				filter.subcategoryId = subcategoryValue;
+			} else {
+				const categoryWithSubcategory = await Category.findOne({
+					'subcategories.slug': subcategoryValue
+				});
+
+				if (categoryWithSubcategory) {
+					const subcategoryDoc = categoryWithSubcategory.subcategories.find(
+						sub => sub.slug === subcategoryValue
+					);
+					if (subcategoryDoc) {
+						filter.subcategoryId = subcategoryDoc._id;
+					}
+				} else {
+					return res.json([]);
+				}
+			}
+		}
+
+		// Fetch products with only necessary fields
+		const items = await Product.find(filter)
+			.select('_id productID name description imageURLs materials')
+			.lean();
+
+		// Transform to minimal format
+		const minimalProducts = items.map(item => {
+			// Extract images
+			const imageURLsArray = item.imageURLs ? Object.values(item.imageURLs) : [];
+
+			// Find default image (mappedFinishID is null)
+			const defaultImage = imageURLsArray.find(img => img.mappedFinishID === null);
+
+			// Find first finish-specific image for hover
+			const hoverImage = imageURLsArray.find(img => img.mappedFinishID !== null);
+
+			return {
+				_id: item._id.toString(),
+				productID: item.productID,
+				name: item.name,
+				description: item.description || '',
+				materialsCount: item.materials ? item.materials.length : 0,
+				thumbnailImage: defaultImage?.url || imageURLsArray[0]?.url || null,
+				hoverImage: hoverImage?.url || null,
+				hoverImageFinishId: hoverImage?.mappedFinishID?.toString() || null
+			};
+		});
+
+		return res.json(minimalProducts);
+	} catch (err) {
+		console.error('List products minimal error:', err);
+		return res.status(500).json({ message: err.message });
+	}
+}
+
+module.exports = {
+	createProduct,
+	listProducts,
+	listProductsMinimal,
+	getProduct,
+	updateProduct,
 	deleteProduct,
 	uploadProductImages,
 	deleteProductImage,

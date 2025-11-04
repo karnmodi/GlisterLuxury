@@ -5,17 +5,28 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { productsApi, categoriesApi, finishesApi } from '@/lib/api'
-import type { Product, Category, Finish } from '@/types'
+import type { Category, Finish } from '@/types'
 import LuxuryNavigation from '@/components/LuxuryNavigation'
 import LuxuryFooter from '@/components/LuxuryFooter'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { motion, AnimatePresence } from 'framer-motion'
 
+type MinimalProduct = {
+  _id: string
+  productID: string
+  name: string
+  description: string
+  materialsCount: number
+  thumbnailImage: string | null
+  hoverImage: string | null
+  hoverImageFinishId: string | null
+}
+
 export default function ProductsPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<MinimalProduct[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [finishes, setFinishes] = useState<Finish[]>([])
   const [loading, setLoading] = useState(true)
@@ -46,7 +57,7 @@ export default function ProductsPage() {
     try {
       setLoading(true)
       const [productsData, categoriesData, finishesData] = await Promise.all([
-        productsApi.getAll(),
+        productsApi.getListing(), // Using optimized endpoint
         categoriesApi.getAll(),
         finishesApi.getAll(),
       ])
@@ -93,7 +104,7 @@ export default function ProductsPage() {
       if (searchQuery) params.q = searchQuery
       if (selectedCategory) params.category = selectedCategory
       if (selectedSubcategory) params.subcategory = selectedSubcategory
-      const results = await productsApi.getAll(params)
+      const results = await productsApi.getListing(params) // Using optimized endpoint
       setProducts(results)
     } catch (error) {
       console.error('Search failed:', error)
@@ -125,26 +136,10 @@ export default function ProductsPage() {
   // Get available subcategories based on selected category
   const availableSubcategories = activeCategory?.subcategories || []
 
-  // Get the default image (mappedFinishID: null)
-  const getDefaultImage = (product: Product) => {
-    const images = Object.values(product.imageURLs || {})
-    const defaultImage = images.find(img => img.mappedFinishID === null)
-    return defaultImage?.url || images[0]?.url
-  }
-
-  // Get the first finish-specific image for hover effect
-  const getHoverImage = (product: Product) => {
-    const images = Object.values(product.imageURLs || {})
-    const finishImage = images.find(img => img.mappedFinishID !== null)
-    return finishImage?.url
-  }
-
   // Get the finish name for the hover image
-  const getHoverFinishName = (product: Product) => {
-    const images = Object.values(product.imageURLs || {})
-    const finishImage = images.find(img => img.mappedFinishID !== null)
-    if (finishImage?.mappedFinishID) {
-      const finish = finishes.find(f => f._id === finishImage.mappedFinishID)
+  const getHoverFinishName = (product: MinimalProduct) => {
+    if (product.hoverImageFinishId) {
+      const finish = finishes.find(f => f._id === product.hoverImageFinishId)
       return finish?.name || 'Custom Finish'
     }
     return null
@@ -349,52 +344,52 @@ export default function ProductsPage() {
                         <motion.div
                           className="absolute inset-0 bg-gradient-to-br from-brass/5 to-transparent pointer-events-none"
                           initial={{ opacity: 0 }}
-                          animate={{ 
-                            opacity: hoveredProduct === product._id ? 1 : 0 
+                          animate={{
+                            opacity: hoveredProduct === product._id ? 1 : 0
                           }}
                           transition={{ duration: 0.4 }}
                         />
-                        {product.imageURLs && Object.keys(product.imageURLs).length > 0 ? (
+                        {product.thumbnailImage ? (
                           <>
                             {/* Default Image with Smooth Transition */}
                             <motion.div
                               key={`default-${product._id}`}
                               initial={{ opacity: 1, scale: 1 }}
-                              animate={{ 
+                              animate={{
                                 opacity: hoveredProduct === product._id ? 0 : 1,
                                 scale: hoveredProduct === product._id ? 1.05 : 1
                               }}
-                              transition={{ 
-                                duration: 0.6, 
+                              transition={{
+                                duration: 0.6,
                                 ease: [0.25, 0.46, 0.45, 0.94] // Custom easing for smoothness
                               }}
                               className="absolute inset-0"
                             >
                               <Image
-                                src={getDefaultImage(product)}
+                                src={product.thumbnailImage}
                                 alt={product.name}
                                 fill
                                 className="object-contain p-4"
                               />
                             </motion.div>
-                            
+
                             {/* Hover Image with Smooth Transition */}
                             <AnimatePresence>
-                              {hoveredProduct === product._id && getHoverImage(product) && (
+                              {hoveredProduct === product._id && product.hoverImage && (
                                 <motion.div
                                   key={`hover-${product._id}`}
                                   initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                  animate={{ 
-                                    opacity: 1, 
+                                  animate={{
+                                    opacity: 1,
                                     scale: 1,
                                     y: 0
                                   }}
-                                  exit={{ 
-                                    opacity: 0, 
+                                  exit={{
+                                    opacity: 0,
                                     scale: 1.05,
                                     y: -10
                                   }}
-                                  transition={{ 
+                                  transition={{
                                     duration: 0.6,
                                     ease: [0.25, 0.46, 0.45, 0.94],
                                     delay: 0.1
@@ -402,48 +397,48 @@ export default function ProductsPage() {
                                   className="absolute inset-0"
                                 >
                                   <Image
-                                    src={getHoverImage(product)!}
+                                    src={product.hoverImage}
                                     alt={`${product.name} - ${getHoverFinishName(product)}`}
                                     fill
                                     className="object-contain p-4"
                                   />
-                                  
+
                                   {/* Finish Caption Overlay with Enhanced Animation */}
                                   <motion.div
                                     initial={{ opacity: 0, y: 30, scale: 0.9, rotateX: 15 }}
-                                    animate={{ 
-                                      opacity: 1, 
+                                    animate={{
+                                      opacity: 1,
                                       y: 0,
                                       scale: 1,
                                       rotateX: 0
                                     }}
-                                    exit={{ 
-                                      opacity: 0, 
+                                    exit={{
+                                      opacity: 0,
                                       y: 20,
                                       scale: 0.95,
                                       rotateX: -10
                                     }}
-                                    transition={{ 
-                                      duration: 0.6, 
+                                    transition={{
+                                      duration: 0.6,
                                       delay: 0.2,
                                       ease: [0.25, 0.46, 0.45, 0.94]
                                     }}
                                     className="absolute bottom-4 left-4 right-4 bg-charcoal/90 backdrop-blur-md text-ivory px-3 py-2 rounded-lg border border-brass/40 shadow-lg"
                                     style={{ transformStyle: 'preserve-3d' }}
                                   >
-                                    <motion.div 
+                                    <motion.div
                                       className="flex items-center gap-2"
                                       initial={{ x: -10 }}
                                       animate={{ x: 0 }}
                                       transition={{ delay: 0.3, duration: 0.4 }}
                                     >
-                                      <motion.div 
+                                      <motion.div
                                         className="w-2 h-2 bg-brass rounded-full"
                                         initial={{ scale: 0 }}
                                         animate={{ scale: 1 }}
                                         transition={{ delay: 0.4, duration: 0.3 }}
                                       ></motion.div>
-                                      <motion.span 
+                                      <motion.span
                                         className="text-sm font-medium"
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
@@ -480,7 +475,7 @@ export default function ProductsPage() {
                         
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-charcoal">
-                            {product.materials?.length || 0} materials
+                            {product.materialsCount} materials
                           </span>
                           <span className="text-brass font-medium text-sm group-hover:underline">
                             View Details →
