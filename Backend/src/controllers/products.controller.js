@@ -811,6 +811,52 @@ async function listProductsMinimal(req, res) {
 	}
 }
 
+async function getProductFinishes(req, res) {
+	try {
+		const productId = req.params.id;
+		const product = await Product.findById(productId)
+			.select('finishes')
+			.lean();
+
+		if (!product) {
+			return res.status(404).json({ message: 'Product not found' });
+		}
+
+		if (!product.finishes || product.finishes.length === 0) {
+			return res.json([]);
+		}
+
+		// Get all finish IDs from the product
+		const finishIds = product.finishes.map(f => f.finishID);
+
+		// Fetch finish details and include price adjustments
+		const finishes = await Finish.find({ _id: { $in: finishIds } }).lean();
+
+		// Map finishes with their price adjustments
+		const finishesWithAdjustments = finishes.map(finish => {
+			const finishOption = product.finishes.find(
+				f => f.finishID && f.finishID.toString() === finish._id.toString()
+			);
+			
+			return {
+				...finish,
+				_id: finish._id.toString(),
+				priceAdjustment: finishOption?.priceAdjustment 
+					? parseFloat(finishOption.priceAdjustment.toString()) 
+					: 0
+			};
+		});
+
+		// Transform MongoDB types
+		const transformedFinishes = finishesWithAdjustments.map(transformMongoTypes);
+
+		return res.json(transformedFinishes);
+	} catch (err) {
+		console.error('Get product finishes error:', err);
+		return res.status(500).json({ message: err.message });
+	}
+}
+
 module.exports = {
 	createProduct,
 	listProducts,

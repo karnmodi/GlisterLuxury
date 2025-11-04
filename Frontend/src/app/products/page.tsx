@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { productsApi, categoriesApi, finishesApi } from '@/lib/api'
-import type { Category, Finish } from '@/types'
+import { productsApi, categoriesApi, finishesApi, materialsApi } from '@/lib/api'
+import type { Category, Finish, MaterialMaster, Product } from '@/types'
 import LuxuryNavigation from '@/components/LuxuryNavigation'
 import LuxuryFooter from '@/components/LuxuryFooter'
 import Input from '@/components/ui/Input'
@@ -22,6 +22,8 @@ type MinimalProduct = {
   hoverImage: string | null
   hoverImageFinishId: string | null
 }
+
+type SortOption = 'newest' | 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc'
 
 export default function ProductsPage() {
   const searchParams = useSearchParams()
@@ -125,7 +127,20 @@ export default function ProductsPage() {
         if (hasDiscountParam) params.hasDiscount = true
 
         const results = await productsApi.getAll(params)
-        setProducts(results)
+        // Transform Product[] to MinimalProduct[] for the listing view
+        const minimalProducts: MinimalProduct[] = results.map((product: Product) => ({
+          _id: product._id,
+          productID: product.productID,
+          name: product.name,
+          description: product.description || '',
+          materialsCount: product.materials?.length || 0,
+          thumbnailImage: product.imageURLs && Object.keys(product.imageURLs).length > 0 
+            ? Object.values(product.imageURLs)[0].url 
+            : null,
+          hoverImage: null,
+          hoverImageFinishId: null
+        }))
+        setProducts(minimalProducts)
       } catch (error) {
         console.error('Failed to fetch products from URL params:', error)
       } finally {
@@ -206,63 +221,6 @@ export default function ProductsPage() {
     fetchInitialData()
   }, [])
 
-  const fetchData = async () => {
-    try {
-      setLoading(true)
-      const [productsData, categoriesData, finishesData] = await Promise.all([
-        productsApi.getListing(), // Using optimized endpoint
-        categoriesApi.getAll(),
-        finishesApi.getAll(),
-      ])
-      setCategories(categoriesData)
-      setFinishes(finishesData)
-
-      // After categories load, resolve category/subcategory from URL params
-      const categorySlug = searchParams.get('category')
-      const subcategorySlug = searchParams.get('subcategory')
-
-      if (categorySlug) {
-        const category = categoriesData.find((c: Category) => c.slug === categorySlug)
-        if (category) {
-          // Update selectedCategory to use ID (for dropdown)
-          setSelectedCategory(category._id)
-          setActiveCategory(category)
-          
-          // Handle subcategory if present in URL
-          if (urlSubcategory && category.subcategories) {
-            const subcategory = category.subcategories.find((s: any) => 
-              s.slug === urlSubcategory || s._id === urlSubcategory
-            )
-            if (subcategory) {
-              // Update selectedSubcategory to use ID (for dropdown)
-              setSelectedSubcategory(subcategory._id)
-              setActiveSubcategory(subcategory)
-            } else {
-              // Subcategory from URL not found, clear it
-              setSelectedSubcategory('')
-              setActiveSubcategory(null)
-            }
-          } else if (!urlSubcategory) {
-            // Clear subcategory if not in URL
-            setSelectedSubcategory('')
-            setActiveSubcategory(null)
-          }
-        } else {
-          // Category from URL not found, clear selection
-          setSelectedCategory('')
-          setActiveCategory(null)
-          setSelectedSubcategory('')
-          setActiveSubcategory(null)
-        }
-      } else {
-        // No category in URL, clear selection
-        setSelectedCategory('')
-        setActiveCategory(null)
-        setSelectedSubcategory('')
-        setActiveSubcategory(null)
-      }
-    }
-  }, [categories, searchParams])
 
   // Update active category when selection changes manually (not from URL initialization)
   // This handles manual filter changes in the dropdowns
@@ -310,7 +268,7 @@ export default function ProductsPage() {
   })
 
   // Parse sort option to backend params
-  const getSortParams = () => {
+  const getSortParams = useCallback(() => {
     switch (sortOption) {
       case 'name-asc':
         return { sortBy: 'name', sortOrder: 'asc' as const }
@@ -325,7 +283,7 @@ export default function ProductsPage() {
       default:
         return { sortBy: 'createdAt', sortOrder: 'desc' as const }
     }
-  }
+  }, [sortOption])
 
   // Fetch products with current filters
   const fetchProducts = useCallback(async () => {
@@ -346,7 +304,7 @@ export default function ProductsPage() {
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearchQuery, selectedCategory, selectedSubcategory, selectedMaterial, selectedFinish, hasSize, hasDiscount, sortOption])
+  }, [debouncedSearchQuery, selectedCategory, selectedSubcategory, selectedMaterial, selectedFinish, hasSize, hasDiscount, getSortParams])
 
   // Auto-fetch products when filters change (but skip if we're fetching from URL params)
   useEffect(() => {
@@ -390,7 +348,7 @@ export default function ProductsPage() {
     if (newUrl !== currentUrl) {
       router.replace(newUrl, { scroll: false }) // Use replace instead of push to avoid history entries
     }
-  }, [debouncedSearchQuery, selectedCategory, selectedSubcategory, selectedMaterial, selectedFinish, hasSize, hasDiscount, sortOption, router])
+  }, [debouncedSearchQuery, selectedCategory, selectedSubcategory, selectedMaterial, selectedFinish, hasSize, hasDiscount, getSortParams, router])
 
   // Update active subcategory when selection changes
   useEffect(() => {
@@ -1366,11 +1324,13 @@ export default function ProductsPage() {
                                             {getHoverFinishName(product)}
                                           </span>
                                         </div>
-                                      </motion.div>
+                                      </motion.span>
                                     </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </>
+                                  </motion.div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </>
                             ) : (
                               <div className="w-full h-full flex items-center justify-center bg-gradient-ivory">
                                 <svg className="w-16 h-16 text-brass/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
