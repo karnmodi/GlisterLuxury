@@ -136,7 +136,7 @@ export default function OrderDetailsPage() {
                         <p className="text-brass/70 text-sm mb-2">{item.productCode}</p>
                         <div className="text-ivory/60 text-sm space-y-1">
                           <p>Material: {item.selectedMaterial.name}</p>
-                          {item.selectedSize && <p>Size: {item.selectedSize}mm</p>}
+                          {item.selectedSize != null && <p>Size: {item.selectedSizeName ? `${item.selectedSizeName} ${item.selectedSize}mm` : `${item.selectedSize}mm`}</p>}
                           {item.selectedFinish && <p>Finish: {item.selectedFinish.name}</p>}
                           <p>Quantity: {item.quantity}</p>
                         </div>

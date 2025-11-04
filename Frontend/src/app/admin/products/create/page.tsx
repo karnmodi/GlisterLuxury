@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { productsApi, categoriesApi, materialsApi, finishesApi } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 import type { Product, Category, MaterialMaster, Finish } from '@/types'
-import ProductFormTabs from '@/components/admin/ProductFormTabs'
+import ProductFormTabs, { type FormData as ProductFormData } from '@/components/admin/ProductFormTabs'
 
 export default function CreateProductPage() {
   const router = useRouter()
@@ -17,7 +17,7 @@ export default function CreateProductPage() {
   const [materials, setMaterials] = useState<MaterialMaster[]>([])
   const [finishes, setFinishes] = useState<Finish[]>([])
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProductFormData>({
     basicInfo: {
       productID: '',
       productUID: '',
@@ -28,11 +28,12 @@ export default function CreateProductPage() {
       packagingPrice: 0,
       packagingUnit: 'Set',
     },
-    materials: [] as Array<{
+      materials: [] as Array<{
       materialID: string
       name: string
       basePrice: number
       sizeOptions: Array<{
+        name: string
         sizeMM: number
         additionalCost: number
         isOptional: boolean
@@ -95,6 +96,18 @@ export default function CreateProductPage() {
         return
       }
 
+      // Validate that all size options have names
+      for (const material of formData.materials) {
+        if (material.sizeOptions && material.sizeOptions.length > 0) {
+          for (const sizeOption of material.sizeOptions) {
+            if (!sizeOption.name || sizeOption.name.trim() === '') {
+              toast.error(`Size name is required for all size options in material "${material.name}". Each size option must have a name, sizeMM, and additionalCost.`)
+              return
+            }
+          }
+        }
+      }
+
       // Prepare product data with proper ObjectId conversion
       const productData = {
         productID: formData.basicInfo.productID,
@@ -103,6 +116,7 @@ export default function CreateProductPage() {
         description: formData.basicInfo.description || undefined,
         category: formData.basicInfo.category || undefined,
         subcategoryId: formData.basicInfo.subcategoryId || undefined,
+        discountPercentage: formData.basicInfo.discountPercentage,
         packagingPrice: formData.basicInfo.packagingPrice,
         packagingUnit: formData.basicInfo.packagingUnit,
         materials: formData.materials.map(material => {
@@ -120,6 +134,7 @@ export default function CreateProductPage() {
             name: material.name,
             basePrice: material.basePrice,
             sizeOptions: material.sizeOptions.map(size => ({
+              name: size.name.trim(),
               sizeMM: size.sizeMM,
               additionalCost: size.additionalCost,
               isOptional: size.isOptional
@@ -161,13 +176,25 @@ export default function CreateProductPage() {
             // Get the uploaded image URLs
             const uploadedImageUrls = uploadResult.images || []
             
+            // Match uploaded image URLs with finish mappings from formData.images
+            // Only consider images that have files (new images) and finish mappings
+            const imagesWithMappings = formData.images
+              .filter(img => img.file && img.mappedFinishID)
+            
             // Create mappings for images with finish assignments
-            const imageMappings = formData.images
-              .filter(img => img.file && img.mappedFinishID) // Only new images with finish mappings
-              .map((img, index) => ({
-                imageUrl: uploadedImageUrls[index] || img.url,
-                mappedFinishID: img.mappedFinishID
-              }))
+            // Match by order: find the index of each image in the filtered files array
+            const imageMappings = imagesWithMappings.map((img) => {
+              // Find the corresponding uploaded URL by matching the order
+              const uploadedImageIndex = formData.images
+                .filter(i => i.file)
+                .findIndex(i => i === img)
+              const imageUrl = uploadedImageUrls[uploadedImageIndex] || img.url
+              
+              return {
+                imageUrl,
+                mappedFinishID: img.mappedFinishID!
+              }
+            })
             
             // Apply image-finish mappings
             for (const mapping of imageMappings) {

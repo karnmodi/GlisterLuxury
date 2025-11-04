@@ -281,6 +281,8 @@ exports.createOrder = async (req, res, next) => {
 		const { sessionID, deliveryAddressId, orderNotes } = req.body;
 		const userId = req.user.userId;
 
+		console.log('[Create Order] Starting order creation:', { userId, sessionID, deliveryAddressId });
+
 		if (!sessionID) {
 			return res.status(400).json({
 				success: false,
@@ -291,18 +293,44 @@ exports.createOrder = async (req, res, next) => {
 		// Get user details
 		const user = await User.findById(userId);
 		if (!user) {
+			console.error('[Create Order] User not found:', userId);
 			return res.status(404).json({
 				success: false,
 				message: 'User not found'
 			});
 		}
 
-		// Get cart
-		const cart = await Cart.findOne({ sessionID }).populate('items.productID');
-		if (!cart || cart.items.length === 0) {
+		// Ensure cart is linked to user if it isn't already
+		let cart = await Cart.findOne({ sessionID }).populate('items.productID');
+		if (!cart) {
+			console.error('[Create Order] Cart not found for sessionID:', sessionID);
+			return res.status(400).json({
+				success: false,
+				message: 'Cart not found. Please add items to your cart.'
+			});
+		}
+
+		// Link cart to user if not already linked
+		if (!cart.userID || cart.userID.toString() !== userId.toString()) {
+			console.log('[Create Order] Linking cart to user');
+			cart.userID = userId;
+			await cart.save();
+		}
+
+		if (!cart.items || cart.items.length === 0) {
+			console.error('[Create Order] Cart is empty');
 			return res.status(400).json({
 				success: false,
 				message: 'Cart is empty'
+			});
+		}
+
+		// Validate user has addresses
+		if (!user.addresses || !Array.isArray(user.addresses) || user.addresses.length === 0) {
+			console.error('[Create Order] User has no addresses:', userId);
+			return res.status(400).json({
+				success: false,
+				message: 'No delivery addresses found. Please add a delivery address in your profile.'
 			});
 		}
 
@@ -311,6 +339,7 @@ exports.createOrder = async (req, res, next) => {
 		if (deliveryAddressId) {
 			deliveryAddress = user.addresses.id(deliveryAddressId);
 			if (!deliveryAddress) {
+				console.error('[Create Order] Invalid delivery address ID:', deliveryAddressId);
 				return res.status(400).json({
 					success: false,
 					message: 'Invalid delivery address'
@@ -320,9 +349,14 @@ exports.createOrder = async (req, res, next) => {
 			// Use default address
 			deliveryAddress = user.addresses.find(addr => addr.isDefault);
 			if (!deliveryAddress) {
+				// If no default, use first address
+				deliveryAddress = user.addresses[0];
+			}
+			if (!deliveryAddress) {
+				console.error('[Create Order] No delivery address available');
 				return res.status(400).json({
 					success: false,
-					message: 'No default delivery address found. Please add a delivery address.'
+					message: 'No delivery address found. Please add a delivery address in your profile.'
 				});
 			}
 		}
@@ -333,9 +367,10 @@ exports.createOrder = async (req, res, next) => {
 
 		// Calculate pricing
 		const subtotal = cart.subtotal.$numberDecimal ? parseFloat(cart.subtotal.$numberDecimal) : parseFloat(cart.subtotal);
+		const discount = cart.discountAmount?.$numberDecimal ? parseFloat(cart.discountAmount.$numberDecimal) : parseFloat(cart.discountAmount || 0);
 		const shipping = 0; // TBD
 		const tax = 0; // TBD
-		const total = subtotal + shipping + tax;
+		const total = Math.max(0, subtotal - discount + shipping + tax);
 
 		// Create order
 		const order = new Order({
@@ -348,6 +383,7 @@ exports.createOrder = async (req, res, next) => {
 				productCode: item.productCode,
 				selectedMaterial: item.selectedMaterial,
 				selectedSize: item.selectedSize,
+				selectedSizeName: item.selectedSizeName,
 				sizeCost: item.sizeCost,
 				selectedFinish: item.selectedFinish,
 				finishCost: item.finishCost,
@@ -372,8 +408,12 @@ exports.createOrder = async (req, res, next) => {
 				country: deliveryAddress.country
 			},
 			orderNotes,
+			discountCode: cart.discountCode || undefined,
+			discountAmount: cart.discountAmount || 0,
+			offerID: cart.offerID || undefined,
 			pricing: {
 				subtotal: cart.subtotal,
+				discount: cart.discountAmount || 0,
 				shipping: shipping,
 				tax: tax,
 				total: total
@@ -395,27 +435,49 @@ exports.createOrder = async (req, res, next) => {
 		});
 
 		await order.save();
+		console.log('[Create Order] Order created successfully:', order.orderNumber);
+
+		// Increment offer usage count if discount was applied
+		if (cart.offerID) {
+			const Offer = require('../models/Offer');
+			const offer = await Offer.findById(cart.offerID);
+			if (offer) {
+				offer.usedCount = (offer.usedCount || 0) + 1;
+				await offer.save();
+			}
+		}
 
 		// Clear the cart
 		cart.items = [];
 		cart.status = 'completed';
+		cart.discountCode = undefined;
+		cart.discountAmount = 0;
+		cart.offerID = undefined;
 		await cart.save();
 
 		// Send email notifications
 		try {
 			await sendOrderEmails(order, user);
+			console.log('[Create Order] Order confirmation emails sent');
 		} catch (emailError) {
-			console.error('Email sending failed:', emailError);
+			console.error('[Create Order] Email sending failed:', emailError);
 			// Don't fail the order if email fails
 		}
 
+		const populatedOrder = await Order.findById(order._id).populate('items.productID');
+		
 		res.status(201).json({
 			success: true,
 			message: 'Order placed successfully',
-			order: await Order.findById(order._id).populate('items.productID')
+			order: populatedOrder
 		});
 	} catch (error) {
-		console.error('Create order error:', error);
+		console.error('[Create Order] Error creating order:', {
+			error: error.message,
+			stack: error.stack,
+			userId: req.user?.userId,
+			sessionID: req.body?.sessionID
+		});
 		res.status(500).json({
 			success: false,
 			message: 'Error creating order',

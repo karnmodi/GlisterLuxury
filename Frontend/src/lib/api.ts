@@ -1,4 +1,4 @@
-import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, CartItem, Order, OrderStats, Wishlist, DashboardSummary, WebsiteVisitAnalytics, RevenueAnalytics, ProductAnalytics, UserAnalytics, OrderAnalytics, ConversionAnalytics } from '@/types'
+import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, Announcement, AboutUs, ContactInfo, ContactInquiry, CartItem, Order, OrderStats, Wishlist, DashboardSummary, WebsiteVisitAnalytics, RevenueAnalytics, ProductAnalytics, UserAnalytics, OrderAnalytics, ConversionAnalytics } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
@@ -14,7 +14,7 @@ async function apiCall<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }))
-    throw new Error(error.message || `HTTP error! status: ${response.status}`)
+    throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`)
   }
 
   return response.json()
@@ -22,12 +22,27 @@ async function apiCall<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
 // Products API
 export const productsApi = {
-  getAll: (params?: { q?: string; material?: string; category?: string; subcategory?: string }) => {
+  getAll: (params?: { 
+    q?: string
+    material?: string
+    category?: string
+    subcategory?: string
+    finishId?: string
+    hasSize?: boolean
+    hasDiscount?: boolean
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+  }) => {
     const queryParams = new URLSearchParams()
     if (params?.q) queryParams.append('q', params.q)
     if (params?.material) queryParams.append('material', params.material)
     if (params?.category) queryParams.append('category', params.category)
     if (params?.subcategory) queryParams.append('subcategory', params.subcategory)
+    if (params?.finishId) queryParams.append('finishId', params.finishId)
+    if (params?.hasSize !== undefined) queryParams.append('hasSize', params.hasSize.toString())
+    if (params?.hasDiscount !== undefined) queryParams.append('hasDiscount', params.hasDiscount.toString())
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder)
 
     const query = queryParams.toString()
     return apiCall<Product[]>(`/products${query ? `?${query}` : ''}`)
@@ -56,17 +71,51 @@ export const productsApi = {
 
   getById: (id: string) => apiCall<Product>(`/products/${id}`),
 
-  create: (data: Partial<Product>) => 
-    apiCall<Product>('/products', {
+  getFinishes: (id: string) => apiCall<Finish[]>(`/products/${id}/finishes`),
+
+  // Validate product data before sending
+  validateProductData: (data: Partial<Product>): string | null => {
+    if (!data.materials || !Array.isArray(data.materials)) {
+      return null // Materials are optional in the type, validation will happen on backend
+    }
+    
+    for (const material of data.materials) {
+      if (material.sizeOptions && Array.isArray(material.sizeOptions)) {
+        for (const sizeOption of material.sizeOptions) {
+          if (!sizeOption.name || typeof sizeOption.name !== 'string' || sizeOption.name.trim() === '') {
+            return `Size name is required for all size options in material "${material.name}". Each size option must have a name, sizeMM, and additionalCost.`
+          }
+        }
+      }
+    }
+    return null
+  },
+
+  create: (data: Partial<Product>) => {
+    // Validate size names before sending
+    const validationError = productsApi.validateProductData(data)
+    if (validationError) {
+      return Promise.reject(new Error(validationError))
+    }
+    
+    return apiCall<Product>('/products', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    })
+  },
 
-  update: (id: string, data: Partial<Product>) =>
-    apiCall<Product>(`/products/${id}`, {
+  update: (id: string, data: Partial<Product>) => {
+    // Validate size names before sending
+    const validationError = productsApi.validateProductData(data)
+    if (validationError) {
+      return Promise.reject(new Error(validationError))
+    }
+    
+    return apiCall<Product>(`/products/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
-    }),
+    })
+  },
 
   delete: (id: string) =>
     apiCall<{ message: string }>(`/products/${id}`, {
@@ -74,22 +123,50 @@ export const productsApi = {
     }),
 
   uploadImages: async (id: string, files: File[]) => {
+    if (!files || files.length === 0) {
+      throw new Error('No files provided for upload')
+    }
+
+    console.log(`[productsApi.uploadImages] Preparing to upload ${files.length} file(s) for product ${id}`)
+    
     const formData = new FormData()
-    files.forEach((file) => {
+    files.forEach((file, index) => {
+      console.log(`[productsApi.uploadImages] Adding file ${index + 1}/${files.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`)
       formData.append('images', file)
     })
 
-    const response = await fetch(`${API_BASE_URL}/products/${id}/images`, {
-      method: 'POST',
-      body: formData,
-    })
+    try {
+      // DO NOT set Content-Type header manually - browser will set it automatically
+      // with the correct boundary parameter for multipart/form-data
+      const response = await fetch(`${API_BASE_URL}/products/${id}/images`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+        // Explicitly do NOT set Content-Type header - let browser handle it
+      })
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Upload failed' }))
-      throw new Error(error.message || `HTTP error! status: ${response.status}`)
+      console.log(`[productsApi.uploadImages] Response status: ${response.status} ${response.statusText}`)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Upload failed' }))
+        console.error(`[productsApi.uploadImages] Upload failed:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        })
+        throw new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log(`[productsApi.uploadImages] Upload successful: ${result.images?.length || 0} image(s) uploaded`)
+      return result
+    } catch (error) {
+      console.error(`[productsApi.uploadImages] Upload error:`, error)
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error('Failed to upload images')
     }
-
-    return response.json()
   },
 
   deleteImage: (id: string, imageUrl: string) =>
@@ -153,7 +230,13 @@ export const categoriesApi = {
 
 // Finishes API
 export const finishesApi = {
-  getAll: () => apiCall<Finish[]>('/finishes'),
+  getAll: (params?: { includeUsage?: boolean }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.includeUsage) queryParams.append('includeUsage', 'true')
+    
+    const query = queryParams.toString()
+    return apiCall<Finish[]>(`/finishes${query ? `?${query}` : ''}`)
+  },
 
   getById: (id: string) => apiCall<Finish>(`/finishes/${id}`),
 
@@ -230,6 +313,7 @@ export const cartApi = {
     productID: string
     selectedMaterial: { materialID?: string; name: string; basePrice?: number }
     selectedSize?: number
+    selectedSizeName?: string
     selectedFinish?: string
     quantity?: number
     includePackaging?: boolean
@@ -287,6 +371,137 @@ export const cartApi = {
         Authorization: `Bearer ${token}`
       },
       body: JSON.stringify({ sessionID }),
+    }),
+
+  applyDiscount: (sessionID: string, code: string, userId?: string) =>
+    apiCall<{ message: string; cart: Cart }>(`/cart/${sessionID}/apply-discount`, {
+      method: 'POST',
+      body: JSON.stringify({ code, userId }),
+    }),
+
+  removeDiscount: (sessionID: string) =>
+    apiCall<{ message: string; cart: Cart }>(`/cart/${sessionID}/remove-discount`, {
+      method: 'DELETE',
+    }),
+}
+
+// Offers API
+export const offersApi = {
+  validate: (code: string, amount: number, userId?: string) =>
+    apiCall<{
+      valid: boolean
+      offer?: {
+        _id: string
+        code: string
+        description: string
+        discountType: 'percentage' | 'fixed'
+        discountValue: number
+        discountAmount: number
+      }
+      error?: string
+    }>('/offers/validate', {
+      method: 'POST',
+      body: JSON.stringify({ code, amount, userId }),
+    }),
+
+  list: (token: string, active?: boolean) =>
+    apiCall<Array<{
+      _id: string
+      code: string
+      description: string
+      discountType: 'percentage' | 'fixed'
+      discountValue: number
+      minOrderAmount: number
+      maxUses?: number
+      usedCount: number
+      validFrom: string
+      validTo?: string
+      isActive: boolean
+      applicableTo: 'all' | 'new_users'
+    }>>(`/offers${active ? '?active=true' : ''}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  getById: (id: string, token: string) =>
+    apiCall<{
+      _id: string
+      code: string
+      description: string
+      discountType: 'percentage' | 'fixed'
+      discountValue: number
+      minOrderAmount: number
+      maxUses?: number
+      usedCount: number
+      validFrom: string
+      validTo?: string
+      isActive: boolean
+      applicableTo: 'all' | 'new_users'
+    }>(`/offers/${id}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  create: (data: {
+    code: string
+    description: string
+    discountType: 'percentage' | 'fixed'
+    discountValue: number
+    minOrderAmount?: number
+    maxUses?: number
+    validFrom?: string
+    validTo?: string
+    isActive?: boolean
+    applicableTo?: 'all' | 'new_users'
+  }, token: string) =>
+    apiCall<{
+      _id: string
+      code: string
+      description: string
+      discountType: 'percentage' | 'fixed'
+      discountValue: number
+    }>('/offers', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: {
+    code?: string
+    description?: string
+    discountType?: 'percentage' | 'fixed'
+    discountValue?: number
+    minOrderAmount?: number
+    maxUses?: number
+    validFrom?: string
+    validTo?: string
+    isActive?: boolean
+    applicableTo?: 'all' | 'new_users'
+  }, token: string) =>
+    apiCall<{
+      _id: string
+      code: string
+      description: string
+    }>(`/offers/${id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string, token: string) =>
+    apiCall<{ message: string }>(`/offers/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
     }),
 }
 
@@ -508,6 +723,237 @@ export const faqApi = {
     apiCall<{ message: string }>('/faqs/reorder', {
       method: 'PATCH',
       body: JSON.stringify({ orderedIds }),
+    }),
+}
+
+// Announcements API
+export const announcementsApi = {
+  // Public endpoint - get active announcements
+  getPublic: () => {
+    return apiCall<Announcement[]>('/announcements/public?public=true&sortBy=order')
+  },
+
+  // Admin endpoints - require authentication
+  getAll: (token: string, params?: { q?: string; isActive?: boolean; sortBy?: string }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.q) queryParams.append('q', params.q)
+    if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString())
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+    
+    const query = queryParams.toString()
+    return apiCall<Announcement[]>(`/announcements${query ? `?${query}` : ''}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+  },
+
+  getById: (id: string, token: string) =>
+    apiCall<Announcement>(`/announcements/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  create: (data: Partial<Announcement>, token: string) =>
+    apiCall<Announcement>('/announcements', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: Partial<Announcement>, token: string) =>
+    apiCall<Announcement>(`/announcements/${id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string, token: string) =>
+    apiCall<{ message: string }>(`/announcements/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  reorder: (orderedIds: string[], token: string) =>
+    apiCall<{ message: string }>('/announcements/reorder', {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ orderedIds }),
+    }),
+}
+
+// About Us API
+export const aboutUsApi = {
+  getAll: (params?: { section?: string; q?: string; isActive?: boolean; sortBy?: string }, token?: string) => {
+    const queryParams = new URLSearchParams()
+    if (params?.section) queryParams.append('section', params.section)
+    if (params?.q) queryParams.append('q', params.q)
+    if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString())
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+    
+    const query = queryParams.toString()
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    return apiCall<AboutUs[]>(`/about-us${query ? `?${query}` : ''}`, {
+      headers
+    })
+  },
+
+  getById: (id: string, token?: string) => {
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    return apiCall<AboutUs>(`/about-us/${id}`, { headers })
+  },
+
+  create: (data: Partial<AboutUs>, token: string) =>
+    apiCall<AboutUs>('/about-us', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: Partial<AboutUs>, token: string) =>
+    apiCall<AboutUs>(`/about-us/${id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string, token: string) =>
+    apiCall<{ message: string }>(`/about-us/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  reorder: (orderedIds: string[], token: string) =>
+    apiCall<{ message: string }>('/about-us/reorder', {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ orderedIds }),
+    }),
+}
+
+// Contact API
+export const contactApi = {
+  // Contact Info
+  getInfo: (params?: { type?: string; isActive?: boolean }, token?: string) => {
+    const queryParams = new URLSearchParams()
+    if (params?.type) queryParams.append('type', params.type)
+    if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString())
+    
+    const query = queryParams.toString()
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    return apiCall<ContactInfo[]>(`/contact/info${query ? `?${query}` : ''}`, {
+      headers
+    })
+  },
+
+  createInfo: (data: Partial<ContactInfo>, token: string) =>
+    apiCall<ContactInfo>('/contact/info', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  getInfoById: (id: string, token: string) =>
+    apiCall<ContactInfo>(`/contact/info/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  updateInfo: (id: string, data: Partial<ContactInfo>, token: string) =>
+    apiCall<ContactInfo>(`/contact/info/${id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  deleteInfo: (id: string, token: string) =>
+    apiCall<{ message: string }>(`/contact/info/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  // Contact Inquiries
+  submitInquiry: (data: { name: string; email: string; phone?: string; subject: string; message: string }) =>
+    apiCall<{ message: string; inquiry: ContactInquiry }>('/contact/inquiry', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  listInquiries: (token: string, params?: { status?: string; q?: string; sortBy?: string }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.q) queryParams.append('q', params.q)
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+    
+    const query = queryParams.toString()
+    return apiCall<ContactInquiry[]>(`/contact/inquiries${query ? `?${query}` : ''}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+  },
+
+  getInquiry: (id: string, token: string) =>
+    apiCall<ContactInquiry>(`/contact/inquiries/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  updateInquiry: (id: string, data: { status?: string; adminNotes?: string }, token: string) =>
+    apiCall<ContactInquiry>(`/contact/inquiries/${id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  deleteInquiry: (id: string, token: string) =>
+    apiCall<{ message: string }>(`/contact/inquiries/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
     }),
 }
 

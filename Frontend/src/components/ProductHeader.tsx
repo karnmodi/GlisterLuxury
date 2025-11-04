@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, toNumber } from '@/lib/utils'
 import type { Product, Material } from '@/types'
 
 interface ProductHeaderProps {
@@ -81,7 +81,8 @@ export default function ProductHeader({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="text-xl lg:text-2xl font-serif font-bold text-charcoal mb-2 leading-tight"
+        className="text-2xl lg:text-3xl font-sans font-semibold text-charcoal mb-3 leading-relaxed tracking-tight"
+        style={{ letterSpacing: '-0.02em' }}
       >
         {product.name}
       </motion.h1>
@@ -113,8 +114,24 @@ export default function ProductHeader({
               </p>
             </div>
             <div className="text-right">
-              <p className="text-lg font-bold text-brass">
-                {formatCurrency(selectedMaterial.basePrice)}
+              <p className="text-lg font-bold text-brass flex items-center gap-2 flex-wrap">
+                {product.discountPercentage && product.discountPercentage > 0 ? (
+                  <>
+                    <span className="line-through text-charcoal/60 font-medium">
+                      {formatCurrency(selectedMaterial.basePrice)}
+                    </span>
+                    <span>
+                      {formatCurrency(
+                        (toNumber(selectedMaterial.basePrice) * (1 - (product.discountPercentage || 0) / 100))
+                      )}
+                    </span>
+                    <span className="px-1.5 py-0.5 text-[10px] leading-none font-semibold bg-brass/15 text-brass rounded md:ml-1">
+                      -{Math.round(product.discountPercentage || 0)}%
+                    </span>
+                  </>
+                ) : (
+                  <span>{formatCurrency(selectedMaterial.basePrice)}</span>
+                )}
               </p>
               <p className="text-xs text-charcoal/60">Base price</p>
             </div>

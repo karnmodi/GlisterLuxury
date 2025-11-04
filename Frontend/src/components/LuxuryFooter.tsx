@@ -3,9 +3,57 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
+import { categoriesApi, productsApi } from '@/lib/api'
+import type { Category, Product } from '@/types'
 
 export default function LuxuryFooter() {
   const currentYear = new Date().getFullYear()
+  const [categoriesWithProducts, setCategoriesWithProducts] = useState<Category[]>([])
+
+  // Fetch categories and products to determine which categories have products
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch categories and products
+        const [categoriesData, allProducts] = await Promise.all([
+          categoriesApi.getAll(),
+          productsApi.getAll(),
+        ])
+        
+        // Create a set of category IDs that have products
+        const categorySet = new Set<string>()
+        allProducts.forEach((product: Product) => {
+          const categoryId = typeof product.category === 'string' 
+            ? product.category 
+            : product.category?._id
+          if (categoryId) {
+            categorySet.add(categoryId)
+          }
+        })
+        
+        // Filter categories to only show those with products
+        const filteredCategories = categoriesData.filter((category: Category) => {
+          const hasDirectProducts = categorySet.has(category._id)
+          const hasSubcategoriesWithProducts = category.subcategories?.some((sub) => {
+            // Check if any product has this subcategory
+            return allProducts.some((product: Product) => product.subcategoryId === sub._id)
+          }) || false
+          
+          // Show category if it has products directly OR has subcategories with products
+          return hasDirectProducts || hasSubcategoriesWithProducts
+        })
+        
+        setCategoriesWithProducts(filteredCategories)
+      } catch (error) {
+        console.error('Failed to fetch categories or products for footer:', error)
+        // Fallback to empty array on error
+        setCategoriesWithProducts([])
+      }
+    }
+    
+    fetchData()
+  }, [])
 
   return (
     <footer className="bg-gradient-charcoal relative overflow-hidden">
@@ -67,16 +115,21 @@ export default function LuxuryFooter() {
           <div>
             <h4 className="text-ivory font-semibold mb-6 tracking-wide">Products</h4>
             <ul className="space-y-3">
-              {['Cabinet Hardware', 'Bathroom Accessories', 'Mortise Handles', 'Sockets & Switches', 'Interior Accessories'].map((item) => (
-                <li key={item}>
-                  <Link 
-                    href={`/products/${item.toLowerCase().replace(/\s+/g, '-')}`}
-                    className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
-                  >
-                    {item}
-                  </Link>
-                </li>
-              ))}
+              {categoriesWithProducts.length > 0 ? (
+                categoriesWithProducts.map((category) => (
+                  <li key={category._id}>
+                    <Link 
+                      href={`/products?category=${category.slug || category._id}`}
+                      className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
+                    >
+                      {category.name}
+                    </Link>
+                  </li>
+                ))
+              ) : (
+                // Fallback while loading or if no categories with products
+                <li className="text-ivory/50 text-sm">Loading...</li>
+              )}
             </ul>
           </div>
 
@@ -144,7 +197,14 @@ export default function LuxuryFooter() {
           transition={{ duration: 2 }}
           className="absolute bottom-10 right-10 pointer-events-none"
         >
-          <div className="font-serif text-9xl text-brass embossed-text">GL</div>
+          <div className="relative w-96 h-96">
+            <Image
+              src="/images/business/G.png"
+              alt="Glister London Logo"
+              fill
+              className="object-contain"
+            />
+          </div>
         </motion.div>
       </div>
     </footer>

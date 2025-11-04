@@ -103,6 +103,66 @@ body {
   width: 100%;
 }
 
+/* Enhanced golden underline with submenu indicator - animated underline with glow */
+.golden-underline-with-submenu {
+  position: relative;
+  display: inline-block;
+}
+
+.golden-underline-with-submenu::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #C9A66B, #9A9774);
+  transition: width 0.4s ease, box-shadow 0.4s ease;
+  box-shadow: 0 0 0 rgba(201, 166, 107, 0);
+}
+
+.golden-underline-with-submenu:hover::after {
+  width: 100%;
+  left: 0;
+  transform: translateX(0);
+  box-shadow: 0 0 8px rgba(201, 166, 107, 0.5), 0 0 12px rgba(201, 166, 107, 0.3);
+}
+
+.golden-underline-with-submenu:hover {
+  text-shadow: 0 0 8px rgba(201, 166, 107, 0.2);
+}
+
+/* Submenu indicator - modern minimalist dot that pulses on hover */
+.submenu-indicator {
+  display: inline-flex;
+  position: relative;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: currentColor;
+  opacity: 0.4;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 0 currentColor;
+}
+
+.group:hover .submenu-indicator {
+  opacity: 1;
+  box-shadow: 0 0 6px currentColor;
+  animation: submenu-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes submenu-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+}
+
 /* Smooth transitions for all interactive elements */
 a, button {
   transition: all 0.3s ease;

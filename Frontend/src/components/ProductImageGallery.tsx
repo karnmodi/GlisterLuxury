@@ -19,6 +19,7 @@ export default function ProductImageGallery({
   onImageChange 
 }: ProductImageGalleryProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [manualImageSelected, setManualImageSelected] = useState(false)
   const [imageRef, setImageRef] = useState<HTMLDivElement | null>(null)
 
   // Get sorted images with default image first
@@ -34,11 +35,49 @@ export default function ProductImageGallery({
     })
   }
 
-  // Get the current display image based on selected finish
+  // Update image index based on selected finish
+  useEffect(() => {
+    if (manualImageSelected) return // Don't auto-update if user manually selected
+    if (!product?.imageURLs) return
+    
+    const images = Object.values(product.imageURLs)
+    if (images.length === 0) return
+    
+    // Sort images: default image (mappedFinishID: null) first, then others
+    const sortedImages = [...images].sort((a, b) => {
+      if (a.mappedFinishID === null && b.mappedFinishID !== null) return -1
+      if (a.mappedFinishID !== null && b.mappedFinishID === null) return 1
+      return 0
+    })
+    
+    if (selectedFinish) {
+      const finishImageIndex = sortedImages.findIndex(img => img.mappedFinishID === selectedFinish)
+      if (finishImageIndex !== -1) {
+        setCurrentImageIndex(finishImageIndex)
+      }
+    } else {
+      const defaultImageIndex = sortedImages.findIndex(img => img.mappedFinishID === null)
+      if (defaultImageIndex !== -1) {
+        setCurrentImageIndex(defaultImageIndex)
+      }
+    }
+  }, [selectedFinish, manualImageSelected, product])
+
+  // Reset manual selection when finish changes
+  useEffect(() => {
+    setManualImageSelected(false)
+  }, [selectedFinish])
+
+  // Get the current display image based on selected finish or manual selection
   const getCurrentImage = () => {
     const images = getSortedImages()
     
     if (images.length === 0) return null
+    
+    // If an image was manually selected, show that one
+    if (manualImageSelected && images[currentImageIndex]) {
+      return images[currentImageIndex].url
+    }
     
     // If a finish is selected, try to find a finish-specific image
     if (selectedFinish) {
@@ -66,6 +105,7 @@ export default function ProductImageGallery({
 
   const handleImageChange = (index: number) => {
     setCurrentImageIndex(index)
+    setManualImageSelected(true)
     onImageChange?.(index)
   }
 
@@ -157,37 +197,37 @@ export default function ProductImageGallery({
                 )}
               </AnimatePresence>
             </div>
-            
-            {/* Image Thumbnails */}
-              {(() => {
-                const images = getSortedImages()
-                return images.length > 1 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="absolute bottom-0 left-0 right-0 grid grid-cols-4 gap-2 p-3 bg-gradient-to-br from-ivory/50 to-cream/30 backdrop-blur-sm"
-                  >
-                    {getSortedImages().map((img, index) => {
-                      const isCurrentImage = getCurrentImage() === img.url
-                      return (
-                        <motion.button
-                          key={index}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleImageChange(index)}
-                          className={`relative h-16 rounded-lg overflow-hidden border-2 bg-white ${
-                            isCurrentImage ? 'border-brass shadow-lg ring-2 ring-brass/20' : 'border-brass/20'
-                          } hover:border-brass/50 transition-all duration-300`}
-                        >
-                          <Image src={img.url} alt={`${product.name} ${index + 1}`} fill className="object-contain p-1" />
-                        </motion.button>
-                      )
-                    })}
-                  </motion.div>
-                )
-              })()}
           </div>
+          
+          {/* Image Thumbnails - Below main image */}
+          {(() => {
+            const images = getSortedImages()
+            return images.length > 1 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="mt-4 grid grid-cols-4 gap-2"
+              >
+                {getSortedImages().map((img, index) => {
+                  const isCurrentImage = getCurrentImage() === img.url
+                  return (
+                    <motion.button
+                      key={index}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleImageChange(index)}
+                      className={`relative h-20 rounded-lg overflow-hidden border-2 bg-white ${
+                        isCurrentImage ? 'border-brass shadow-lg ring-2 ring-brass/20' : 'border-brass/20'
+                      } hover:border-brass/50 transition-all duration-300`}
+                    >
+                      <Image src={img.url} alt={`${product.name} ${index + 1}`} fill className="object-contain p-1" />
+                    </motion.button>
+                  )
+                })}
+              </motion.div>
+            )
+          })()}
         </motion.div>
       </div>
     </div>

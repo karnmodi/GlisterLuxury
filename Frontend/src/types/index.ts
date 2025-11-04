@@ -7,6 +7,7 @@ export interface Material {
 }
 
 export interface SizeOption {
+  name: string
   sizeMM: number
   additionalCost: number
   isOptional: boolean
@@ -26,6 +27,23 @@ export interface Finish {
   photoURL?: string
   createdAt?: string
   updatedAt?: string
+  // Price adjustment when fetched from product (GET /products/:id/finishes)
+  priceAdjustment?: number
+  // Usage information (when includeUsage=true)
+  applicableProducts?: Array<{
+    _id: string
+    productID: string
+    name: string
+    category?: Category | string
+    subcategoryId?: string
+  }>
+  productCount?: number
+  categories?: Array<{
+    _id?: string
+    name: string
+    slug?: string
+  }>
+  categoryCount?: number
 }
 
 export interface Subcategory {
@@ -64,6 +82,7 @@ export interface Product {
     slug: string
     description?: string
   }
+  discountPercentage?: number
   packagingPrice: number
   packagingUnit: string
   materials: Material[]
@@ -84,6 +103,7 @@ export interface CartItem {
     basePrice: number
   }
   selectedSize?: number
+  selectedSizeName?: string
   sizeCost: number
   selectedFinish?: {
     finishID: string
@@ -100,6 +120,7 @@ export interface CartItem {
     size: number
     finishes: number
     packaging: number
+    discount?: number
   }
 }
 
@@ -109,9 +130,30 @@ export interface Cart {
   userID?: string
   items: CartItem[]
   subtotal: number
+  discountCode?: string
+  discountAmount?: number
+  offerID?: string
+  total?: number
   status: 'active' | 'checkout' | 'completed'
   createdAt: string
   updatedAt: string
+}
+
+export interface Offer {
+  _id: string
+  code: string
+  description: string
+  discountType: 'percentage' | 'fixed'
+  discountValue: number
+  minOrderAmount: number
+  maxUses?: number
+  usedCount: number
+  validFrom: string
+  validTo?: string
+  isActive: boolean
+  applicableTo: 'all' | 'new_users'
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface MaterialMaster {
@@ -131,6 +173,68 @@ export interface FAQ {
   linkText?: string
   order: number
   isActive: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface Announcement {
+  _id: string
+  message: string
+  linkType: 'internal' | 'external' | 'none'
+  linkUrl?: string
+  linkText?: string
+  backgroundColor?: string
+  textColor?: string
+  order: number
+  isActive: boolean
+  startDate?: string
+  endDate?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface AboutUs {
+  _id: string
+  section: 'about' | 'vision' | 'philosophy' | 'coreValues'
+  title: string
+  content: string
+  subtitle?: string
+  order: number
+  isActive: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface ContactInfo {
+  _id: string
+  type: 'address' | 'phone' | 'email' | 'social'
+  label: string
+  value: string
+  displayOrder: number
+  isActive: boolean
+  socialMedia?: {
+    instagram?: string
+    facebook?: string
+    linkedin?: string
+    twitter?: string
+    youtube?: string
+    pinterest?: string
+    tiktok?: string
+  }
+  businessWhatsApp?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface ContactInquiry {
+  _id: string
+  name: string
+  email: string
+  phone?: string
+  subject: string
+  message: string
+  status: 'new' | 'read' | 'replied' | 'closed'
+  adminNotes?: string
   createdAt?: string
   updatedAt?: string
 }
@@ -197,6 +301,7 @@ export interface OrderItem {
     basePrice: number
   }
   selectedSize?: number
+  selectedSizeName?: string
   sizeCost: number
   selectedFinish?: {
     finishID: string
@@ -213,6 +318,7 @@ export interface OrderItem {
     size: number
     finishes: number
     packaging: number
+    discount?: number
   }
 }
 
@@ -237,8 +343,12 @@ export interface Order {
     country: string
   }
   orderNotes?: string
+  discountCode?: string
+  discountAmount?: number
+  offerID?: string
   pricing: {
     subtotal: number
+    discount?: number
     shipping: number
     tax: number
     total: number

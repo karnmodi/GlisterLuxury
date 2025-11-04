@@ -6,6 +6,7 @@ const { uploadMultiple, handleMulterError } = require('../middleware/upload');
 router.post('/', validateCreateProduct, ctrl.createProduct);
 router.get('/listing', ctrl.listProductsMinimal); // Optimized endpoint for product listing
 router.get('/', ctrl.listProducts);
+router.get('/:id/finishes', ctrl.getProductFinishes);
 router.get('/:id', ctrl.getProduct);
 router.patch('/:id', ctrl.updateProduct);
 router.delete('/:id', ctrl.deleteProduct);

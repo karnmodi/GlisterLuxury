@@ -1,6 +1,7 @@
 import React from 'react'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, toNumber } from '@/lib/utils'
 import type { Order, Cart } from '@/types'
+import { motion } from 'framer-motion'
 
 interface OrderSummaryProps {
   data: Order | Cart
@@ -12,6 +13,13 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
   const subtotal = type === 'order' 
     ? (data as Order).pricing.subtotal 
     : (data as Cart).subtotal
+  
+  const discountAmount = type === 'cart' 
+    ? (data as Cart).discountAmount 
+    : (data as Order).pricing.discount
+  const discountCode = type === 'cart' 
+    ? (data as Cart).discountCode 
+    : (data as Order).discountCode
 
   return (
     <div className="bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg p-6">
@@ -28,7 +36,7 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
               <p className="text-brass/70 text-xs">{item.productCode}</p>
               <div className="text-ivory/60 text-xs mt-1 space-y-0.5">
                 <p>Material: {item.selectedMaterial.name}</p>
-                {item.selectedSize && <p>Size: {item.selectedSize}mm</p>}
+                {item.selectedSize != null && <p>Size: {item.selectedSizeName ? `${item.selectedSizeName} ${item.selectedSize}mm` : `${item.selectedSize}mm`}</p>}
                 {item.selectedFinish && <p>Finish: {item.selectedFinish.name}</p>}
                 <p>Qty: {item.quantity}</p>
               </div>
@@ -48,6 +56,18 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
           <span>{formatCurrency(subtotal)}</span>
         </div>
         
+        {/* Discount Display */}
+        {discountCode && discountAmount && toNumber(discountAmount) > 0 && (
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex justify-between text-sm text-green-400"
+          >
+            <span>Discount ({discountCode})</span>
+            <span className="font-medium">-{formatCurrency(discountAmount)}</span>
+          </motion.div>
+        )}
+        
         {type === 'order' && (
           <>
             <div className="flex justify-between text-sm text-ivory/70">
@@ -66,7 +86,7 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
           <span className="text-brass">
             {type === 'order' 
               ? formatCurrency((data as Order).pricing.total)
-              : formatCurrency(subtotal)
+              : formatCurrency((data as Cart).total || (toNumber(subtotal) - toNumber(discountAmount || 0)))
             }
           </span>
         </div>

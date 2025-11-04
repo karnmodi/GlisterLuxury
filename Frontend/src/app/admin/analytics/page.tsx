@@ -376,15 +376,30 @@ export default function AnalyticsPage() {
             <AnalyticsBarChart
               data={visitsData.topPages.slice(0, 8).map(page => ({
                 ...page,
-                page: page.page.startsWith('/products/') 
-                  ? page.page.replace('/products/', '') // Show just product name
-                  : page.page
-              }))}
+                page: (() => {
+                  // If it's already a product name (doesn't start with /), use it as is
+                  if (!page.page.startsWith('/')) {
+                    return page.page;
+                  }
+                  // Clean up page paths for better display
+                  if (page.page === '/') {
+                    return 'Homepage';
+                  }
+                  if (page.page.startsWith('/products/')) {
+                    return page.page.replace('/products/', '');
+                  }
+                  // Remove leading slash for cleaner display
+                  return page.page.startsWith('/') ? page.page.substring(1) : page.page;
+                })()
+              })).filter(page => page.page && page.views > 0)}
               bars={[{ dataKey: 'views', name: 'Views', color: '#8b5cf6' }]}
               xAxisKey="page"
               title="Top 8 Pages"
-              height={300}
-              horizontal={true}
+              height={400}
+              horizontal={false}
+              showPercentages={true}
+              showValueLabels={true}
+              formatTooltip={(value) => value.toLocaleString()}
             />
           </div>
           </>
@@ -446,10 +461,13 @@ export default function AnalyticsPage() {
             {/* Revenue by Material */}
             {revenueData.byMaterial.length > 0 && (
               <AnalyticsPieChart
-                data={revenueData.byMaterial.slice(0, 6).map(m => ({
-                  name: m.name,
-                  value: m.revenue
-                }))}
+                data={revenueData.byMaterial
+                  .slice(0, 6)
+                  .filter(m => m.name && typeof m.name === 'string' && m.revenue > 0)
+                  .map(m => ({
+                    name: m.name,
+                    value: m.revenue
+                  }))}
                 title="Revenue by Material"
                 height={300}
                 formatTooltip={(value) => `£${value.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`}
@@ -498,8 +516,11 @@ export default function AnalyticsPage() {
                 bars={[{ dataKey: 'views', name: 'Views', color: '#8b5cf6' }]}
                 xAxisKey="productName"
                 title="Most Viewed Products"
-                height={300}
-                horizontal={true}
+                height={450}
+                horizontal={false}
+                showPercentages={true}
+                showValueLabels={true}
+                formatTooltip={(value) => value.toLocaleString()}
               />
             <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Viewed Products (Details)</h3>

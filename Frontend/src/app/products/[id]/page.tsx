@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Image from 'next/image'
 import { productsApi, finishesApi } from '@/lib/api'
 import { useCart } from '@/contexts/CartContext'
@@ -42,6 +43,7 @@ export default function ProductDetailPage() {
   const [includePackaging, setIncludePackaging] = useState(true) // Default to included
   const [quantity, setQuantity] = useState(1)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [manualImageSelected, setManualImageSelected] = useState(false)
   const [showMobileHeader, setShowMobileHeader] = useState(false)
   const [showMobilePreview, setShowMobilePreview] = useState(true)
   const [imageRef, setImageRef] = useState<HTMLDivElement | null>(null)
@@ -102,9 +104,55 @@ export default function ProductDetailPage() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [imageRef])
 
+  // Reset manual selection when finish changes
+  useEffect(() => {
+    setManualImageSelected(false)
+  }, [selectedFinish])
+
+  // Update image index based on selected finish
+  useEffect(() => {
+    if (manualImageSelected) return // Don't auto-update if user manually selected
+    if (!product?.imageURLs) return
+    
+    const images = Object.values(product.imageURLs)
+    if (images.length === 0) return
+    
+    // Sort images: default image (mappedFinishID: null) first, then others
+    const sortedImages = [...images].sort((a, b) => {
+      if (a.mappedFinishID === null && b.mappedFinishID !== null) return -1
+      if (a.mappedFinishID !== null && b.mappedFinishID === null) return 1
+      return 0
+    })
+    
+    if (selectedFinish) {
+      const finishImageIndex = sortedImages.findIndex(img => img.mappedFinishID === selectedFinish)
+      if (finishImageIndex !== -1) {
+        setCurrentImageIndex(finishImageIndex)
+      }
+    } else {
+      const defaultImageIndex = sortedImages.findIndex(img => img.mappedFinishID === null)
+      if (defaultImageIndex !== -1) {
+        setCurrentImageIndex(defaultImageIndex)
+      }
+    }
+  }, [selectedFinish, manualImageSelected, product])
+
   const handleAddToCart = async () => {
     if (!product || !selectedMaterial) {
       toast.warning('Please select a material')
+      return
+    }
+
+    // Validate finish is selected
+    if (!selectedFinish) {
+      toast.warning('Please select a finish')
+      return
+    }
+
+    // Validate size is selected if size options are available
+    const hasSizeOptions = selectedMaterial?.sizeOptions && selectedMaterial.sizeOptions.length > 0
+    if (hasSizeOptions && selectedSize == null) {
+      toast.warning('Please select a size')
       return
     }
 
@@ -117,7 +165,8 @@ export default function ProductDetailPage() {
           basePrice: toNumber(selectedMaterial.basePrice),
         },
         selectedSize: selectedSize?.sizeMM,
-        selectedFinish: selectedFinish || undefined,
+        selectedSizeName: selectedSize?.name,
+        selectedFinish: selectedFinish,
         quantity,
         includePackaging,
       })
@@ -156,18 +205,23 @@ export default function ProductDetailPage() {
     if (images.length === 0) return []
     
     // Sort images: default image (mappedFinishID: null) first, then others
-    return images.sort((a, b) => {
+    return [...images].sort((a, b) => {
       if (a.mappedFinishID === null && b.mappedFinishID !== null) return -1
       if (a.mappedFinishID !== null && b.mappedFinishID === null) return 1
       return 0
     })
   }
 
-  // Get the current display image based on selected finish
+  // Get the current display image based on selected finish or manual selection
   const getCurrentImage = () => {
     const images = getSortedImages()
     
     if (images.length === 0) return null
+    
+    // If an image was manually selected, show that one
+    if (manualImageSelected && images[currentImageIndex]) {
+      return images[currentImageIndex].url
+    }
     
     // If a finish is selected, try to find a finish-specific image
     if (selectedFinish) {
@@ -191,6 +245,28 @@ export default function ProductDetailPage() {
   const getSelectedFinishDetails = () => {
     if (!selectedFinish) return null
     return availableFinishes.find(f => f._id === selectedFinish)
+  }
+
+  // Build URL with customer selections for breadcrumb navigation
+  const buildProductsUrl = (categorySlug?: string, subcategorySlug?: string) => {
+    const params = new URLSearchParams()
+    
+    if (categorySlug) {
+      params.set('category', categorySlug)
+    }
+    if (subcategorySlug) {
+      params.set('subcategory', subcategorySlug)
+    }
+    // Include customer selections if available
+    if (selectedMaterial?.materialID) {
+      params.set('material', selectedMaterial.materialID)
+    }
+    if (selectedFinish) {
+      params.set('finishId', selectedFinish)
+    }
+    
+    const queryString = params.toString()
+    return queryString ? `/products?${queryString}` : '/products'
   }
 
   return (
@@ -278,12 +354,25 @@ export default function ProductDetailPage() {
                   
                   {/* Product Info */}
                   <div className="flex-1 min-w-0">
-                    <h1 className="text-lg font-bold text-charcoal truncate">
+                    <h1 className="text-lg font-sans font-semibold text-charcoal truncate leading-snug tracking-tight" style={{ letterSpacing: '-0.01em' }}>
                       {product?.name}
                     </h1>
                     {selectedMaterial && (
-                      <p className="text-sm text-brass font-semibold">
-                        {formatCurrency(selectedMaterial.basePrice)}
+                      <p className="text-sm text-brass font-semibold flex items-center gap-2">
+                        {product.discountPercentage && product.discountPercentage > 0 ? (
+                          <>
+                            <span className="line-through text-charcoal/60">
+                              {formatCurrency(selectedMaterial.basePrice)}
+                            </span>
+                            <span>
+                              {formatCurrency(
+                                (toNumber(selectedMaterial.basePrice) * (1 - (product.discountPercentage || 0) / 100))
+                              )}
+                            </span>
+                          </>
+                        ) : (
+                          <span>{formatCurrency(selectedMaterial.basePrice)}</span>
+                        )}
                       </p>
                     )}
                   </div>
@@ -310,17 +399,41 @@ export default function ProductDetailPage() {
       <main className="pt-20 pb-8 relative z-10">
         <div className="container mx-auto px-4 py-4">
           {/* Breadcrumb with animation */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 text-sm text-charcoal/60 mb-4"
-          >
-            <button onClick={() => router.push('/')} className="hover:text-brass transition-colors">Home</button>
-            <span>/</span>
-            <button onClick={() => router.push('/products')} className="hover:text-brass transition-colors">Products</button>
-            <span>/</span>
-            <span className="text-charcoal font-medium">{product.name}</span>
-          </motion.div>
+          {product.category && typeof product.category === 'object' && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 text-sm text-charcoal/60 mb-4 flex-wrap"
+            >
+              <Link href="/" className="hover:text-brass transition-colors">
+                Home
+              </Link>
+              <span>/</span>
+              <Link href={buildProductsUrl()} className="hover:text-brass transition-colors">
+                Products
+              </Link>
+              <span>/</span>
+              <Link
+                href={buildProductsUrl(product.category.slug)}
+                className="hover:text-brass transition-colors"
+              >
+                {product.category.name}
+              </Link>
+              {product.subcategory && (
+                <>
+                  <span>/</span>
+                  <Link
+                    href={buildProductsUrl(product.category.slug, product.subcategory.slug)}
+                    className="hover:text-brass transition-colors"
+                  >
+                    {product.subcategory.name}
+                  </Link>
+                </>
+              )}
+              <span>/</span>
+              <span className="text-charcoal font-medium">{product.name}</span>
+            </motion.div>
+          )}
 
           <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
             {/* Sticky Product Images Section */}
@@ -378,14 +491,15 @@ export default function ProductDetailPage() {
                       )}
                     </AnimatePresence>
                   </div>
+                  </div>
                   
-                  {/* Image Thumbnails */}
+                {/* Image Thumbnails - Below main image */}
                   {product.imageURLs && Object.keys(product.imageURLs).length > 1 && (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.3 }}
-                      className="absolute bottom-0 left-0 right-0 grid grid-cols-4 gap-2 p-3 bg-gradient-to-br from-ivory/50 to-cream/30 backdrop-blur-sm"
+                    className="mt-4 grid grid-cols-4 gap-2"
                     >
                       {getSortedImages().map((imageData, index) => {
                         const isCurrentImage = getCurrentImage() === imageData.url
@@ -394,8 +508,11 @@ export default function ProductDetailPage() {
                             key={index}
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => setCurrentImageIndex(index)}
-                            className={`relative h-16 rounded-lg overflow-hidden border-2 bg-white ${
+                            onClick={() => {
+                              setCurrentImageIndex(index)
+                              setManualImageSelected(true)
+                            }}
+                          className={`relative h-20 rounded-lg overflow-hidden border-2 bg-white ${
                               isCurrentImage ? 'border-brass shadow-lg ring-2 ring-brass/20' : 'border-brass/20'
                             } hover:border-brass/50 transition-all duration-300`}
                           >
@@ -405,7 +522,6 @@ export default function ProductDetailPage() {
                       })}
                     </motion.div>
                   )}
-                </div>
               </motion.div>
             </div>
 
@@ -424,29 +540,29 @@ export default function ProductDetailPage() {
                   transition={{ duration: 0.4 }}
                   className="flex items-center gap-2 text-sm text-charcoal/60 mb-4 flex-wrap"
                 >
-                  <a href="/" className="hover:text-brass transition-colors">
+                  <Link href="/" className="hover:text-brass transition-colors">
                     Home
-                  </a>
+                  </Link>
                   <span>/</span>
-                  <a href="/products" className="hover:text-brass transition-colors">
+                  <Link href={buildProductsUrl()} className="hover:text-brass transition-colors">
                     Products
-                  </a>
+                  </Link>
                   <span>/</span>
-                  <a
-                    href={`/products?category=${product.category.slug}`}
+                  <Link
+                    href={buildProductsUrl(product.category.slug)}
                     className="hover:text-brass transition-colors"
                   >
                     {product.category.name}
-                  </a>
+                  </Link>
                   {product.subcategory && (
                     <>
                       <span>/</span>
-                      <a
-                        href={`/products?category=${product.category.slug}&subcategory=${product.subcategory.slug}`}
+                      <Link
+                        href={buildProductsUrl(product.category.slug, product.subcategory.slug)}
                         className="hover:text-brass transition-colors"
                       >
                         {product.subcategory.name}
-                      </a>
+                      </Link>
                     </>
                   )}
                   <span>/</span>
@@ -463,26 +579,26 @@ export default function ProductDetailPage() {
                   className="flex items-center gap-2 mb-3"
                 >
                   {product.category && typeof product.category === 'object' && (
-                    <a
-                      href={`/products?category=${product.category.slug}`}
+                    <Link
+                      href={buildProductsUrl(product.category.slug)}
                       className="inline-flex items-center px-3 py-1.5 bg-brass/10 text-brass text-xs font-medium rounded-full border border-brass/30 hover:bg-brass/20 hover:shadow-md transition-all duration-300"
                     >
                       <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                       </svg>
                       {product.category.name}
-                    </a>
+                    </Link>
                   )}
                   {product.subcategory && product.category && typeof product.category === 'object' && (
-                    <a
-                      href={`/products?category=${product.category.slug}&subcategory=${product.subcategory.slug}`}
+                    <Link
+                      href={buildProductsUrl(product.category.slug, product.subcategory.slug)}
                       className="inline-flex items-center px-3 py-1.5 bg-olive/10 text-olive text-xs font-medium rounded-full border border-olive/30 hover:bg-olive/20 hover:shadow-md transition-all duration-300"
                     >
                       <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                       </svg>
                       {product.subcategory.name}
-                    </a>
+                    </Link>
                   )}
                 </motion.div>
               ) : null}
@@ -536,7 +652,7 @@ export default function ProductDetailPage() {
                 availableFinishes={availableFinishes}
                 selectedFinish={selectedFinish}
                 onFinishSelect={setSelectedFinish}
-                onFinishClear={() => setSelectedFinish('')}
+                onFinishClear={() => {}} // No-op since finish is required
               />
 
               {/* Packaging Option */}
@@ -566,9 +682,17 @@ export default function ProductDetailPage() {
               {/* Add to Cart Button */}
               <AddToCartButton
                 onAddToCart={handleAddToCart}
-                    disabled={!selectedMaterial || cartLoading}
+                disabled={Boolean(
+                  !selectedMaterial || 
+                  !selectedFinish || 
+                  !!cartLoading ||
+                  (selectedMaterial?.sizeOptions && selectedMaterial.sizeOptions.length > 0 && selectedSize == null)
+                )}
                 loading={cartLoading}
                 selectedMaterial={selectedMaterial}
+                selectedFinish={selectedFinish}
+                selectedSize={selectedSize}
+                sizeOptions={selectedMaterial?.sizeOptions || []}
               />
             </motion.div>
           </div>

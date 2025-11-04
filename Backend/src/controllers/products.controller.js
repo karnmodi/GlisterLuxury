@@ -1,5 +1,20 @@
 const Product = require('../models/Product');
+const Finish = require('../models/Finish');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
+
+/**
+ * Sanitize productID for use in Cloudinary public_id
+ * Cloudinary public_id cannot contain special characters like &, spaces, etc.
+ */
+const sanitizeProductID = (productID) => {
+	if (!productID) return '';
+	return productID
+		.replace(/\s+/g, '_')           // Replace spaces with underscores
+		.replace(/[&<>#%{}|\\^~\[\]`]/g, '') // Remove invalid characters
+		.replace(/__+/g, '_')           // Replace multiple underscores with single
+		.replace(/^_+|_+$/g, '')        // Remove leading/trailing underscores
+		.toLowerCase();
+};
 
 /**
  * Transform MongoDB types to JSON-serializable types
@@ -48,6 +63,21 @@ function transformMongoTypes(obj) {
 
 async function createProduct(req, res) {
 	try {
+		// Validate that sizeOptions have names
+		if (req.body.materials && Array.isArray(req.body.materials)) {
+			for (const material of req.body.materials) {
+				if (material.sizeOptions && Array.isArray(material.sizeOptions)) {
+					for (const sizeOption of material.sizeOptions) {
+						if (!sizeOption.name || typeof sizeOption.name !== 'string' || sizeOption.name.trim() === '') {
+							return res.status(400).json({ 
+								message: 'Size name is required for all size options. Each size option must have a name, sizeMM, and additionalCost.' 
+							});
+						}
+					}
+				}
+			}
+		}
+
 		// Ensure materials have proper ObjectId conversion
 		if (req.body.materials && Array.isArray(req.body.materials)) {
 			req.body.materials = req.body.materials.map(material => {
@@ -65,6 +95,7 @@ async function createProduct(req, res) {
 					materialID: materialID,
 					basePrice: parseFloat(material.basePrice) || 0,
 					sizeOptions: (material.sizeOptions || []).map(size => ({
+						name: size.name.trim(),
 						sizeMM: parseInt(size.sizeMM) || 0,
 						additionalCost: parseFloat(size.additionalCost) || 0,
 						isOptional: Boolean(size.isOptional)
@@ -98,6 +129,23 @@ async function createProduct(req, res) {
 			req.body.packagingPrice = parseFloat(req.body.packagingPrice) || 0;
 		}
 
+		// Validate and normalize discountPercentage if provided
+		if (req.body.discountPercentage !== undefined) {
+			let dp = req.body.discountPercentage;
+			dp = dp === null || dp === '' ? null : Number(dp);
+			if (dp !== null) {
+				if (Number.isNaN(dp)) {
+					return res.status(400).json({ message: 'Invalid discountPercentage' });
+				}
+				if (dp < 0 || dp > 100) {
+					return res.status(400).json({ message: 'discountPercentage must be between 0 and 100' });
+				}
+				req.body.discountPercentage = dp;
+			} else {
+				req.body.discountPercentage = null;
+			}
+		}
+
 		const product = await Product.create(req.body);
 
 		const transformedProduct = transformMongoTypes(product.toObject());
@@ -110,7 +158,7 @@ async function createProduct(req, res) {
 
 async function listProducts(req, res) {
 	try {
-		const { q, material, hasSize, finishId, category, subcategory, subcategoryId } = req.query;
+		const { q, material, hasSize, finishId, category, subcategory, subcategoryId, sortBy, sortOrder, hasDiscount } = req.query;
 		const Category = require('../models/Category');
 		const filter = {};
 
@@ -129,6 +177,11 @@ async function listProducts(req, res) {
 
 		// Finish filter
 		if (finishId) filter.finishes = { $in: [finishId] };
+
+		// Discount filter
+		if (hasDiscount === 'true') {
+			filter.discountPercentage = { $gt: 0 };
+		}
 
 		// Category filter - support both ID and slug
 		if (category) {
@@ -178,7 +231,28 @@ async function listProducts(req, res) {
 			}
 		}
 
-		const items = await Product.find(filter).populate('category', 'name slug description subcategories').lean();
+		// Build sort options
+		const sortOptions = {};
+		const order = sortOrder === 'asc' ? 1 : -1;
+		
+		if (sortBy === 'name') {
+			sortOptions.name = order;
+		} else if (sortBy === 'productID') {
+			sortOptions.productID = order;
+		} else if (sortBy === 'createdAt') {
+			sortOptions.createdAt = order;
+		} else if (sortBy === 'price' || sortBy === 'packagingPrice') {
+			sortOptions.packagingPrice = order;
+		}
+		// Default sorting by createdAt descending if no sortBy specified
+		if (Object.keys(sortOptions).length === 0) {
+			sortOptions.createdAt = -1;
+		}
+
+		const items = await Product.find(filter)
+			.populate('category', 'name slug description subcategories')
+			.sort(sortOptions)
+			.lean();
 
 		const transformedItems = items.map(item => transformMongoTypes(item));
 		return res.json(transformedItems);
@@ -264,7 +338,8 @@ async function updateProduct(req, res) {
 						const urlParts = imageData.url.split('/');
 						const fileWithExt = urlParts[urlParts.length - 1];
 						const fileNameWithoutExt = fileWithExt.split('.')[0];
-						const publicId = `glister/products/${existingProduct.productID}/${fileNameWithoutExt}`;
+						const sanitizedProductID = sanitizeProductID(existingProduct.productID);
+						const publicId = `glister/products/${sanitizedProductID}/${fileNameWithoutExt}`;
 						
 						return deleteFromCloudinary(publicId);
 					} catch (err) {
@@ -295,6 +370,21 @@ async function updateProduct(req, res) {
 			delete req.body.imageURLs;
 		}
 
+		// Validate that sizeOptions have names
+		if (req.body.materials && Array.isArray(req.body.materials)) {
+			for (const material of req.body.materials) {
+				if (material.sizeOptions && Array.isArray(material.sizeOptions)) {
+					for (const sizeOption of material.sizeOptions) {
+						if (!sizeOption.name || typeof sizeOption.name !== 'string' || sizeOption.name.trim() === '') {
+							return res.status(400).json({ 
+								message: 'Size name is required for all size options. Each size option must have a name, sizeMM, and additionalCost.' 
+							});
+						}
+					}
+				}
+			}
+		}
+
 		// Ensure materials have proper ObjectId conversion
 		if (req.body.materials && Array.isArray(req.body.materials)) {
 			req.body.materials = req.body.materials.map(material => {
@@ -312,6 +402,7 @@ async function updateProduct(req, res) {
 					materialID: materialID,
 					basePrice: parseFloat(material.basePrice) || 0,
 					sizeOptions: (material.sizeOptions || []).map(size => ({
+						name: size.name.trim(),
 						sizeMM: parseInt(size.sizeMM) || 0,
 						additionalCost: parseFloat(size.additionalCost) || 0,
 						isOptional: Boolean(size.isOptional)
@@ -345,6 +436,25 @@ async function updateProduct(req, res) {
 			req.body.packagingPrice = parseFloat(req.body.packagingPrice) || 0;
 		}
 
+		// Validate and normalize discountPercentage if provided
+		if (req.body.discountPercentage !== undefined) {
+			let dp = req.body.discountPercentage;
+			dp = dp === null || dp === '' ? null : Number(dp);
+			if (dp !== null) {
+				if (Number.isNaN(dp)) {
+					return res.status(400).json({ message: 'Invalid discountPercentage' });
+				}
+				if (dp < 0 || dp > 100) {
+					return res.status(400).json({ message: 'discountPercentage must be between 0 and 100' });
+				}
+				existingProduct.discountPercentage = dp;
+			} else {
+				existingProduct.discountPercentage = null;
+			}
+			// Remove from req.body to avoid overwriting again below in assign
+			delete req.body.discountPercentage;
+		}
+
 		// Update other fields
 		Object.assign(existingProduct, req.body);
 		await existingProduct.save();
@@ -373,7 +483,8 @@ async function deleteProduct(req, res) {
 					const urlParts = imageData.url.split('/');
 					const fileWithExt = urlParts[urlParts.length - 1];
 					const fileNameWithoutExt = fileWithExt.split('.')[0];
-					const publicId = `glister/products/${product.productID}/${fileNameWithoutExt}`;
+					const sanitizedProductID = sanitizeProductID(product.productID);
+					const publicId = `glister/products/${sanitizedProductID}/${fileNameWithoutExt}`;
 					
 					deletePromises.push(deleteFromCloudinary(publicId));
 				} catch (err) {
@@ -400,26 +511,65 @@ async function deleteProduct(req, res) {
  */
 async function uploadProductImages(req, res) {
 	try {
+		// Log request details for debugging
+		const contentType = req.headers['content-type'] || 'unknown';
+		console.log(`[uploadProductImages] Request received - Product ID: ${req.params.id}, Content-Type: ${contentType}`);
+		
 		const product = await Product.findById(req.params.id);
 		if (!product) {
+			console.error(`[uploadProductImages] Product not found: ${req.params.id}`);
 			return res.status(404).json({ message: 'Product not found' });
 		}
 
+		// Log file information
+		console.log(`[uploadProductImages] Files received:`, {
+			filesPresent: !!req.files,
+			filesCount: req.files ? req.files.length : 0,
+			filesInfo: req.files ? req.files.map(f => ({
+				fieldname: f.fieldname,
+				originalname: f.originalname,
+				mimetype: f.mimetype,
+				size: f.size,
+				bufferLength: f.buffer ? f.buffer.length : 0
+			})) : []
+		});
+
 		if (!req.files || req.files.length === 0) {
-			return res.status(400).json({ message: 'No images provided' });
+			console.error(`[uploadProductImages] No files provided in request`);
+			console.error(`[uploadProductImages] Request body type:`, typeof req.body);
+			console.error(`[uploadProductImages] Request body keys:`, Object.keys(req.body || {}));
+			console.error(`[uploadProductImages] Content-Type header:`, contentType);
+			return res.status(400).json({ 
+				message: 'No images provided. Please ensure files are being sent correctly.',
+				debug: process.env.NODE_ENV === 'development' ? {
+					contentType,
+					hasFiles: !!req.files,
+					filesCount: req.files ? req.files.length : 0,
+					bodyKeys: Object.keys(req.body || {})
+				} : undefined
+			});
 		}
 
 		// Upload all images to Cloudinary
-		const uploadPromises = req.files.map((file) =>
-			uploadToCloudinary(file.buffer, {
-				folder: `glister/products/${product.productID}`,
-			})
-		);
+		const sanitizedProductID = sanitizeProductID(product.productID);
+		console.log(`[uploadProductImages] Starting Cloudinary upload for ${req.files.length} file(s) to folder: glister/products/${sanitizedProductID}`);
+		
+		const uploadPromises = req.files.map((file, index) => {
+			console.log(`[uploadProductImages] Uploading file ${index + 1}/${req.files.length}: ${file.originalname} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+			return uploadToCloudinary(file.buffer, {
+				folder: `glister/products/${sanitizedProductID}`,
+			}).catch(err => {
+				console.error(`[uploadProductImages] Cloudinary upload failed for ${file.originalname}:`, err);
+				throw new Error(`Failed to upload ${file.originalname}: ${err.message}`);
+			});
+		});
 
 		const uploadResults = await Promise.all(uploadPromises);
+		console.log(`[uploadProductImages] Successfully uploaded ${uploadResults.length} image(s) to Cloudinary`);
 		
 		// Extract secure URLs from upload results
 		const imageUrls = uploadResults.map((result) => result.secure_url);
+		console.log(`[uploadProductImages] Cloudinary URLs generated:`, imageUrls);
 
 		// Add new image URLs to the product as Map entries
 		imageUrls.forEach((url, index) => {
@@ -431,6 +581,7 @@ async function uploadProductImages(req, res) {
 		});
 		
 		await product.save();
+		console.log(`[uploadProductImages] Product saved with ${imageUrls.length} new image(s)`);
 
 		const transformedProduct = transformMongoTypes(product.toObject());
 
@@ -440,7 +591,17 @@ async function uploadProductImages(req, res) {
 			product: transformedProduct,
 		});
 	} catch (err) {
-		return res.status(500).json({ message: err.message });
+		console.error(`[uploadProductImages] Error during upload:`, {
+			message: err.message,
+			stack: err.stack,
+			productId: req.params.id,
+			filesCount: req.files ? req.files.length : 0,
+			contentType: req.headers['content-type']
+		});
+		return res.status(500).json({ 
+			message: err.message || 'Failed to upload images',
+			error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+		});
 	}
 }
 
@@ -478,7 +639,8 @@ async function deleteProductImage(req, res) {
 		// URL format: https://res.cloudinary.com/{cloud_name}/image/upload/v{version}/{public_id}.{format}
 		const urlParts = imageUrl.split('/');
 		const fileWithExt = urlParts[urlParts.length - 1];
-		const publicId = `glister/products/${product.productID}/${fileWithExt.split('.')[0]}`;
+		const sanitizedProductID = sanitizeProductID(product.productID);
+		const publicId = `glister/products/${sanitizedProductID}/${fileWithExt.split('.')[0]}`;
 
 		// Delete from Cloudinary
 		await deleteFromCloudinary(publicId);
@@ -659,6 +821,7 @@ module.exports = {
 	uploadProductImages,
 	deleteProductImage,
 	updateImageFinishMapping,
+	getProductFinishes,
 };
 
 

@@ -5,8 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { MaterialMaster } from '@/types'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import { formatCurrency } from '@/lib/utils'
 
 interface SizeOption {
+  name: string
   sizeMM: number
   additionalCost: number
   isOptional: boolean
@@ -23,12 +25,16 @@ interface MaterialConfigSectionProps {
   materials: Material[]
   onChange: (materials: Material[]) => void
   availableMaterials: MaterialMaster[]
+  discountPercentage?: number
+  onDiscountChange?: (value: number | undefined) => void
 }
 
 export default function MaterialConfigSection({ 
   materials, 
   onChange, 
-  availableMaterials 
+  availableMaterials,
+  discountPercentage,
+  onDiscountChange
 }: MaterialConfigSectionProps) {
   const [showAddMaterial, setShowAddMaterial] = useState(false)
   const [selectedMaterialId, setSelectedMaterialId] = useState('')
@@ -71,11 +77,26 @@ export default function MaterialConfigSection({
   const addSizeOption = (materialIndex: number) => {
     const newMaterials = [...materials]
     newMaterials[materialIndex].sizeOptions.push({
+      name: '',
       sizeMM: 0,
       additionalCost: 0,
       isOptional: true
     })
     onChange(newMaterials)
+  }
+
+  // Validate that all size options have names
+  const validateSizeOptions = (materialsToValidate: Material[]): string | null => {
+    for (const material of materialsToValidate) {
+      if (material.sizeOptions && material.sizeOptions.length > 0) {
+        for (const sizeOption of material.sizeOptions) {
+          if (!sizeOption.name || sizeOption.name.trim() === '') {
+            return `Size name is required for all size options in material "${material.name}". Each size option must have a name, sizeMM, and additionalCost.`
+          }
+        }
+      }
+    }
+    return null
   }
 
   const removeSizeOption = (materialIndex: number, sizeIndex: number) => {
@@ -189,7 +210,7 @@ export default function MaterialConfigSection({
               </div>
 
               {/* Base Price */}
-              <div className="mb-2">
+              <div className="mb-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Input
                   label="Base Price *"
                   type="number"
@@ -200,7 +221,44 @@ export default function MaterialConfigSection({
                   placeholder="0.00"
                   required
                 />
+                <Input
+                  label="Discount Percentage"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  value={discountPercentage ?? ''}
+                  onChange={(e) => {
+                    if (!onDiscountChange) return
+                    const raw = e.target.value
+                    const val = raw === '' ? undefined : Math.max(0, Math.min(100, Number(raw)))
+                    onDiscountChange(val)
+                  }}
+                  placeholder="e.g., 10 for 10%"
+                />
               </div>
+                {discountPercentage && discountPercentage > 0 && material.basePrice > 0 && (
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-green-700">Discount: {discountPercentage}%</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="flex items-center gap-2">
+                          <span className="line-through text-charcoal/60">
+                            {formatCurrency(material.basePrice)}
+                          </span>
+                          <span className="font-bold text-green-700">
+                            {formatCurrency(material.basePrice * (1 - discountPercentage / 100))}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-green-600 mt-0.5">
+                          Save: {formatCurrency(material.basePrice * (discountPercentage / 100))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
               {/* Size Options */}
               <div className="border-t border-brass/20 pt-2">
@@ -234,7 +292,15 @@ export default function MaterialConfigSection({
                         exit={{ opacity: 0, x: 10 }}
                         className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 p-2 bg-cream/20 rounded border border-brass/10"
                       >
-                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-2">
+                          <Input
+                            label="Size Name *"
+                            type="text"
+                            value={sizeOption.name || ''}
+                            onChange={(e) => updateSizeOption(materialIndex, sizeIndex, 'name', e.target.value)}
+                            placeholder="e.g., Rose Key"
+                            required
+                          />
                           <Input
                             label="Size (MM)"
                             type="number"

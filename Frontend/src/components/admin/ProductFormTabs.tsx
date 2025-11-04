@@ -9,7 +9,7 @@ import FinishConfigSection from './FinishConfigSection'
 import ImageFinishMapper from './ImageFinishMapper'
 import ProductFormSummary from './ProductFormSummary'
 
-interface FormData {
+export interface FormData {
   basicInfo: {
     productID: string
     productUID: string
@@ -17,6 +17,7 @@ interface FormData {
     description: string
     category: string
     subcategoryId: string
+    discountPercentage?: number
     packagingPrice: number
     packagingUnit: string
   }
@@ -25,6 +26,7 @@ interface FormData {
     name: string
     basePrice: number
     sizeOptions: Array<{
+      name: string
       sizeMM: number
       additionalCost: number
       isOptional: boolean
@@ -81,10 +83,17 @@ export default function ProductFormTabs({
 
   const validateMaterials = () => {
     if (formData.materials.length === 0) return false
-    return formData.materials.every(material => 
-      material.basePrice > 0 && 
-      material.sizeOptions.every(size => size.additionalCost >= 0)
-    )
+    return formData.materials.every(material => {
+      // Base price must be > 0
+      if (material.basePrice <= 0) return false
+      
+      // All size options must have names and valid values
+      return material.sizeOptions.every(size => 
+        size.name && size.name.trim() !== '' && 
+        size.sizeMM >= 0 && 
+        size.additionalCost >= 0
+      )
+    })
   }
 
   const validateFinishes = () => {
@@ -140,6 +149,10 @@ export default function ProductFormTabs({
             materials={formData.materials}
             onChange={(materials) => updateFormData('materials', materials)}
             availableMaterials={materials}
+            discountPercentage={formData.basicInfo.discountPercentage}
+            onDiscountChange={(val) =>
+              updateFormData('basicInfo', { ...formData.basicInfo, discountPercentage: val })
+            }
           />
         )
       case 'finishes':

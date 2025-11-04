@@ -4,7 +4,8 @@
       "Bash(npm run build:*)",
       "Bash(cat:*)",
       "Bash(rm:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(git push)"
     ],
     "deny": [],
     "ask": []

@@ -16,6 +16,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL_2,
   'https://glister-londonn.vercel.app',
   'https://glister-london.vercel.app',
+  'https://glister-london-l2w3.vercel.app',
   'http://localhost:3000'
 ]
   .filter(Boolean)
@@ -29,16 +30,39 @@ const corsOptions = {
     if (allowedOrigins.includes(normalized)) {
       return callback(null, true);
     }
+    // Log for debugging
+    console.log(`CORS: Origin ${origin} (normalized: ${normalized}) not in allowed list:`, allowedOrigins);
     return callback(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-ID']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-ID', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'X-Session-ID'],
+  maxAge: 86400 // 24 hours
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Conditional body parsers - skip multipart/form-data (needed for multer)
+// Multer needs access to the raw request stream for file uploads
+// On Vercel serverless, body parsers may interfere with multer, so we skip them for multipart
+const jsonParser = express.json({ limit: '50mb' });
+const urlencodedParser = express.urlencoded({ extended: true, limit: '50mb' });
+
+app.use((req, res, next) => {
+	const contentType = req.headers['content-type'] || '';
+	// Skip body parsing for multipart/form-data - let multer handle it
+	if (contentType.includes('multipart/form-data')) {
+		console.log('[BodyParser] Skipping body parsing for multipart/form-data request');
+		return next();
+	}
+	// For non-multipart requests, use the appropriate parsers
+	jsonParser(req, res, (err) => {
+		if (err) return next(err);
+		urlencodedParser(req, res, next);
+	});
+});
+
 app.use(cookieParser());
 
 // Middleware to ensure database connection
@@ -57,7 +81,7 @@ app.use(async (req, res, next) => {
 
 // Basic route
 app.get('/', (req, res) => {
-  res.json({ message: 'Glister Backend API is running!' });
+  res.json({ message: 'Glister Backend API is configured and running!' });
 });
 
 // Visit tracking middleware (before routes, after auth)
@@ -75,7 +99,11 @@ apiRouter.use('/cart', require('./src/routes/cart.routes'));
 apiRouter.use('/orders', require('./src/routes/orders.routes'));
 apiRouter.use('/wishlist', require('./src/routes/wishlist.routes'));
 apiRouter.use('/faqs', require('./src/routes/faq.routes'));
+apiRouter.use('/announcements', require('./src/routes/announcements.routes'));
+apiRouter.use('/about-us', require('./src/routes/aboutUs.routes'));
+apiRouter.use('/contact', require('./src/routes/contact.routes'));
 apiRouter.use('/analytics', require('./src/routes/analytics.routes'));
+apiRouter.use('/offers', require('./src/routes/offers.routes'));
 
 app.use(apiRouter); // no prefix
 app.use('/api', apiRouter); // with /api prefix

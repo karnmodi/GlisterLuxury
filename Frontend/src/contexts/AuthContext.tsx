@@ -155,6 +155,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.success && response.token) {
         await setAuthCookie(response.token)
         setUser(response.user)
+        setToken(response.token)
+        
+        // Link cart to user account after registration
+        const sessionID = getSessionID()
+        if (sessionID) {
+          try {
+            await cartApi.linkToUser(sessionID, response.token)
+          } catch (error) {
+            console.error('Failed to link cart after registration:', error)
+          }
+
+          // Sync wishlist
+          try {
+            await wishlistApi.sync(sessionID, response.token)
+          } catch (error) {
+            console.error('Failed to sync wishlist after registration:', error)
+          }
+        }
+        
         router.push('/profile')
       }
     } catch (error) {

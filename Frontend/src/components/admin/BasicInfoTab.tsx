@@ -11,6 +11,7 @@ interface BasicInfoData {
   description: string
   category: string
   subcategoryId: string
+  discountPercentage?: number
   packagingPrice: number
   packagingUnit: string
 }
@@ -165,6 +166,8 @@ export default function BasicInfoTab({ data, onChange, categories }: BasicInfoTa
           Packaging price is added when customers include packaging in their order.
         </p>
       </div>
+
+      
     </div>
   )
 }

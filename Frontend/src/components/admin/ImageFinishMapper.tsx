@@ -7,6 +7,7 @@ import { productsApi } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 import type { Finish } from '@/types'
 import Button from '@/components/ui/Button'
+import { compressImage } from '@/utils/imageCompression'
 
 interface ImageData {
   url: string
@@ -32,43 +33,148 @@ export default function ImageFinishMapper({
   const toast = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [deleting, setDeleting] = useState<number | null>(null)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [compressing, setCompressing] = useState(false)
+  const [compressionProgress, setCompressionProgress] = useState<Record<number, number>>({})
 
   const handleFileSelect = async (files: FileList | null) => {
-    if (!files || files.length === 0) return
+    if (!files || files.length === 0) {
+      console.log('ImageFinishMapper: No files selected')
+      return
+    }
 
-    const newImages: ImageData[] = []
+    console.log(`ImageFinishMapper: Processing ${files.length} file(s)`)
     const maxFiles = 10
     const remainingSlots = maxFiles - images.length
+    const maxFileSize = 10 * 1024 * 1024 // 10MB limit (original file size limit)
+    const targetCompressedSize = 2 * 1024 * 1024 // 2MB target for compressed files
 
+    // Validate files first
+    const validFiles: File[] = []
     for (let i = 0; i < Math.min(files.length, remainingSlots); i++) {
       const file = files[i]
       
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        toast.error(`${file.name} is not an image file`)
+        const errorMsg = `${file.name} is not an image file`
+        console.error(`ImageFinishMapper: ${errorMsg} (MIME type: ${file.type})`)
+        toast.error(errorMsg)
         continue
       }
 
-      // Validate file size (5MB limit)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`${file.name} is too large. Maximum size is 5MB`)
+      // Validate file size (10MB limit for original)
+      if (file.size > maxFileSize) {
+        const errorMsg = `${file.name} is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 10MB`
+        console.error(`ImageFinishMapper: ${errorMsg}`)
+        toast.error(errorMsg)
         continue
       }
 
-      // Create preview URL
-      const previewUrl = URL.createObjectURL(file)
-      newImages.push({
-        url: previewUrl,
-        file,
-        mappedFinishID: undefined
-      })
+      validFiles.push(file)
     }
 
+    if (validFiles.length === 0) {
+      console.warn('ImageFinishMapper: No valid images were added after validation')
+      return
+    }
+
+    // Compress images
+    setCompressing(true)
+    setCompressionProgress({})
+    const newImages: ImageData[] = []
+    let processedCount = 0
+    let failedCount = 0
+
+    // Process all files sequentially, ensuring each one is handled even if others fail
+    for (let i = 0; i < validFiles.length; i++) {
+      const file = validFiles[i]
+      console.log(`ImageFinishMapper: Processing file ${i + 1}/${validFiles.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB, type: ${file.type})`)
+
+      try {
+        // Compress image to target size (2MB)
+        // Add timeout protection to prevent hanging
+        const compressionPromise = compressImage(
+          file,
+          2, // 2MB target
+          (progress) => {
+            setCompressionProgress(prev => ({ ...prev, [i]: progress }))
+          }
+        )
+        
+        const compressionResult = await compressionPromise
+
+        const compressedFile = compressionResult.compressedFile
+        console.log(`ImageFinishMapper: Compression complete for ${file.name}: ${(compressionResult.originalSize / 1024 / 1024).toFixed(2)}MB → ${(compressionResult.compressedSize / 1024 / 1024).toFixed(2)}MB (saved ${(compressionResult.savedBytes / 1024 / 1024).toFixed(2)}MB)`)
+
+        // Create preview URL from compressed file
+        try {
+          const previewUrl = URL.createObjectURL(compressedFile)
+          newImages.push({
+            url: previewUrl,
+            file: compressedFile, // Use compressed file for upload
+            mappedFinishID: undefined
+          })
+          processedCount++
+          console.log(`ImageFinishMapper: Successfully processed ${file.name} (${processedCount}/${validFiles.length})`)
+        } catch (urlError) {
+          console.error(`ImageFinishMapper: Failed to create preview URL for ${file.name}:`, urlError)
+          // Still add the file even if URL creation fails
+          const previewUrl = URL.createObjectURL(file)
+          newImages.push({
+            url: previewUrl,
+            file: compressedFile,
+            mappedFinishID: undefined
+          })
+          processedCount++
+        }
+      } catch (error) {
+        console.error(`ImageFinishMapper: Compression failed for ${file.name}, using original:`, error)
+        failedCount++
+        
+        // If compression fails, use original file
+        try {
+          const previewUrl = URL.createObjectURL(file)
+          newImages.push({
+            url: previewUrl,
+            file, // Use original file if compression fails
+            mappedFinishID: undefined
+          })
+          processedCount++
+          console.log(`ImageFinishMapper: Using original file for ${file.name} (${processedCount}/${validFiles.length})`)
+          toast.warning(`Compression failed for ${file.name}, using original file`)
+        } catch (urlError) {
+          console.error(`ImageFinishMapper: Failed to create preview URL for original ${file.name}:`, urlError)
+          // If we can't even create a preview URL, log it but don't add the file
+          toast.error(`Failed to process ${file.name}. Please try again.`)
+        }
+      }
+    }
+
+    // Update state with all processed images
     if (newImages.length > 0) {
       onChange([...images, ...newImages])
-      toast.success(`${newImages.length} image(s) added`)
+      const totalOriginalSize = validFiles.reduce((sum, f) => sum + f.size, 0)
+      const totalCompressedSize = newImages.reduce((sum, img) => sum + (img.file?.size || 0), 0)
+      const savedMB = ((totalOriginalSize - totalCompressedSize) / 1024 / 1024).toFixed(2)
+      
+      let message = `${newImages.length} image(s) added`
+      if (savedMB !== '0.00') {
+        message += ` (compressed, saved ${savedMB}MB)`
+      }
+      if (failedCount > 0) {
+        message += ` (${failedCount} file(s) used original due to compression issues)`
+      }
+      
+      toast.success(message)
+      console.log(`ImageFinishMapper: Successfully added ${newImages.length} image(s) to the form (${processedCount} processed, ${failedCount} used original)`)
+    } else if (validFiles.length > 0) {
+      console.error(`ImageFinishMapper: No images were successfully processed from ${validFiles.length} valid files`)
+      toast.error('Failed to process any images. Please try again.')
     }
+
+    setCompressing(false)
+    setCompressionProgress({})
 
     // Reset file input
     if (fileInputRef.current) {
@@ -99,20 +205,43 @@ export default function ImageFinishMapper({
       setUploading(true)
       const uploadResult = await productsApi.uploadImages(productId, filesToUpload)
       
-      // Update image URLs with the actual uploaded URLs
-      const uploadedImages = images.map((img, index) => {
+      // Get uploaded image URLs
+      const uploadedImageUrls = uploadResult.images || []
+      
+      // Update image URLs with the actual uploaded URLs while preserving finish mappings
+      // Match uploaded URLs with images by order: find the index of each image with file
+      const uploadedImages = images.map((img) => {
         if (img.file) {
-          // Use the uploaded URL from the server response
-          const uploadedUrl = uploadResult.images?.[index] || img.url
+          // Find the corresponding uploaded URL by matching the order
+          const uploadedImageIndex = images
+            .filter(i => i.file)
+            .findIndex(i => i === img)
+          const uploadedUrl = uploadedImageUrls[uploadedImageIndex] || img.url
+          
           return {
             url: uploadedUrl,
-            mappedFinishID: img.mappedFinishID
+            mappedFinishID: img.mappedFinishID // Preserve finish mapping
           }
         }
+        // Keep existing images as-is (without file property)
         return img
       })
       
       onChange(uploadedImages)
+      
+      // Apply finish mappings for images that have finish assignments
+      const imagesWithMappings = uploadedImages
+        .filter(img => img.mappedFinishID && img.url)
+      
+      for (const img of imagesWithMappings) {
+        try {
+          await productsApi.updateImageFinishMapping(productId, img.url, img.mappedFinishID)
+        } catch (error) {
+          console.error('Failed to update image-finish mapping:', error)
+          toast.warning('Images uploaded but some finish mappings failed to apply')
+        }
+      }
+      
       toast.success('Images uploaded successfully!')
     } catch (error) {
       console.error('Upload failed:', error)
@@ -122,9 +251,45 @@ export default function ImageFinishMapper({
     }
   }
 
-  const removeImage = (index: number) => {
-    const newImages = images.filter((_, i) => i !== index)
-    onChange(newImages)
+  const removeImage = async (index: number) => {
+    const imageToRemove = images[index]
+    
+    // Check if this is an uploaded image (no file property and has a Cloudinary URL)
+    const isUploadedImage = !imageToRemove.file && imageToRemove.url
+    
+    // If it's an uploaded image and we have a productId, delete from server
+    if (isUploadedImage && productId) {
+      // Check if productId is a valid ObjectId (24 character hex string)
+      const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(productId)
+      
+      if (isValidObjectId) {
+        try {
+          setDeleting(index)
+          
+          // Delete from Cloudinary and database
+          await productsApi.deleteImage(productId, imageToRemove.url)
+          
+          // Remove from local state
+          const newImages = images.filter((_, i) => i !== index)
+          onChange(newImages)
+          
+          toast.success('Image deleted successfully')
+        } catch (error) {
+          console.error('Failed to delete image:', error)
+          toast.error('Failed to delete image. Please try again.')
+        } finally {
+          setDeleting(null)
+        }
+      } else {
+        // Invalid productId, just remove from local state
+        const newImages = images.filter((_, i) => i !== index)
+        onChange(newImages)
+      }
+    } else {
+      // Local preview image (has file property) or no productId, just remove from local state
+      const newImages = images.filter((_, i) => i !== index)
+      onChange(newImages)
+    }
   }
 
   const updateFinishMapping = async (index: number, finishID: string) => {
@@ -199,13 +364,13 @@ export default function ImageFinishMapper({
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            disabled={images.length >= 10}
+            disabled={images.length >= 10 || compressing}
             className="flex-1 sm:flex-none px-2 py-1 text-xs bg-brass text-white hover:bg-brass/90 disabled:opacity-50 rounded inline-flex items-center justify-center gap-1"
           >
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Add
+            {compressing ? 'Compressing...' : 'Add'}
           </button>
           {images.some(img => img.file) && (
             <button
@@ -218,6 +383,35 @@ export default function ImageFinishMapper({
           )}
         </div>
       </div>
+
+      {/* Compression Progress */}
+      {compressing && (
+        <div className="bg-olive/10 rounded-md p-2 border border-olive/20">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 border-2 border-olive border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-xs text-charcoal font-medium">Compressing images...</span>
+            </div>
+            {Object.keys(compressionProgress).length > 0 && (
+              <div className="space-y-1 mt-2">
+                {Object.entries(compressionProgress).map(([index, progress]) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <div className="flex-1 bg-olive/20 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-olive h-full transition-all duration-300"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-charcoal/70 min-w-[35px] text-right">
+                      {Math.round(progress)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Upload Progress */}
       {uploading && (
@@ -258,6 +452,7 @@ export default function ImageFinishMapper({
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               isDefault={!image.mappedFinishID}
+              isDeleting={deleting === index}
             />
           ))}
         </div>
@@ -298,6 +493,7 @@ interface ImageCardProps {
   onDragOver: (e: React.DragEvent) => void
   onDrop: (e: React.DragEvent, dropIndex: number) => void
   isDefault: boolean
+  isDeleting?: boolean
 }
 
 function ImageCard({
@@ -311,7 +507,8 @@ function ImageCard({
   onDragStart,
   onDragOver,
   onDrop,
-  isDefault
+  isDefault,
+  isDeleting = false
 }: ImageCardProps) {
   const [isHovered, setIsHovered] = useState(false)
 
@@ -351,25 +548,34 @@ function ImageCard({
     >
       {/* Image */}
       <div className="relative aspect-square">
+        {isDeleting && (
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-10 rounded-t-md">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-[10px] text-white">Deleting...</span>
+            </div>
+          </div>
+        )}
         <Image
           src={image.url}
           alt={`Image ${index + 1}`}
           fill
-          className="object-cover"
+          className={`object-cover ${isDeleting ? 'opacity-50' : ''}`}
         />
         
         {/* Overlay */}
         <AnimatePresence>
-          {isHovered && (
+          {isHovered && !isDeleting && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/50 flex items-center justify-center"
+              className="absolute inset-0 bg-black/50 flex items-center justify-center z-10"
             >
               <button
                 onClick={() => onRemove(index)}
-                className="px-1.5 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200 border border-red-300 rounded"
+                disabled={isDeleting}
+                className="px-1.5 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200 border border-red-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

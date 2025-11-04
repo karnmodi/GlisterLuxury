@@ -3,9 +3,30 @@ function isDecimalLike(v) {
 }
 
 function validateCreateProduct(req, res, next) {
-	const { productID, name, packagingPrice } = req.body || {};
+	const { productID, name, packagingPrice, materials } = req.body || {};
 	if (!productID || !name) return res.status(400).json({ message: 'productID and name are required' });
 	if (packagingPrice != null && !isDecimalLike(packagingPrice)) return res.status(400).json({ message: 'packagingPrice must be a number/string' });
+	
+	// Validate that sizeOptions have names if materials are provided
+	if (materials && Array.isArray(materials)) {
+		for (const material of materials) {
+			if (material.sizeOptions && Array.isArray(material.sizeOptions) && material.sizeOptions.length > 0) {
+				for (const sizeOption of material.sizeOptions) {
+					if (!sizeOption.name || typeof sizeOption.name !== 'string' || sizeOption.name.trim() === '') {
+						return res.status(400).json({ 
+							message: 'Size name is required for all size options. Each size option must have a name along with sizeMM and additionalCost.' 
+						});
+					}
+					if (sizeOption.sizeMM == null) {
+						return res.status(400).json({ 
+							message: 'sizeMM is required for all size options.' 
+						});
+					}
+				}
+			}
+		}
+	}
+	
 	return next();
 }
 

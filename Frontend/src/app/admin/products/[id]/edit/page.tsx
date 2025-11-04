@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { productsApi, categoriesApi, materialsApi, finishesApi } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
 import type { Product, Category, MaterialMaster, Finish } from '@/types'
-import ProductFormTabs from '@/components/admin/ProductFormTabs'
+import ProductFormTabs, { type FormData as ProductFormData } from '@/components/admin/ProductFormTabs'
 
 export default function EditProductPage() {
   const params = useParams()
@@ -24,7 +24,7 @@ export default function EditProductPage() {
   const [materials, setMaterials] = useState<MaterialMaster[]>([])
   const [finishes, setFinishes] = useState<Finish[]>([])
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProductFormData>({
     basicInfo: {
       productID: '',
       productUID: '',
@@ -40,6 +40,7 @@ export default function EditProductPage() {
       name: string
       basePrice: number
       sizeOptions: Array<{
+        name: string
         sizeMM: number
         additionalCost: number
         isOptional: boolean
@@ -139,16 +140,17 @@ export default function EditProductPage() {
       
       // Populate form with existing product data
       setFormData({
-        basicInfo: {
+        basicInfo: ({
           productID: productData.productID,
           productUID: productData.productUID || '',
           name: productData.name,
           description: productData.description || '',
           category: typeof productData.category === 'string' ? productData.category : productData.category?._id || '',
           subcategoryId: productData.subcategoryId || '',
+          discountPercentage: productData.discountPercentage ?? undefined,
           packagingPrice: Number(productData.packagingPrice) || 0,
           packagingUnit: productData.packagingUnit,
-        },
+        }) as ProductFormData['basicInfo'],
         materials: (productData.materials || []).map(material => {
           // Handle materialID conversion - ensure it's a string
           let materialID: string = material.materialID || '';
@@ -165,6 +167,7 @@ export default function EditProductPage() {
             name: material.name,
             basePrice: Number(material.basePrice) || 0,
             sizeOptions: (material.sizeOptions || []).map(size => ({
+              name: size.name || '',
               sizeMM: Number(size.sizeMM),
               additionalCost: Number(size.additionalCost) || 0,
               isOptional: Boolean(size.isOptional)
@@ -224,6 +227,18 @@ export default function EditProductPage() {
         return
       }
 
+      // Validate that all size options have names
+      for (const material of formData.materials) {
+        if (material.sizeOptions && material.sizeOptions.length > 0) {
+          for (const sizeOption of material.sizeOptions) {
+            if (!sizeOption.name || sizeOption.name.trim() === '') {
+              toast.error(`Size name is required for all size options in material "${material.name}". Each size option must have a name, sizeMM, and additionalCost.`)
+              return
+            }
+          }
+        }
+      }
+
       // Debug: Log the form data before conversion
       console.log('Form data before conversion:', formData)
       console.log('Materials before conversion:', formData.materials)
@@ -244,6 +259,7 @@ export default function EditProductPage() {
         description: formData.basicInfo.description || undefined,
         category: formData.basicInfo.category || undefined,
         subcategoryId: formData.basicInfo.subcategoryId || undefined,
+        discountPercentage: formData.basicInfo.discountPercentage,
         packagingPrice: formData.basicInfo.packagingPrice,
         packagingUnit: formData.basicInfo.packagingUnit,
         materials: formData.materials.map(material => {
@@ -268,6 +284,7 @@ export default function EditProductPage() {
             name: material.name,
             basePrice: material.basePrice,
             sizeOptions: material.sizeOptions.map(size => ({
+              name: size.name.trim(),
               sizeMM: size.sizeMM,
               additionalCost: size.additionalCost,
               isOptional: size.isOptional
@@ -312,7 +329,56 @@ export default function EditProductPage() {
         .map(img => img.file!)
       
       if (newImageFiles.length > 0) {
-        await productsApi.uploadImages(product._id, newImageFiles)
+        try {
+          // Upload images to the server
+          const uploadResult = await productsApi.uploadImages(product._id, newImageFiles)
+          
+          // Get the uploaded image URLs
+          const uploadedImageUrls = uploadResult.images || []
+          
+          // Match uploaded image URLs with finish mappings from formData.images
+          // Only consider images that have files (new images) and finish mappings
+          const newImagesWithMappings = formData.images
+            .filter(img => img.file && img.mappedFinishID)
+          
+          // Create mappings for newly uploaded images with finish assignments
+          const imageMappings = newImagesWithMappings.map((img, index) => {
+            // Find the corresponding uploaded URL by matching the order
+            const uploadedImageIndex = formData.images
+              .filter(i => i.file)
+              .findIndex(i => i === img)
+            const imageUrl = uploadedImageUrls[uploadedImageIndex] || img.url
+            
+            return {
+              imageUrl,
+              mappedFinishID: img.mappedFinishID!
+            }
+          })
+          
+          // Apply image-finish mappings for newly uploaded images
+          for (const mapping of imageMappings) {
+            try {
+              await productsApi.updateImageFinishMapping(product._id, mapping.imageUrl, mapping.mappedFinishID)
+            } catch (error) {
+              console.error('Failed to update image-finish mapping:', error)
+            }
+          }
+        } catch (error) {
+          console.error('Failed to upload images:', error)
+          toast.warning('Product updated but some images failed to upload')
+        }
+      }
+      
+      // Apply finish mappings for existing images (images without file property)
+      const existingImagesWithMappings = formData.images
+        .filter(img => !img.file && img.mappedFinishID && img.url)
+      
+      for (const img of existingImagesWithMappings) {
+        try {
+          await productsApi.updateImageFinishMapping(product._id, img.url, img.mappedFinishID)
+        } catch (error) {
+          console.error('Failed to update image-finish mapping for existing image:', error)
+        }
       }
 
       toast.success('Product updated successfully!')

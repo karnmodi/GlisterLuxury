@@ -8,14 +8,22 @@ interface AddToCartButtonProps {
   disabled: boolean
   loading: boolean
   selectedMaterial: any
+  selectedFinish?: string | null
+  selectedSize?: any | null
+  sizeOptions?: Array<{ name: string; sizeMM: number; additionalCost: number; isOptional: boolean }>
 }
 
 export default function AddToCartButton({ 
   onAddToCart, 
   disabled, 
   loading, 
-  selectedMaterial 
+  selectedMaterial,
+  selectedFinish,
+  selectedSize,
+  sizeOptions = []
 }: AddToCartButtonProps) {
+  const hasSizeOptions = sizeOptions && sizeOptions.length > 0
+  const needsSizeSelection = hasSizeOptions && selectedSize == null
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -58,13 +66,19 @@ export default function AddToCartButton({
         </Button>
       </motion.div>
       
-      {!selectedMaterial && (
+      {(!selectedMaterial || !selectedFinish || needsSizeSelection) && (
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="text-center text-xs text-red-500 mt-2"
         >
-          Please select a material to continue
+          {!selectedMaterial 
+            ? 'Please select a material to continue'
+            : !selectedFinish 
+            ? 'Please select a finish to continue'
+            : needsSizeSelection
+            ? 'Please select a size to continue'
+            : ''}
         </motion.p>
       )}
     </motion.div>

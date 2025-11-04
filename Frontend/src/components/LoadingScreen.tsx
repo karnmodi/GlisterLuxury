@@ -5,7 +5,16 @@ import Image from 'next/image'
 
 export default function LoadingScreen() {
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-gradient-to-br from-charcoal via-zinc-900 to-charcoal overflow-hidden">
+    <motion.div 
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-gradient-to-br from-charcoal via-zinc-900 to-charcoal overflow-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ 
+        opacity: 0,
+        transition: { duration: 0.5, ease: "easeInOut" }
+      }}
+      transition={{ duration: 0.4, ease: "easeInOut" }}
+    >
       {/* Ambient background elements */}
       <div className="absolute inset-0">
         <motion.div 
@@ -190,7 +199,7 @@ export default function LoadingScreen() {
       <div className="absolute top-8 right-8 w-16 h-16 border-r-2 border-t-2 border-brass/20" />
       <div className="absolute bottom-8 left-8 w-16 h-16 border-l-2 border-b-2 border-brass/20" />
       <div className="absolute bottom-8 right-8 w-16 h-16 border-r-2 border-b-2 border-brass/20" />
-    </div>
+    </motion.div>
   )
 }
 

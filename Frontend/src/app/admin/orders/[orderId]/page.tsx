@@ -352,10 +352,10 @@ export default function AdminOrderDetailPage() {
                           <span className="text-brass">▪</span>
                           <span>Material: <span className="font-medium text-charcoal">{item.selectedMaterial.name}</span></span>
                         </div>
-                        {item.selectedSize && (
+                        {item.selectedSize != null && (
                           <div className="flex items-center gap-1.5">
                             <span className="text-brass">▪</span>
-                            <span>Size: <span className="font-medium text-charcoal">{item.selectedSize}mm</span></span>
+                            <span>Size: <span className="font-medium text-charcoal">{item.selectedSizeName ? `${item.selectedSizeName} ${item.selectedSize}mm` : `${item.selectedSize}mm`}</span></span>
                           </div>
                         )}
                         {item.selectedFinish?.name && (

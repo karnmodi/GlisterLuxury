@@ -35,9 +35,15 @@ export default function SizeSelection({
           </label>
         </div>
         <div className="grid grid-cols-3 gap-2">
-          {sizeOptions.map((size, index) => (
+          {sizeOptions.map((size, index) => {
+            // Create a unique identifier for size comparison using both name and sizeMM
+            const isSelected = selectedSize != null && 
+              selectedSize.name === size.name && 
+              selectedSize.sizeMM === size.sizeMM
+            
+            return (
             <motion.button
-              key={index}
+              key={`${size.name}-${size.sizeMM}-${index}`}
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.05 }}
@@ -45,17 +51,25 @@ export default function SizeSelection({
               whileTap={{ scale: 0.95 }}
               onClick={() => onSizeSelect(size)}
               className={`p-2 rounded-lg border-2 transition-all duration-300 ${
-                selectedSize?.sizeMM === size.sizeMM
+                isSelected
                   ? 'border-brass bg-gradient-to-br from-brass/20 to-olive/10 shadow-md'
                   : 'border-brass/20 hover:border-brass/50 bg-white'
               }`}
             >
-              <p className="font-bold text-charcoal text-sm">{size.sizeMM}mm</p>
+              {size.name ? (
+                <>
+                  <p className="font-semibold text-charcoal text-xs">{size.name}</p>
+                  <p className="font-bold text-charcoal text-sm">{size.sizeMM}mm</p>
+                </>
+              ) : (
+                <p className="font-bold text-charcoal text-sm">{size.sizeMM}mm</p>
+              )}
               {toNumber(size.additionalCost) > 0 && (
                 <p className="text-xs text-brass font-semibold">+{formatCurrency(size.additionalCost)}</p>
               )}
             </motion.button>
-          ))}
+            )
+          })}
         </div>
       </motion.div>
     </AnimatePresence>

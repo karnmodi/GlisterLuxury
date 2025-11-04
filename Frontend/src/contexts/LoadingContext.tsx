@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
+import { AnimatePresence } from 'framer-motion'
 import LoadingScreen from '@/components/LoadingScreen'
 
 interface LoadingContextType {
@@ -27,17 +28,23 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
   // Show loading on route change
   useEffect(() => {
     setIsLoading(true)
+    // Show loading for 0.8 seconds, then trigger fade-out (0.5s)
+    // Total: 1.3 seconds before page becomes fully visible
     const timer = setTimeout(() => {
       setIsLoading(false)
-    }, 800) // Show loading for 0.8 seconds on route change
+    }, 800) // Animation will handle the fade-out transition
 
     return () => clearTimeout(timer)
   }, [pathname])
 
   return (
     <LoadingContext.Provider value={{ isLoading, setIsLoading }}>
-      {isLoading && <LoadingScreen />}
-      {children}
+      <AnimatePresence mode="wait">
+        {isLoading && <LoadingScreen key="loading-screen" />}
+      </AnimatePresence>
+      <div className={isLoading ? 'pointer-events-none' : ''}>
+        {children}
+      </div>
     </LoadingContext.Provider>
   )
 }

@@ -122,8 +122,9 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const isInWishlist = (productID: string): boolean => {
     if (!wishlist || !wishlist.items) return false
     return wishlist.items.some(item => {
-      const pid = typeof item.productID === 'string' ? item.productID : item.productID._id
-      return pid === productID
+      if (!item.productID) return false
+      const pid = typeof item.productID === 'string' ? item.productID : item.productID?._id
+      return pid && pid === productID
     })
   }
 
