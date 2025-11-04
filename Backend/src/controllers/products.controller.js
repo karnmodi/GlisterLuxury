@@ -511,27 +511,65 @@ async function deleteProduct(req, res) {
  */
 async function uploadProductImages(req, res) {
 	try {
+		// Log request details for debugging
+		const contentType = req.headers['content-type'] || 'unknown';
+		console.log(`[uploadProductImages] Request received - Product ID: ${req.params.id}, Content-Type: ${contentType}`);
+		
 		const product = await Product.findById(req.params.id);
 		if (!product) {
+			console.error(`[uploadProductImages] Product not found: ${req.params.id}`);
 			return res.status(404).json({ message: 'Product not found' });
 		}
 
+		// Log file information
+		console.log(`[uploadProductImages] Files received:`, {
+			filesPresent: !!req.files,
+			filesCount: req.files ? req.files.length : 0,
+			filesInfo: req.files ? req.files.map(f => ({
+				fieldname: f.fieldname,
+				originalname: f.originalname,
+				mimetype: f.mimetype,
+				size: f.size,
+				bufferLength: f.buffer ? f.buffer.length : 0
+			})) : []
+		});
+
 		if (!req.files || req.files.length === 0) {
-			return res.status(400).json({ message: 'No images provided' });
+			console.error(`[uploadProductImages] No files provided in request`);
+			console.error(`[uploadProductImages] Request body type:`, typeof req.body);
+			console.error(`[uploadProductImages] Request body keys:`, Object.keys(req.body || {}));
+			console.error(`[uploadProductImages] Content-Type header:`, contentType);
+			return res.status(400).json({ 
+				message: 'No images provided. Please ensure files are being sent correctly.',
+				debug: process.env.NODE_ENV === 'development' ? {
+					contentType,
+					hasFiles: !!req.files,
+					filesCount: req.files ? req.files.length : 0,
+					bodyKeys: Object.keys(req.body || {})
+				} : undefined
+			});
 		}
 
 		// Upload all images to Cloudinary
 		const sanitizedProductID = sanitizeProductID(product.productID);
-		const uploadPromises = req.files.map((file) =>
-			uploadToCloudinary(file.buffer, {
+		console.log(`[uploadProductImages] Starting Cloudinary upload for ${req.files.length} file(s) to folder: glister/products/${sanitizedProductID}`);
+		
+		const uploadPromises = req.files.map((file, index) => {
+			console.log(`[uploadProductImages] Uploading file ${index + 1}/${req.files.length}: ${file.originalname} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+			return uploadToCloudinary(file.buffer, {
 				folder: `glister/products/${sanitizedProductID}`,
-			})
-		);
+			}).catch(err => {
+				console.error(`[uploadProductImages] Cloudinary upload failed for ${file.originalname}:`, err);
+				throw new Error(`Failed to upload ${file.originalname}: ${err.message}`);
+			});
+		});
 
 		const uploadResults = await Promise.all(uploadPromises);
+		console.log(`[uploadProductImages] Successfully uploaded ${uploadResults.length} image(s) to Cloudinary`);
 		
 		// Extract secure URLs from upload results
 		const imageUrls = uploadResults.map((result) => result.secure_url);
+		console.log(`[uploadProductImages] Cloudinary URLs generated:`, imageUrls);
 
 		// Add new image URLs to the product as Map entries
 		imageUrls.forEach((url, index) => {
@@ -543,6 +581,7 @@ async function uploadProductImages(req, res) {
 		});
 		
 		await product.save();
+		console.log(`[uploadProductImages] Product saved with ${imageUrls.length} new image(s)`);
 
 		const transformedProduct = transformMongoTypes(product.toObject());
 
@@ -552,7 +591,17 @@ async function uploadProductImages(req, res) {
 			product: transformedProduct,
 		});
 	} catch (err) {
-		return res.status(500).json({ message: err.message });
+		console.error(`[uploadProductImages] Error during upload:`, {
+			message: err.message,
+			stack: err.stack,
+			productId: req.params.id,
+			filesCount: req.files ? req.files.length : 0,
+			contentType: req.headers['content-type']
+		});
+		return res.status(500).json({ 
+			message: err.message || 'Failed to upload images',
+			error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+		});
 	}
 }
 

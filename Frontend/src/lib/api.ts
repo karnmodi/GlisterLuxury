@@ -102,23 +102,50 @@ export const productsApi = {
     }),
 
   uploadImages: async (id: string, files: File[]) => {
+    if (!files || files.length === 0) {
+      throw new Error('No files provided for upload')
+    }
+
+    console.log(`[productsApi.uploadImages] Preparing to upload ${files.length} file(s) for product ${id}`)
+    
     const formData = new FormData()
-    files.forEach((file) => {
+    files.forEach((file, index) => {
+      console.log(`[productsApi.uploadImages] Adding file ${index + 1}/${files.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`)
       formData.append('images', file)
     })
 
-    const response = await fetch(`${API_BASE_URL}/products/${id}/images`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'include', // Add this line to fix CORS issue
-    })
+    try {
+      // DO NOT set Content-Type header manually - browser will set it automatically
+      // with the correct boundary parameter for multipart/form-data
+      const response = await fetch(`${API_BASE_URL}/products/${id}/images`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+        // Explicitly do NOT set Content-Type header - let browser handle it
+      })
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Upload failed' }))
-      throw new Error(error.message || `HTTP error! status: ${response.status}`)
+      console.log(`[productsApi.uploadImages] Response status: ${response.status} ${response.statusText}`)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Upload failed' }))
+        console.error(`[productsApi.uploadImages] Upload failed:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        })
+        throw new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log(`[productsApi.uploadImages] Upload successful: ${result.images?.length || 0} image(s) uploaded`)
+      return result
+    } catch (error) {
+      console.error(`[productsApi.uploadImages] Upload error:`, error)
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error('Failed to upload images')
     }
-
-    return response.json()
   },
 
   deleteImage: (id: string, imageUrl: string) =>

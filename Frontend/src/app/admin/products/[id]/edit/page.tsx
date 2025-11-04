@@ -329,7 +329,56 @@ export default function EditProductPage() {
         .map(img => img.file!)
       
       if (newImageFiles.length > 0) {
-        await productsApi.uploadImages(product._id, newImageFiles)
+        try {
+          // Upload images to the server
+          const uploadResult = await productsApi.uploadImages(product._id, newImageFiles)
+          
+          // Get the uploaded image URLs
+          const uploadedImageUrls = uploadResult.images || []
+          
+          // Match uploaded image URLs with finish mappings from formData.images
+          // Only consider images that have files (new images) and finish mappings
+          const newImagesWithMappings = formData.images
+            .filter(img => img.file && img.mappedFinishID)
+          
+          // Create mappings for newly uploaded images with finish assignments
+          const imageMappings = newImagesWithMappings.map((img, index) => {
+            // Find the corresponding uploaded URL by matching the order
+            const uploadedImageIndex = formData.images
+              .filter(i => i.file)
+              .findIndex(i => i === img)
+            const imageUrl = uploadedImageUrls[uploadedImageIndex] || img.url
+            
+            return {
+              imageUrl,
+              mappedFinishID: img.mappedFinishID!
+            }
+          })
+          
+          // Apply image-finish mappings for newly uploaded images
+          for (const mapping of imageMappings) {
+            try {
+              await productsApi.updateImageFinishMapping(product._id, mapping.imageUrl, mapping.mappedFinishID)
+            } catch (error) {
+              console.error('Failed to update image-finish mapping:', error)
+            }
+          }
+        } catch (error) {
+          console.error('Failed to upload images:', error)
+          toast.warning('Product updated but some images failed to upload')
+        }
+      }
+      
+      // Apply finish mappings for existing images (images without file property)
+      const existingImagesWithMappings = formData.images
+        .filter(img => !img.file && img.mappedFinishID && img.url)
+      
+      for (const img of existingImagesWithMappings) {
+        try {
+          await productsApi.updateImageFinishMapping(product._id, img.url, img.mappedFinishID)
+        } catch (error) {
+          console.error('Failed to update image-finish mapping for existing image:', error)
+        }
       }
 
       toast.success('Product updated successfully!')

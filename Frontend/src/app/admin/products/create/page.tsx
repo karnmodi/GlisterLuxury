@@ -176,13 +176,25 @@ export default function CreateProductPage() {
             // Get the uploaded image URLs
             const uploadedImageUrls = uploadResult.images || []
             
+            // Match uploaded image URLs with finish mappings from formData.images
+            // Only consider images that have files (new images) and finish mappings
+            const imagesWithMappings = formData.images
+              .filter(img => img.file && img.mappedFinishID)
+            
             // Create mappings for images with finish assignments
-            const imageMappings = formData.images
-              .filter(img => img.file && img.mappedFinishID) // Only new images with finish mappings
-              .map((img, index) => ({
-                imageUrl: uploadedImageUrls[index] || img.url,
-                mappedFinishID: img.mappedFinishID
-              }))
+            // Match by order: find the index of each image in the filtered files array
+            const imageMappings = imagesWithMappings.map((img) => {
+              // Find the corresponding uploaded URL by matching the order
+              const uploadedImageIndex = formData.images
+                .filter(i => i.file)
+                .findIndex(i => i === img)
+              const imageUrl = uploadedImageUrls[uploadedImageIndex] || img.url
+              
+              return {
+                imageUrl,
+                mappedFinishID: img.mappedFinishID!
+              }
+            })
             
             // Apply image-finish mappings
             for (const mapping of imageMappings) {

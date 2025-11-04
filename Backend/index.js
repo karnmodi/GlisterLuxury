@@ -42,9 +42,27 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-// Increase body size limits for image uploads (50MB limit)
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Conditional body parsers - skip multipart/form-data (needed for multer)
+// Multer needs access to the raw request stream for file uploads
+// On Vercel serverless, body parsers may interfere with multer, so we skip them for multipart
+const jsonParser = express.json({ limit: '50mb' });
+const urlencodedParser = express.urlencoded({ extended: true, limit: '50mb' });
+
+app.use((req, res, next) => {
+	const contentType = req.headers['content-type'] || '';
+	// Skip body parsing for multipart/form-data - let multer handle it
+	if (contentType.includes('multipart/form-data')) {
+		console.log('[BodyParser] Skipping body parsing for multipart/form-data request');
+		return next();
+	}
+	// For non-multipart requests, use the appropriate parsers
+	jsonParser(req, res, (err) => {
+		if (err) return next(err);
+		urlencodedParser(req, res, next);
+	});
+});
+
 app.use(cookieParser());
 
 // Middleware to ensure database connection

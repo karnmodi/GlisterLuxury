@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "browser-image-compression": "^2.0.2",
     "framer-motion": "^12.23.24",
     "next": "14.0.4",
     "react": "^18",
