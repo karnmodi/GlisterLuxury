@@ -4,20 +4,29 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { productsApi, categoriesApi, finishesApi, materialsApi } from '@/lib/api'
-import type { Product, Category, Finish, MaterialMaster } from '@/types'
+import { productsApi, categoriesApi, finishesApi } from '@/lib/api'
+import type { Category, Finish } from '@/types'
 import LuxuryNavigation from '@/components/LuxuryNavigation'
 import LuxuryFooter from '@/components/LuxuryFooter'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { motion, AnimatePresence } from 'framer-motion'
 
-type SortOption = 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc' | 'newest'
+type MinimalProduct = {
+  _id: string
+  productID: string
+  name: string
+  description: string
+  materialsCount: number
+  thumbnailImage: string | null
+  hoverImage: string | null
+  hoverImageFinishId: string | null
+}
 
 export default function ProductsPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<MinimalProduct[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [finishes, setFinishes] = useState<Finish[]>([])
   const [materials, setMaterials] = useState<MaterialMaster[]>([])
@@ -197,19 +206,23 @@ export default function ProductsPage() {
     fetchInitialData()
   }, [])
 
-  // Resolve category/subcategory from URL params after categories load
-  // This converts slugs to IDs and updates the selected state for dropdowns
-  useEffect(() => {
-    if (categories.length > 0) {
-      const urlCategory = searchParams.get('category') || ''
-      const urlSubcategory = searchParams.get('subcategory') || ''
-      
-      if (urlCategory) {
-        // Find category by slug or ID
-        const category = categories.find((c: Category) => 
-          c.slug === urlCategory || c._id === urlCategory
-        )
-        
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      const [productsData, categoriesData, finishesData] = await Promise.all([
+        productsApi.getListing(), // Using optimized endpoint
+        categoriesApi.getAll(),
+        finishesApi.getAll(),
+      ])
+      setCategories(categoriesData)
+      setFinishes(finishesData)
+
+      // After categories load, resolve category/subcategory from URL params
+      const categorySlug = searchParams.get('category')
+      const subcategorySlug = searchParams.get('subcategory')
+
+      if (categorySlug) {
+        const category = categoriesData.find((c: Category) => c.slug === categorySlug)
         if (category) {
           // Update selectedCategory to use ID (for dropdown)
           setSelectedCategory(category._id)
@@ -326,12 +339,7 @@ export default function ProductsPage() {
       if (debouncedSearchQuery) params.q = debouncedSearchQuery
       if (selectedCategory) params.category = selectedCategory
       if (selectedSubcategory) params.subcategory = selectedSubcategory
-      if (selectedMaterial) params.material = selectedMaterial
-      if (selectedFinish) params.finishId = selectedFinish
-      if (hasSize) params.hasSize = true
-      if (hasDiscount) params.hasDiscount = true
-
-      const results = await productsApi.getAll(params)
+      const results = await productsApi.getListing(params) // Using optimized endpoint
       setProducts(results)
     } catch (error) {
       console.error('Failed to fetch products:', error)
@@ -407,26 +415,10 @@ export default function ProductsPage() {
     router.push('/products', { scroll: false })
   }
 
-  // Get the default image (mappedFinishID: null)
-  const getDefaultImage = (product: Product) => {
-    const images = Object.values(product.imageURLs || {})
-    const defaultImage = images.find(img => img.mappedFinishID === null)
-    return defaultImage?.url || images[0]?.url
-  }
-
-  // Get the first finish-specific image for hover effect
-  const getHoverImage = (product: Product) => {
-    const images = Object.values(product.imageURLs || {})
-    const finishImage = images.find(img => img.mappedFinishID !== null)
-    return finishImage?.url
-  }
-
   // Get the finish name for the hover image
-  const getHoverFinishName = (product: Product) => {
-    const images = Object.values(product.imageURLs || {})
-    const finishImage = images.find(img => img.mappedFinishID !== null)
-    if (finishImage?.mappedFinishID) {
-      const finish = finishes.find(f => f._id === finishImage.mappedFinishID)
+  const getHoverFinishName = (product: MinimalProduct) => {
+    if (product.hoverImageFinishId) {
+      const finish = finishes.find(f => f._id === product.hoverImageFinishId)
       return finish?.name || 'Custom Finish'
     }
     return null
@@ -1262,104 +1254,111 @@ export default function ProductsPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.4, delay: index * 0.03 }}
                     >
-                      <Link href={`/products/${product._id}`}>
-                        <motion.div 
-                          className="bg-white rounded-lg overflow-hidden shadow-md border border-brass/20 hover:shadow-xl transition-all duration-300 group relative"
-                          onMouseEnter={() => setHoveredProduct(product._id)}
-                          onMouseLeave={() => setHoveredProduct(null)}
-                          whileHover={{ 
-                            scale: 1.02,
-                            transition: { duration: 0.3, ease: "easeOut" }
+                      {/* Product Image */}
+                      <div className="relative h-64 bg-white overflow-hidden">
+                        {/* Subtle Glow Effect */}
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-br from-brass/5 to-transparent pointer-events-none"
+                          initial={{ opacity: 0 }}
+                          animate={{
+                            opacity: hoveredProduct === product._id ? 1 : 0
                           }}
-                        >
-                          {/* Product Image - Compact */}
-                          <div className="relative h-32 sm:h-40 md:h-48 bg-white overflow-hidden">
-                            {product.discountPercentage && product.discountPercentage > 0 && (
-                              <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                className="absolute top-2 left-2 z-10"
-                              >
-                                <span className="px-2 py-1 text-[10px] font-semibold rounded-md bg-brass text-white shadow-lg">
-                                  {Math.round(product.discountPercentage)}% OFF
-                                </span>
-                              </motion.div>
-                            )}
+                          transition={{ duration: 0.4 }}
+                        />
+                        {product.thumbnailImage ? (
+                          <>
+                            {/* Default Image with Smooth Transition */}
                             <motion.div
-                              className="absolute inset-0 bg-gradient-to-br from-brass/5 to-transparent pointer-events-none"
-                              initial={{ opacity: 0 }}
-                              animate={{ 
-                                opacity: hoveredProduct === product._id ? 1 : 0 
+                              key={`default-${product._id}`}
+                              initial={{ opacity: 1, scale: 1 }}
+                              animate={{
+                                opacity: hoveredProduct === product._id ? 0 : 1,
+                                scale: hoveredProduct === product._id ? 1.05 : 1
                               }}
-                              transition={{ duration: 0.4 }}
-                            />
-                            {product.imageURLs && Object.keys(product.imageURLs).length > 0 ? (
-                              <>
+                              transition={{
+                                duration: 0.6,
+                                ease: [0.25, 0.46, 0.45, 0.94] // Custom easing for smoothness
+                              }}
+                              className="absolute inset-0"
+                            >
+                              <Image
+                                src={product.thumbnailImage}
+                                alt={product.name}
+                                fill
+                                className="object-contain p-4"
+                              />
+                            </motion.div>
+
+                            {/* Hover Image with Smooth Transition */}
+                            <AnimatePresence>
+                              {hoveredProduct === product._id && product.hoverImage && (
                                 <motion.div
-                                  key={`default-${product._id}`}
-                                  initial={{ opacity: 1, scale: 1 }}
-                                  animate={{ 
-                                    opacity: hoveredProduct === product._id ? 0 : 1,
-                                    scale: hoveredProduct === product._id ? 1.05 : 1
+                                  key={`hover-${product._id}`}
+                                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                  animate={{
+                                    opacity: 1,
+                                    scale: 1,
+                                    y: 0
                                   }}
-                                  transition={{ 
-                                    duration: 0.6, 
-                                    ease: [0.25, 0.46, 0.45, 0.94]
+                                  exit={{
+                                    opacity: 0,
+                                    scale: 1.05,
+                                    y: -10
+                                  }}
+                                  transition={{
+                                    duration: 0.6,
+                                    ease: [0.25, 0.46, 0.45, 0.94],
+                                    delay: 0.1
                                   }}
                                   className="absolute inset-0"
                                 >
                                   <Image
-                                    src={getDefaultImage(product)}
-                                    alt={product.name}
+                                    src={product.hoverImage}
+                                    alt={`${product.name} - ${getHoverFinishName(product)}`}
                                     fill
                                     className="object-contain p-3"
                                   />
-                                </motion.div>
-                                
-                                <AnimatePresence>
-                                  {hoveredProduct === product._id && getHoverImage(product) && (
+
+                                  {/* Finish Caption Overlay with Enhanced Animation */}
+                                  <motion.div
+                                    initial={{ opacity: 0, y: 30, scale: 0.9, rotateX: 15 }}
+                                    animate={{
+                                      opacity: 1,
+                                      y: 0,
+                                      scale: 1,
+                                      rotateX: 0
+                                    }}
+                                    exit={{
+                                      opacity: 0,
+                                      y: 20,
+                                      scale: 0.95,
+                                      rotateX: -10
+                                    }}
+                                    transition={{
+                                      duration: 0.6,
+                                      delay: 0.2,
+                                      ease: [0.25, 0.46, 0.45, 0.94]
+                                    }}
+                                    className="absolute bottom-4 left-4 right-4 bg-charcoal/90 backdrop-blur-md text-ivory px-3 py-2 rounded-lg border border-brass/40 shadow-lg"
+                                    style={{ transformStyle: 'preserve-3d' }}
+                                  >
                                     <motion.div
-                                      key={`hover-${product._id}`}
-                                      initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                      animate={{ 
-                                        opacity: 1, 
-                                        scale: 1,
-                                        y: 0
-                                      }}
-                                      exit={{ 
-                                        opacity: 0, 
-                                        scale: 1.05,
-                                        y: -10
-                                      }}
-                                      transition={{ 
-                                        duration: 0.6,
-                                        ease: [0.25, 0.46, 0.45, 0.94],
-                                        delay: 0.1
-                                      }}
-                                      className="absolute inset-0"
+                                      className="flex items-center gap-2"
+                                      initial={{ x: -10 }}
+                                      animate={{ x: 0 }}
+                                      transition={{ delay: 0.3, duration: 0.4 }}
                                     >
-                                      <Image
-                                        src={getHoverImage(product)!}
-                                        alt={`${product.name} - ${getHoverFinishName(product)}`}
-                                        fill
-                                        className="object-contain p-3"
-                                      />
-                                      
                                       <motion.div
-                                        initial={{ opacity: 0, y: 30 }}
-                                        animate={{ 
-                                          opacity: 1, 
-                                          y: 0
-                                        }}
-                                        exit={{ 
-                                          opacity: 0, 
-                                          y: 20
-                                        }}
-                                        transition={{ 
-                                          duration: 0.4, 
-                                          delay: 0.2
-                                        }}
-                                        className="absolute bottom-2 left-2 right-2 bg-charcoal/90 backdrop-blur-md text-ivory px-2 py-1 rounded border border-brass/40 shadow-lg"
+                                        className="w-2 h-2 bg-brass rounded-full"
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        transition={{ delay: 0.4, duration: 0.3 }}
+                                      ></motion.div>
+                                      <motion.span
+                                        className="text-sm font-medium"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: 0.5, duration: 0.3 }}
                                       >
                                         <div className="flex items-center gap-2">
                                           <div className="w-1.5 h-1.5 bg-brass rounded-full"></div>
@@ -1381,29 +1380,27 @@ export default function ProductsPage() {
                             )}
                           </div>
 
-                          {/* Product Info - Compact */}
-                          <div className="p-3 sm:p-4">
-                            <p className="text-[9px] sm:text-[10px] text-brass tracking-luxury mb-1">
-                              {product.productID}
-                            </p>
-                            <h3 className="text-sm sm:text-base font-sans font-semibold text-charcoal mb-1 group-hover:text-brass transition-colors leading-tight line-clamp-2">
-                              {product.name}
-                            </h3>
-                            <p className="text-xs text-charcoal/60 mb-3 line-clamp-2 overflow-hidden">
-                              {product.description || 'Premium quality product'}
-                            </p>
-                            
-                            <div className="flex items-center justify-between mt-2 sm:mt-0">
-                              <span className="text-[10px] sm:text-xs text-charcoal">
-                                {product.materials?.length || 0} materials
-                              </span>
-                              <span className="hidden sm:inline text-brass font-medium text-xs group-hover:underline">
-                                View →
-                              </span>
-                            </div>
-                          </div>
-                        </motion.div>
-                      </Link>
+                      {/* Product Info */}
+                      <div className="p-6">
+                        <p className="text-xs text-brass tracking-luxury mb-2">
+                          {product.productID}
+                        </p>
+                        <h3 className="text-lg font-serif font-bold text-charcoal mb-2 group-hover:text-brass transition-colors">
+                          {product.name}
+                        </h3>
+                        <p className="text-sm text-charcoal/60 mb-4 line-clamp-2">
+                          {product.description || 'Premium quality product'}
+                        </p>
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-charcoal">
+                            {product.materialsCount} materials
+                          </span>
+                          <span className="text-brass font-medium text-sm group-hover:underline">
+                            View Details →
+                          </span>
+                        </div>
+                      </div>
                     </motion.div>
                   ))}
                 </div>

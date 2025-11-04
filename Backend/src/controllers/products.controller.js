@@ -709,60 +709,114 @@ async function updateImageFinishMapping(req, res) {
 }
 
 /**
- * Get finishes available for a specific product
- * GET /api/products/:id/finishes
+ * List products with minimal data for product listing page
+ * Returns only essential fields: id, productID, name, description,
+ * materialsCount, and up to 2 images (default + hover)
+ * GET /api/products/listing
  */
-async function getProductFinishes(req, res) {
+async function listProductsMinimal(req, res) {
 	try {
-		const product = await Product.findById(req.params.id).lean();
-		if (!product) {
-			return res.status(404).json({ message: 'Product not found' });
+		const { q, material, hasSize, finishId, category, subcategory, subcategoryId } = req.query;
+		const Category = require('../models/Category');
+		const filter = {};
+
+		// Search query
+		if (q) filter.$or = [
+			{ name: { $regex: q, $options: 'i' } },
+			{ productID: { $regex: q, $options: 'i' } },
+			{ productUID: { $regex: q, $options: 'i' } },
+		];
+
+		// Material filter
+		if (material) filter['materials.name'] = { $regex: material, $options: 'i' };
+
+		// Size filter
+		if (hasSize === 'true') filter['materials.sizeOptions.0'] = { $exists: true };
+
+		// Finish filter
+		if (finishId) filter.finishes = { $in: [finishId] };
+
+		// Category filter - support both ID and slug
+		if (category) {
+			const mongoose = require('mongoose');
+			if (mongoose.Types.ObjectId.isValid(category) && category.length === 24) {
+				filter.category = category;
+			} else {
+				const categoryDoc = await Category.findOne({ slug: category });
+				if (categoryDoc) {
+					filter.category = categoryDoc._id;
+				} else {
+					return res.json([]);
+				}
+			}
 		}
 
-		// Extract finish IDs from product.finishes array
-		const finishIds = (product.finishes || []).map(f => f.finishID);
+		// Subcategory filter - support both ID and slug
+		if (subcategory || subcategoryId) {
+			const subcategoryValue = subcategory || subcategoryId;
+			const mongoose = require('mongoose');
 
-		if (finishIds.length === 0) {
-			return res.json([]);
+			if (mongoose.Types.ObjectId.isValid(subcategoryValue) && subcategoryValue.length === 24) {
+				filter.subcategoryId = subcategoryValue;
+			} else {
+				const categoryWithSubcategory = await Category.findOne({
+					'subcategories.slug': subcategoryValue
+				});
+
+				if (categoryWithSubcategory) {
+					const subcategoryDoc = categoryWithSubcategory.subcategories.find(
+						sub => sub.slug === subcategoryValue
+					);
+					if (subcategoryDoc) {
+						filter.subcategoryId = subcategoryDoc._id;
+					}
+				} else {
+					return res.json([]);
+				}
+			}
 		}
 
-		// Fetch finish details
-		const finishes = await Finish.find({ _id: { $in: finishIds } }).lean();
+		// Fetch products with only necessary fields
+		const items = await Product.find(filter)
+			.select('_id productID name description imageURLs materials')
+			.lean();
 
-		// Map finishes with price adjustments from product
-		const finishMap = new Map();
-		(product.finishes || []).forEach(f => {
-			const finishId = f.finishID?.toString ? f.finishID.toString() : String(f.finishID);
-			finishMap.set(finishId, f.priceAdjustment);
-		});
+		// Transform to minimal format
+		const minimalProducts = items.map(item => {
+			// Extract images
+			const imageURLsArray = item.imageURLs ? Object.values(item.imageURLs) : [];
 
-		// Combine finish details with price adjustments
-		const result = finishes.map(finish => {
-			const finishId = finish._id?.toString ? finish._id.toString() : String(finish._id);
-			const priceAdjustment = finishMap.get(finishId);
-			
+			// Find default image (mappedFinishID is null)
+			const defaultImage = imageURLsArray.find(img => img.mappedFinishID === null);
+
+			// Find first finish-specific image for hover
+			const hoverImage = imageURLsArray.find(img => img.mappedFinishID !== null);
+
 			return {
-				...finish,
-				priceAdjustment: priceAdjustment !== undefined 
-					? parseFloat(priceAdjustment?.toString() || '0') 
-					: 0
+				_id: item._id.toString(),
+				productID: item.productID,
+				name: item.name,
+				description: item.description || '',
+				materialsCount: item.materials ? item.materials.length : 0,
+				thumbnailImage: defaultImage?.url || imageURLsArray[0]?.url || null,
+				hoverImage: hoverImage?.url || null,
+				hoverImageFinishId: hoverImage?.mappedFinishID?.toString() || null
 			};
 		});
 
-		// Transform MongoDB types
-		const transformedResult = transformMongoTypes(result);
-		return res.json(transformedResult);
+		return res.json(minimalProducts);
 	} catch (err) {
-		console.error('Product finishes fetch error:', err);
+		console.error('List products minimal error:', err);
 		return res.status(500).json({ message: err.message });
 	}
 }
 
-module.exports = { 
-	createProduct, 
-	listProducts, 
-	getProduct, 
-	updateProduct, 
+module.exports = {
+	createProduct,
+	listProducts,
+	listProductsMinimal,
+	getProduct,
+	updateProduct,
 	deleteProduct,
 	uploadProductImages,
 	deleteProductImage,

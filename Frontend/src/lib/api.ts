@@ -48,6 +48,27 @@ export const productsApi = {
     return apiCall<Product[]>(`/products${query ? `?${query}` : ''}`)
   },
 
+  // Optimized endpoint for product listing - returns minimal data
+  getListing: (params?: { q?: string; material?: string; category?: string; subcategory?: string }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.q) queryParams.append('q', params.q)
+    if (params?.material) queryParams.append('material', params.material)
+    if (params?.category) queryParams.append('category', params.category)
+    if (params?.subcategory) queryParams.append('subcategory', params.subcategory)
+
+    const query = queryParams.toString()
+    return apiCall<Array<{
+      _id: string
+      productID: string
+      name: string
+      description: string
+      materialsCount: number
+      thumbnailImage: string | null
+      hoverImage: string | null
+      hoverImageFinishId: string | null
+    }>>(`/products/listing${query ? `?${query}` : ''}`)
+  },
+
   getById: (id: string) => apiCall<Product>(`/products/${id}`),
 
   getFinishes: (id: string) => apiCall<Finish[]>(`/products/${id}/finishes`),
