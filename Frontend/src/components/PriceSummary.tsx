@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { toNumber, formatCurrency } from '@/lib/utils'
+import { toNumber, formatCurrency, calculateVAT } from '@/lib/utils'
 import type { Product, Material, SizeOption, Finish } from '@/types'
 
 interface PriceSummaryProps {
@@ -174,6 +174,26 @@ export default function PriceSummary({
               <span className="text-xl font-bold text-brass">
                 {formatCurrency(unitPrice)}
               </span>
+            </motion.div>
+
+            {/* VAT Breakdown */}
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              transition={{ delay: 1.0 }}
+              className="bg-brass/5 border border-brass/20 rounded-lg p-2 text-xs space-y-1"
+            >
+              <div className="flex justify-between text-ivory/70">
+                <span>Excl. VAT</span>
+                <span className="font-mono">{formatCurrency(calculateVAT(unitPrice).net)}</span>
+              </div>
+              <div className="flex justify-between text-ivory/70">
+                <span>VAT (20%)</span>
+                <span className="font-mono">{formatCurrency(calculateVAT(unitPrice).vat)}</span>
+              </div>
+              <div className="text-[10px] text-ivory/50 italic text-center pt-1 border-t border-brass/10">
+                All prices include VAT
+              </div>
             </motion.div>
             
             <AnimatePresence>

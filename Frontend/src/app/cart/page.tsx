@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useCart } from '@/contexts/CartContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { toNumber, formatCurrency } from '@/lib/utils'
+import { toNumber, formatCurrency, calculateVAT } from '@/lib/utils'
 import LuxuryNavigation from '@/components/LuxuryNavigation'
 import LuxuryFooter from '@/components/LuxuryFooter'
 import Button from '@/components/ui/Button'
@@ -310,6 +310,19 @@ export default function CartPage() {
                                         </span>
                                       </motion.div>
                                     )}
+
+                                    {/* VAT Breakdown */}
+                                    <div className="bg-brass/5 border border-brass/20 rounded-md p-2 mt-2 space-y-1">
+                                      <p className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">VAT Breakdown:</p>
+                                      <div className="flex justify-between text-[11px] text-charcoal/70">
+                                        <span>Excl. VAT</span>
+                                        <span className="font-mono">{formatCurrency(calculateVAT(item.unitPrice).net)}</span>
+                                      </div>
+                                      <div className="flex justify-between text-[11px] text-charcoal/70">
+                                        <span>VAT (20%)</span>
+                                        <span className="font-mono">{formatCurrency(calculateVAT(item.unitPrice).vat)}</span>
+                                      </div>
+                                    </div>
 
                                     <div className="flex items-center justify-between text-charcoal font-bold border-t border-charcoal/20 pt-2 mt-2 flex-wrap gap-2">
                                       <span>Total Unit Price</span>
