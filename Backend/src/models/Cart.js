@@ -47,6 +47,32 @@ const CartSchema = new Schema(
 		offerID: { type: Schema.Types.ObjectId, ref: 'Offer' },
 		total: { type: Schema.Types.Decimal128, default: 0 },
 		status: { type: String, enum: ['active', 'checkout', 'completed'], default: 'active' },
+		// ========== AUTO-APPLY TRACKING ==========
+		// Track if current discount was auto-applied
+		isAutoApplied: {
+			type: Boolean,
+			default: false
+		},
+		// Track application method
+		discountApplicationMethod: {
+			type: String,
+			enum: ['manual', 'auto', 'none'],
+			default: 'none'
+		},
+		// Store all eligible auto-apply offers (for UI hints)
+		eligibleAutoOffers: [{
+			offerID: {
+				type: Schema.Types.ObjectId,
+				ref: 'Offer'
+			},
+			calculatedDiscount: { type: Schema.Types.Decimal128 },
+			priority: { type: Number }
+		}],
+		// Lock manual code (prevent auto-apply from overriding user choice)
+		manualCodeLocked: {
+			type: Boolean,
+			default: false
+		}
 	},
 	{ timestamps: true }
 );

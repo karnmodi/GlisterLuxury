@@ -391,6 +391,20 @@ export const cartApi = {
     apiCall<{ message: string; cart: Cart }>(`/cart/${sessionID}/remove-discount`, {
       method: 'DELETE',
     }),
+
+  // NEW: Unlock manual discount (allow auto-apply to re-evaluate)
+  unlockDiscount: (sessionID: string) =>
+    apiCall<{ message: string; cart: Cart }>(`/cart/${sessionID}/unlock-discount`, {
+      method: 'POST',
+    }),
+
+  // NEW: Get near-miss offers (offers customer is close to qualifying for)
+  getNearMissOffers: (sessionID: string, userId?: string) => {
+    const query = userId ? `?userId=${userId}` : '';
+    return apiCall<{ nearMissOffers: Array<{ offer: Offer; gapAmount: number; potentialDiscount: number }>; currentSubtotal: number }>(
+      `/cart/${sessionID}/near-miss-offers${query}`
+    );
+  },
 }
 
 // Offers API
@@ -507,6 +521,35 @@ export const offersApi = {
   delete: (id: string, token: string) =>
     apiCall<{ message: string }>(`/offers/${id}`, {
       method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  // NEW: Get offer analytics
+  getAnalytics: (id: string, token: string) =>
+    apiCall<{
+      offer: {
+        code?: string
+        displayName: string
+        autoApply: boolean
+      }
+      usage: {
+        autoApplyCount: number
+        manualApplyCount: number
+        totalApplications: number
+      }
+      conversion: {
+        ordersCreated: number
+        conversionRate: string
+      }
+      revenue: {
+        totalRevenue: number
+        totalDiscount: number
+        orderCount: number
+      }
+    }>(`/offers/${id}/analytics`, {
+      method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`
       }

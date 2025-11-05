@@ -88,11 +88,13 @@ export default function OfferCodeInput({
   // Check if discount is applied - handle both Decimal128 and number formats
   const discountAmount = cart?.discountAmount ? toNumber(cart.discountAmount) : 0
   const hasDiscount = Boolean(cart?.discountCode && discountAmount > 0)
+  const isAutoApplied = cart?.isAutoApplied || false
+  const discountMethod = cart?.discountApplicationMethod || 'none'
 
   return (
     <div className="bg-gradient-ivory rounded-lg border border-brass/20 p-4">
       <h3 className="text-sm font-semibold text-charcoal mb-3">Discount Code</h3>
-      
+
       {!hasDiscount ? (
         <div className="space-y-2">
           <div className="flex gap-2 flex-col sm:flex-row">
@@ -139,22 +141,44 @@ export default function OfferCodeInput({
           animate={{ opacity: 1, height: 'auto' }}
           className="space-y-3"
         >
-          {/* Applied Discount Display */}
-          <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-md px-4 py-3">
+          {/* Applied Discount Display - Different UI for Auto vs Manual */}
+          <div className={`flex items-center justify-between rounded-md px-4 py-3 ${
+            isAutoApplied
+              ? 'bg-gradient-to-r from-brass/10 to-brass/5 border-2 border-brass/30'
+              : 'bg-green-50 border border-green-200'
+          }`}>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-sm font-semibold text-charcoal">Discount Applied</p>
+                {isAutoApplied ? (
+                  <>
+                    <svg className="w-5 h-5 text-brass" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-semibold text-brass">Auto-Applied Discount!</p>
+                      <p className="text-xs text-charcoal/60 mt-0.5">Best deal automatically applied for you</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm font-semibold text-charcoal">Discount Applied</p>
+                  </>
+                )}
               </div>
-              <p className="text-sm font-mono font-bold text-brass">Code: {cart?.discountCode || 'N/A'}</p>
-              <p className="text-xs text-charcoal/70">Savings: {formatCurrency(discountAmount)}</p>
+              <p className="text-sm font-mono font-bold text-brass mt-1">
+                {cart?.discountCode || 'N/A'}
+              </p>
+              <p className="text-sm font-semibold text-green-600 mt-1">
+                💰 You save: {formatCurrency(discountAmount)}
+              </p>
             </div>
             <button
               onClick={handleRemoveCode}
               disabled={removing}
-              className="flex items-center gap-1 px-3 py-2 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 hover:border-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 px-3 py-2 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 hover:border-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-2 shrink-0"
               title="Remove discount code"
             >
               {removing ? (
@@ -162,23 +186,29 @@ export default function OfferCodeInput({
                   <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
-                  Removing...
+                  <span className="hidden sm:inline">Removing...</span>
                 </>
               ) : (
                 <>
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                  Remove
+                  <span className="hidden sm:inline">Remove</span>
                 </>
               )}
             </button>
           </div>
-          
+
           {/* Info Message */}
-          <p className="text-xs text-charcoal/60 bg-charcoal/5 border border-brass/20 rounded px-3 py-2">
-            Only one discount code can be applied per cart. Remove this discount to apply a different one.
-          </p>
+          {isAutoApplied ? (
+            <p className="text-xs text-charcoal/60 bg-brass/5 border border-brass/20 rounded px-3 py-2">
+              ✨ This discount was automatically applied because it gives you the best savings! You can remove it and enter a different code if you prefer.
+            </p>
+          ) : (
+            <p className="text-xs text-charcoal/60 bg-charcoal/5 border border-brass/20 rounded px-3 py-2">
+              Only one discount code can be applied per cart. Remove this discount to apply a different one.
+            </p>
+          )}
         </motion.div>
       )}
     </div>
