@@ -32,7 +32,10 @@ export default function OffersPage() {
     validFrom: '',
     validTo: '',
     isActive: true,
-    applicableTo: 'all' as 'all' | 'new_users'
+    applicableTo: 'all' as 'all' | 'new_users',
+    autoApply: false,
+    priority: 0,
+    displayName: ''
   })
 
   useEffect(() => {
@@ -82,7 +85,10 @@ export default function OffersPage() {
       validFrom: new Date().toISOString().split('T')[0],
       validTo: '',
       isActive: true,
-      applicableTo: 'all'
+      applicableTo: 'all',
+      autoApply: false,
+      priority: 0,
+      displayName: ''
     })
     setIsModalOpen(true)
   }
@@ -99,7 +105,10 @@ export default function OffersPage() {
       validFrom: offer.validFrom ? new Date(offer.validFrom).toISOString().split('T')[0] : '',
       validTo: offer.validTo ? new Date(offer.validTo).toISOString().split('T')[0] : '',
       isActive: offer.isActive,
-      applicableTo: offer.applicableTo
+      applicableTo: offer.applicableTo,
+      autoApply: offer.autoApply || false,
+      priority: offer.priority || 0,
+      displayName: offer.displayName || ''
     })
     setIsModalOpen(true)
   }
@@ -107,13 +116,16 @@ export default function OffersPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const submitData = {
+      const submitData: any = {
         ...formData,
+        code: formData.autoApply && !formData.code.trim() ? undefined : formData.code,
         discountValue: parseFloat(formData.discountValue),
         minOrderAmount: parseFloat(formData.minOrderAmount) || 0,
         maxUses: formData.maxUses ? parseInt(formData.maxUses) : undefined,
         validFrom: formData.validFrom || undefined,
-        validTo: formData.validTo || undefined
+        validTo: formData.validTo || undefined,
+        priority: formData.autoApply ? parseInt(formData.priority.toString()) : undefined,
+        displayName: formData.autoApply && formData.displayName.trim() ? formData.displayName : undefined
       }
 
       if (editingOffer) {
@@ -275,18 +287,27 @@ export default function OffersPage() {
                   >
                     <div className="flex items-start gap-2">
                       {/* Code Badge */}
-                      <div className="flex-shrink-0">
+                      <div className="flex-shrink-0 flex flex-col items-center gap-0.5">
                         <span className="inline-flex items-center justify-center px-2 py-0.5 text-[9px] font-bold text-white bg-brass rounded">
-                          {offer.code}
+                          {offer.code || '(auto)'}
                         </span>
+                        {offer.autoApply && (
+                          <span className="inline-flex items-center justify-center w-4 h-4 bg-brass/20 rounded-full" title="Auto-Apply Enabled">
+                            <svg className="w-2.5 h-2.5 text-brass" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          </span>
+                        )}
                       </div>
-                      
+
                       {/* Content */}
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-charcoal text-xs truncate">{offer.description}</p>
+                        <p className="font-semibold text-charcoal text-xs truncate flex items-center gap-1">
+                          {offer.description}
+                        </p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-[10px] text-charcoal/60">
-                            {offer.discountType === 'percentage' 
+                            {offer.discountType === 'percentage'
                               ? `${toNumber(offer.discountValue)}%`
                               : formatCurrency(toNumber(offer.discountValue))}
                           </span>
@@ -294,6 +315,12 @@ export default function OffersPage() {
                           <span className="text-[10px] text-charcoal/60">
                             {offer.usedCount} / {offer.maxUses || '∞'}
                           </span>
+                          {offer.autoApply && (
+                            <>
+                              <span className="text-[10px] text-charcoal/40">•</span>
+                              <span className="text-[10px] text-brass font-medium">P:{offer.priority || 0}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                       
@@ -356,19 +383,57 @@ export default function OffersPage() {
                 {/* Status */}
                 <div>
                   <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Status</label>
-                  <div className="mt-1">
+                  <div className="mt-1 flex gap-2 flex-wrap">
                     <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold ${
                       selectedOffer.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                     }`}>
                       {selectedOffer.isActive ? 'Active (Available to Customers)' : 'Inactive (Hidden)'}
                     </span>
+                    {selectedOffer.autoApply && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold bg-brass/20 text-brass border border-brass/30">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                        Auto-Apply
+                      </span>
+                    )}
                   </div>
                 </div>
+
+                {/* Auto-Apply Details */}
+                {selectedOffer.autoApply && (
+                  <div className="bg-brass/5 border border-brass/20 rounded-lg p-3">
+                    <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide flex items-center gap-1">
+                      <svg className="w-3 h-3 text-brass" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                      Auto-Apply Configuration
+                    </label>
+                    <div className="mt-2 space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-charcoal/60">Display Name:</span>
+                        <span className="font-medium text-charcoal">{selectedOffer.displayName || 'Using description'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-charcoal/60">Priority:</span>
+                        <span className="font-medium text-charcoal">{selectedOffer.priority || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-charcoal/60">Auto-Applied:</span>
+                        <span className="font-medium text-brass">{selectedOffer.autoApplyCount || 0} times</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-charcoal/60">Manual Applied:</span>
+                        <span className="font-medium text-charcoal">{selectedOffer.manualApplyCount || 0} times</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Code */}
                 <div>
                   <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Code</label>
-                  <p className="text-sm font-mono font-bold text-brass mt-1">{selectedOffer.code}</p>
+                  <p className="text-sm font-mono font-bold text-brass mt-1">{selectedOffer.code || '(Auto-generated)'}</p>
                 </div>
 
                 {/* Description */}
@@ -446,13 +511,18 @@ export default function OffersPage() {
       >
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
-            <Input
-              label="Code *"
-              value={formData.code}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-              required
-              placeholder="WELCOME"
-            />
+            <div>
+              <Input
+                label={`Code ${formData.autoApply ? '(optional)' : '*'}`}
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                required={!formData.autoApply}
+                placeholder={formData.autoApply ? "Auto-generated if empty" : "WELCOME"}
+              />
+              {formData.autoApply && (
+                <p className="text-[9px] text-charcoal/50 mt-0.5">Code is optional for auto-apply offers</p>
+              )}
+            </div>
             <div>
               <label className="block text-xs font-medium text-charcoal mb-1">Discount Type *</label>
               <select
@@ -542,6 +612,62 @@ export default function OffersPage() {
             <label htmlFor="isActive" className="text-xs font-medium text-charcoal">
               Active (visible to customers)
             </label>
+          </div>
+
+          {/* Auto-Apply Section */}
+          <div className="border border-brass/30 rounded-lg p-3 bg-brass/5 space-y-3">
+            <div className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                id="autoApply"
+                checked={formData.autoApply}
+                onChange={(e) => setFormData({ ...formData, autoApply: e.target.checked })}
+                className="w-3 h-3 mt-0.5 text-brass border-brass/30 rounded focus:ring-brass focus:ring-1"
+              />
+              <div className="flex-1">
+                <label htmlFor="autoApply" className="text-xs font-bold text-charcoal flex items-center gap-1">
+                  <svg className="w-4 h-4 text-brass" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  Auto-Apply Discount
+                </label>
+                <p className="text-[10px] text-charcoal/60 mt-1">
+                  Automatically apply this discount when cart value exceeds minimum order amount. No code entry required by customer.
+                </p>
+              </div>
+            </div>
+
+            {formData.autoApply && (
+              <div className="space-y-2 pl-5 animate-in fade-in duration-200">
+                <div>
+                  <Input
+                    label="Display Name (shown to customer)"
+                    value={formData.displayName}
+                    onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                    placeholder="e.g., Welcome Offer, Summer Sale"
+                  />
+                  <p className="text-[9px] text-charcoal/50 mt-0.5">Leave empty to use description</p>
+                </div>
+                <div>
+                  <Input
+                    label="Priority (for tie-breaking)"
+                    type="number"
+                    value={formData.priority}
+                    onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
+                    placeholder="0"
+                  />
+                  <p className="text-[9px] text-charcoal/50 mt-0.5">Higher priority offers are preferred when discounts are equal</p>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded p-2 text-[10px] text-blue-800">
+                  <strong>ℹ️ How Auto-Apply Works:</strong>
+                  <ul className="list-disc ml-4 mt-1 space-y-0.5">
+                    <li>System automatically selects the best discount for the customer</li>
+                    <li>Priority helps break ties when multiple offers give same discount</li>
+                    <li>Code is optional for auto-apply offers (backend will auto-generate if empty)</li>
+                  </ul>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-2 pt-2 border-t border-brass/20">
