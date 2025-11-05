@@ -1379,14 +1379,14 @@ export default function ProductsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
                   {products.map((product, index) => (
                     <Link key={product._id} href={`/products/${product._id}`}>
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: index * 0.03 }}
-                        className="cursor-pointer group bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden"
+                        className="cursor-pointer group bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden h-full flex flex-col"
                         onMouseEnter={() => setHoveredProduct(product._id)}
                         onMouseLeave={() => setHoveredProduct(null)}
                       >
@@ -1519,7 +1519,7 @@ export default function ProductsPage() {
                           </div>
 
                       {/* Product Info */}
-                      <div className="p-6">
+                      <div className="p-6 flex-1 flex flex-col">
                         <p className="text-xs text-brass tracking-luxury mb-2">
                           {product.productID}
                         </p>
@@ -1530,7 +1530,7 @@ export default function ProductsPage() {
                           {product.description || 'Premium quality product'}
                         </p>
                         
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mt-auto">
                           <span className="text-sm text-charcoal">
                             {product.materialsCount} materials
                           </span>
