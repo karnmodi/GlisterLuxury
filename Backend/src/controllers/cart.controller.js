@@ -663,20 +663,16 @@ async function removeDiscountCode(req, res, next) {
 		cart.offerID = undefined;
 		cart.isAutoApplied = false;
 		cart.discountApplicationMethod = 'none';
-		cart.manualCodeLocked = false;
+		// Lock manual code entry so auto-apply doesn't kick in immediately
+		cart.manualCodeLocked = true;
 
 		await cart.save();
 
-		// After removing discount, check if auto-apply offers qualify
-		const userId = cart.userID || null;
-		await offerAutoApplyService.applyBestAutoOffer(cart, userId);
-
-		if (cart.isModified()) {
-			await cart.save();
-		}
+		// DO NOT auto-apply here - user explicitly removed the discount
+		// They want to enter their own code, so respect that choice
 
 		res.json({
-			message: 'Discount code removed',
+			message: 'Discount code removed successfully. You can now enter a different code.',
 			cart: await Cart.findById(cart._id).populate({
 				path: 'items.productID',
 				model: 'Product',

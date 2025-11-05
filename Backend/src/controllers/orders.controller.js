@@ -135,6 +135,13 @@ async function sendOrderEmails(order, user) {
 									<td colspan="3" style="padding: 20px 12px; text-align: right;">TOTAL:</td>
 									<td style="padding: 20px 12px; text-align: right;">${formatPrice(order.pricing.total)}</td>
 								</tr>
+								<tr style="background-color: #f8f9fa;">
+									<td colspan="4" style="padding: 8px 12px; text-align: right;">
+										<span style="color: #666; font-size: 11px; font-style: italic;">
+											(Includes VAT of ${formatPrice(order.pricing.tax)} @ 20%)
+										</span>
+									</td>
+								</tr>
 							</tbody>
 						</table>
 					</div>
