@@ -655,6 +655,20 @@ export default function ProductDetailPage() {
                 onFinishClear={() => {}} // No-op since finish is required
               />
 
+              {/* Finishing Color Notice */}
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="text-xs text-charcoal/60 italic"
+              >
+                <span className="text-charcoal/70">Note:</span> Finish colors may differ from product images. Please refer to our{' '}
+                <Link href="/terms" className="text-brass hover:text-olive underline transition-colors">
+                  Terms & Conditions
+                </Link>
+                {' '}for details and consult catalogues for actual finish colors.
+              </motion.p>
+
               {/* Packaging Option */}
               <PackagingOption
                 product={product}

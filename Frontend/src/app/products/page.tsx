@@ -23,7 +23,7 @@ type MinimalProduct = {
   hoverImageFinishId: string | null
 }
 
-type SortOption = 'newest' | 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc'
+type SortOption = 'newest' | 'oldest' | 'name-asc' | 'name-desc' | 'productid-asc' | 'productid-desc' | 'price-asc' | 'price-desc'
 
 export default function ProductsPage() {
   const searchParams = useSearchParams()
@@ -33,8 +33,16 @@ export default function ProductsPage() {
   const [finishes, setFinishes] = useState<Finish[]>([])
   const [materials, setMaterials] = useState<MaterialMaster[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
   const [hoveredProduct, setHoveredProduct] = useState<string | null>(null)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const productsLengthRef = useRef(0)
+  const [sidebarTop, setSidebarTop] = useState(80) // Start at 5rem (80px)
+  const sidebarRef = useRef<HTMLDivElement | null>(null)
+  const headerSectionRef = useRef<HTMLElement | null>(null)
+  const footerRef = useRef<HTMLDivElement | null>(null)
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState('')
@@ -100,7 +108,9 @@ export default function ProductsPage() {
       } else if (sortBy === 'price' || sortBy === 'packagingPrice') {
         setSortOption(sortOrder === 'asc' ? 'price-asc' : 'price-desc')
       } else if (sortBy === 'createdAt') {
-        setSortOption('newest')
+        setSortOption(sortOrder === 'asc' ? 'oldest' : 'newest')
+      } else if (sortBy === 'productID') {
+        setSortOption(sortOrder === 'asc' ? 'productid-asc' : 'productid-desc')
       }
     }
 
@@ -110,6 +120,8 @@ export default function ProductsPage() {
       try {
         isFetchingFromUrlRef.current = true
         setLoading(true)
+        setProducts([])
+        setHasMore(true)
         
         // Parse sort params
         let sortParams: { sortBy: string; sortOrder: 'asc' | 'desc' } = { sortBy: 'createdAt', sortOrder: 'desc' }
@@ -117,7 +129,11 @@ export default function ProductsPage() {
           sortParams = { sortBy, sortOrder: sortOrder as 'asc' | 'desc' }
         }
         
-        const params: any = { ...sortParams }
+        const params: any = { 
+          ...sortParams,
+          limit: 20,
+          skip: 0,
+        }
         if (q) params.q = q
         if (category) params.category = category
         if (subcategory) params.subcategory = subcategory
@@ -126,21 +142,10 @@ export default function ProductsPage() {
         if (hasSizeParam) params.hasSize = true
         if (hasDiscountParam) params.hasDiscount = true
 
-        const results = await productsApi.getAll(params)
-        // Transform Product[] to MinimalProduct[] for the listing view
-        const minimalProducts: MinimalProduct[] = results.map((product: Product) => ({
-          _id: product._id,
-          productID: product.productID,
-          name: product.name,
-          description: product.description || '',
-          materialsCount: product.materials?.length || 0,
-          thumbnailImage: product.imageURLs && Object.keys(product.imageURLs).length > 0 
-            ? Object.values(product.imageURLs)[0].url 
-            : null,
-          hoverImage: null,
-          hoverImageFinishId: null
-        }))
-        setProducts(minimalProducts)
+        const results = await productsApi.getListing(params)
+        setProducts(results)
+        productsLengthRef.current = results.length
+        setHasMore(results.length === 20)
       } catch (error) {
         console.error('Failed to fetch products from URL params:', error)
       } finally {
@@ -157,63 +162,25 @@ export default function ProductsPage() {
     fetchProductsFromUrl()
   }, [searchParams])
 
-  // Fetch initial data (categories, finishes, materials) and products to determine which options have products
+  // Fetch initial data (categories, finishes, materials) - removed inefficient getAll() call
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [categoriesData, finishesData, materialsData, allProducts] = await Promise.all([
+        const [categoriesData, finishesData, materialsData] = await Promise.all([
           categoriesApi.getAll(),
           finishesApi.getAll(),
           materialsApi.getAll(),
-          productsApi.getAll(), // Fetch all products to analyze which options are used
         ])
         setCategories(categoriesData)
         setFinishes(finishesData)
         setMaterials(materialsData)
         
-        // Analyze which categories, subcategories, materials, and finishes have products
-        const categorySet = new Set<string>()
-        const subcategorySet = new Set<string>()
-        const materialSet = new Set<string>()
-        const finishSet = new Set<string>()
-        
-        allProducts.forEach((product: Product) => {
-          // Track categories with products
-          const categoryId = typeof product.category === 'string' 
-            ? product.category 
-            : product.category?._id
-          if (categoryId) {
-            categorySet.add(categoryId)
-          }
-          
-          // Track subcategories with products
-          if (product.subcategoryId) {
-            subcategorySet.add(product.subcategoryId)
-          }
-          
-          // Track materials with products (from materials array)
-          if (product.materials && Array.isArray(product.materials)) {
-            product.materials.forEach((material: any) => {
-              if (material.name) {
-                materialSet.add(material.name)
-              }
-            })
-          }
-          
-          // Track finishes with products (from finishes array)
-          if (product.finishes && Array.isArray(product.finishes)) {
-            product.finishes.forEach((finish: any) => {
-              if (finish.finishID) {
-                finishSet.add(finish.finishID)
-              }
-            })
-          }
-        })
-        
-        setCategoriesWithProducts(categorySet)
-        setSubcategoriesWithProducts(subcategorySet)
-        setMaterialsWithProducts(materialSet)
-        setFinishesWithProducts(finishSet)
+        // Initialize filter option sets - will be populated from actual product results
+        // This avoids fetching all products just for filter analysis
+        setCategoriesWithProducts(new Set())
+        setSubcategoriesWithProducts(new Set())
+        setMaterialsWithProducts(new Set())
+        setFinishesWithProducts(new Set())
       } catch (error) {
         console.error('Failed to fetch initial data:', error)
       }
@@ -243,68 +210,111 @@ export default function ProductsPage() {
     }
   }, [selectedCategory, categories])
 
-  // Get available subcategories based on selected category, filtered to only show those with products
-  const availableSubcategories = activeCategory?.subcategories?.filter((sub) => {
-    return subcategoriesWithProducts.has(sub._id)
-  }) || []
+  // Get available subcategories from the selected category (show all)
+  const availableSubcategories = activeCategory?.subcategories || []
   
-  // Filter categories to only show those with products
-  const filteredCategories = categories.filter((cat) => {
-    const hasDirectProducts = categoriesWithProducts.has(cat._id)
-    const hasSubcategoriesWithProducts = cat.subcategories?.some((sub) => {
-      return subcategoriesWithProducts.has(sub._id)
-    }) || false
-    return hasDirectProducts || hasSubcategoriesWithProducts
-  })
+  // Show all categories (no filtering)
+  const filteredCategories = categories
   
-  // Filter materials to only show those with products
-  const filteredMaterials = materials.filter((mat) => {
-    return materialsWithProducts.has(mat.name)
-  })
+  // Show all materials (no filtering)
+  const filteredMaterials = materials
   
-  // Filter finishes to only show those with products
-  const filteredFinishes = finishes.filter((fin) => {
-    return finishesWithProducts.has(fin._id)
-  })
+  // Show all finishes (no filtering)
+  const filteredFinishes = finishes
 
   // Parse sort option to backend params
   const getSortParams = useCallback(() => {
     switch (sortOption) {
+      case 'newest':
+        return { sortBy: 'createdAt', sortOrder: 'desc' as const }
+      case 'oldest':
+        return { sortBy: 'createdAt', sortOrder: 'asc' as const }
       case 'name-asc':
         return { sortBy: 'name', sortOrder: 'asc' as const }
       case 'name-desc':
         return { sortBy: 'name', sortOrder: 'desc' as const }
+      case 'productid-asc':
+        return { sortBy: 'productID', sortOrder: 'asc' as const }
+      case 'productid-desc':
+        return { sortBy: 'productID', sortOrder: 'desc' as const }
       case 'price-asc':
         return { sortBy: 'price', sortOrder: 'asc' as const }
       case 'price-desc':
         return { sortBy: 'price', sortOrder: 'desc' as const }
-      case 'newest':
-        return { sortBy: 'createdAt', sortOrder: 'desc' as const }
       default:
         return { sortBy: 'createdAt', sortOrder: 'desc' as const }
     }
   }, [sortOption])
 
-  // Fetch products with current filters
-  const fetchProducts = useCallback(async () => {
+  // Fetch products with current filters (initial load with limit 20)
+  const fetchProducts = useCallback(async (reset = true) => {
     try {
-      setLoading(true)
+      if (reset) {
+        setLoading(true)
+        setProducts([])
+        setHasMore(true)
+        productsLengthRef.current = 0
+      } else {
+        setLoadingMore(true)
+      }
+      
       const sortParams = getSortParams()
       const params: any = {
         ...sortParams,
+        limit: 20,
+        skip: reset ? 0 : productsLengthRef.current,
       }
       
       if (debouncedSearchQuery) params.q = debouncedSearchQuery
       if (selectedCategory) params.category = selectedCategory
       if (selectedSubcategory) params.subcategory = selectedSubcategory
-      const results = await productsApi.getListing(params) // Using optimized endpoint
-      setProducts(results)
+      if (selectedMaterial) params.material = selectedMaterial
+      if (selectedFinish) params.finishId = selectedFinish
+      if (hasSize) params.hasSize = true
+      if (hasDiscount) params.hasDiscount = true
+      
+      const results = await productsApi.getListing(params)
+      
+      // Update filter option sets based on fetched products
+      if (reset) {
+        const categorySet = new Set<string>()
+        const subcategorySet = new Set<string>()
+        const materialSet = new Set<string>()
+        const finishSet = new Set<string>()
+        
+        results.forEach((product: MinimalProduct) => {
+          // Note: MinimalProduct doesn't have full category/subcategory info
+          // We'll need to track these from the actual product data if needed
+          // For now, we'll rely on the categories/materials/finishes APIs
+        })
+      }
+      
+      if (reset) {
+        setProducts(results)
+        productsLengthRef.current = results.length
+      } else {
+        setProducts(prev => {
+          const newProducts = [...prev, ...results]
+          productsLengthRef.current = newProducts.length
+          return newProducts
+        })
+      }
+      
+      // Check if there are more products to load
+      setHasMore(results.length === 20)
     } catch (error) {
       console.error('Failed to fetch products:', error)
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }, [debouncedSearchQuery, selectedCategory, selectedSubcategory, selectedMaterial, selectedFinish, hasSize, hasDiscount, getSortParams])
+
+  // Load more products for infinite scroll
+  const loadMoreProducts = useCallback(async () => {
+    if (loadingMore || !hasMore || loading) return
+    await fetchProducts(false)
+  }, [loadingMore, hasMore, loading, fetchProducts])
 
   // Auto-fetch products when filters change (but skip if we're fetching from URL params)
   useEffect(() => {
@@ -333,7 +343,8 @@ export default function ProductsPage() {
     if (hasDiscount) params.set('hasDiscount', 'true')
     
     const sortParams = getSortParams()
-    if (sortParams.sortBy !== 'createdAt' || sortParams.sortOrder !== 'desc') {
+    // Only add sort params if not default (newest - createdAt desc)
+    if (sortOption !== 'newest') {
       params.set('sortBy', sortParams.sortBy)
       params.set('sortOrder', sortParams.sortOrder)
     }
@@ -359,6 +370,152 @@ export default function ProductsPage() {
       setActiveSubcategory(null)
     }
   }, [selectedSubcategory, activeCategory])
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const currentRef = loadMoreRef.current
+    if (!currentRef || !hasMore || loading || loadingMore) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          loadMoreProducts()
+        }
+      },
+      {
+        root: null,
+        rootMargin: '200px',
+        threshold: 0.1,
+      }
+    )
+
+    observer.observe(currentRef)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [hasMore, loading, loadingMore, loadMoreProducts])
+
+  // Scroll position tracking for floating filter card with Products header and footer boundaries
+  // Uses IntersectionObserver + dynamic calculations based on parent components
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    // Only update on desktop (lg and above)
+    if (window.innerWidth < 1024) return
+
+    const headerSection = headerSectionRef.current
+    const footer = footerRef.current
+    const sidebar = sidebarRef.current
+    if (!headerSection || !footer || !sidebar) return
+
+    const updatePosition = () => {
+      // Only update on desktop
+      if (window.innerWidth < 1024) return
+
+      const scrollY = window.scrollY
+      const viewportHeight = window.innerHeight
+      const cardHeight = sidebar.offsetHeight
+
+      // Get actual bounding boxes
+      const headerRect = headerSection.getBoundingClientRect()
+      const footerRect = footer.getBoundingClientRect()
+
+      // Get container spacing dynamically from the products container
+      const productsContainer = headerSection.nextElementSibling as HTMLElement
+      const computedStyle = productsContainer ? getComputedStyle(productsContainer) : null
+      const containerPaddingTop = computedStyle
+        ? parseFloat(computedStyle.paddingTop) || 24
+        : 24
+      const containerPaddingBottom = computedStyle
+        ? parseFloat(computedStyle.paddingBottom) || 24
+        : 24
+
+      // Calculate boundaries based on actual element positions (in viewport coordinates)
+      const headerBottomViewport = headerRect.bottom
+      const footerTopViewport = footerRect.top
+
+      // Convert to absolute positions for boundary calculations
+      const headerBottomAbsolute = headerRect.bottom + scrollY
+      const footerTopAbsolute = footerRect.top + scrollY
+
+      // Dynamic boundaries with calculated margins from container
+      // Min: header bottom + container padding (where card should stick at top)
+      // Max: footer top - card height - container padding (where card should stick at bottom)
+      const minTop = headerBottomViewport + containerPaddingTop
+      const maxTop = footerTopViewport - cardHeight - containerPaddingBottom
+
+      // Calculate centered position in viewport (vertically centered)
+      const centeredTop = (viewportHeight - cardHeight) / 2
+
+      // Smart positioning: try to center, but respect boundaries
+      let newTop: number
+
+      if (centeredTop < minTop) {
+        // Centered position would be above header boundary - stick to header bottom
+        newTop = minTop
+      } else if (centeredTop > maxTop && maxTop > minTop) {
+        // Centered position would be below footer boundary - stick to footer top
+        newTop = maxTop
+      } else {
+        // Centered position is within boundaries - use centered position
+        newTop = centeredTop
+      }
+
+      // Final boundary check to ensure card never goes out of bounds
+      if (minTop > 0 && newTop < minTop) {
+        newTop = minTop
+      }
+      if (maxTop < viewportHeight && newTop > maxTop) {
+        newTop = maxTop
+      }
+
+      setSidebarTop(newTop)
+    }
+
+    // Use IntersectionObserver for header/footer visibility changes
+    const headerObserver = new IntersectionObserver(
+      () => {
+        updatePosition()
+      },
+      { threshold: [0, 0.1, 0.5, 1], rootMargin: '0px' }
+    )
+
+    const footerObserver = new IntersectionObserver(
+      () => {
+        updatePosition()
+      },
+      { threshold: [0, 0.1, 0.5, 1], rootMargin: '0px' }
+    )
+
+    headerObserver.observe(headerSection)
+    footerObserver.observe(footer)
+
+    // Throttled scroll handler for smooth updates
+    let ticking = false
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          updatePosition()
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('resize', updatePosition, { passive: true })
+
+    // Initial calculation
+    updatePosition()
+
+    return () => {
+      headerObserver.disconnect()
+      footerObserver.disconnect()
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [])
 
   const clearFilters = () => {
     setSearchQuery('')
@@ -469,7 +626,7 @@ export default function ProductsPage() {
       
       <main className="pt-24 pb-16 relative z-10">
         {/* Compact Header Section */}
-        <section className="bg-gradient-charcoal text-ivory py-8 relative overflow-hidden">
+        <section ref={headerSectionRef} className="bg-gradient-charcoal text-ivory py-8 relative overflow-hidden">
           {/* Header Background Animation */}
           <motion.div
             className="absolute inset-0 opacity-10"
@@ -534,7 +691,7 @@ export default function ProductsPage() {
           </div>
         </section>
 
-        <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-4 sm:py-8">
+        <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 pt-6 sm:pt-8 pb-4 sm:pb-8">
           {/* Mobile Filter Toggle Button */}
           <div className="lg:hidden mb-4 flex items-center justify-between">
             <Button
@@ -556,7 +713,10 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          <div className="flex gap-4 lg:gap-6 xl:gap-8">
+          <div className="flex gap-4 lg:gap-6 xl:gap-8 relative">
+            {/* Spacer div for desktop - maintains layout spacing */}
+            <div className="hidden lg:block w-72 lg:w-80 flex-shrink-0" />
+            
             {/* Left Sidebar - Filters */}
             {/* Mobile Overlay */}
             <AnimatePresence>
@@ -724,8 +884,11 @@ export default function ProductsPage() {
                           className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
                         >
                           <option value="newest">Newest First</option>
+                          <option value="oldest">Oldest First</option>
                           <option value="name-asc">Name A-Z</option>
                           <option value="name-desc">Name Z-A</option>
+                          <option value="productid-asc">Product ID A-Z</option>
+                          <option value="productid-desc">Product ID Z-A</option>
                           <option value="price-asc">Price Low-High</option>
                           <option value="price-desc">Price High-Low</option>
                         </select>
@@ -876,12 +1039,21 @@ export default function ProductsPage() {
               )}
             </AnimatePresence>
 
-            {/* Desktop Sidebar - Filters */}
+            {/* Desktop Sidebar - Filters - Floating Card */}
             <aside 
-              className="hidden lg:block filter-sidebar w-72 lg:w-80 flex-shrink-0 sticky top-20 self-start h-[calc(100vh-8rem)] overflow-y-auto pr-2"
+              ref={sidebarRef}
+              className="hidden lg:block filter-sidebar w-72 lg:w-80 flex-shrink-0 fixed z-30 overflow-y-auto pr-2"
               style={{
+                top: `${sidebarTop}px`,
+                left: 'calc((100vw - min(1920px, 100vw)) / 2 + 2rem)',
+                maxHeight: 'calc(100vh - 9rem)',
+                transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 scrollbarWidth: 'thin',
                 scrollbarColor: 'rgba(218, 165, 32, 0.3) transparent',
+              }}
+              onScroll={(e) => {
+                // Prevent scroll event from bubbling
+                e.stopPropagation()
               }}
             >
               <style dangerouslySetInnerHTML={{
@@ -905,7 +1077,7 @@ export default function ProductsPage() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.4 }}
-                className="bg-white rounded-lg shadow-lg border border-brass/20 p-6 space-y-6"
+                className="bg-white/95 backdrop-blur-md rounded-lg shadow-xl border border-brass/30 p-6 space-y-6 hover:shadow-2xl transition-shadow duration-300"
               >
                 <div className="border-b border-brass/20 pb-4">
                   <h2 className="text-xl font-serif font-semibold text-charcoal flex items-center gap-2">
@@ -1023,8 +1195,11 @@ export default function ProductsPage() {
                     className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
                   >
                     <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
                     <option value="name-asc">Name A-Z</option>
                     <option value="name-desc">Name Z-A</option>
+                    <option value="productid-asc">Product ID A-Z</option>
+                    <option value="productid-desc">Product ID Z-A</option>
                     <option value="price-asc">Price Low-High</option>
                     <option value="price-desc">Price High-Low</option>
                   </select>
@@ -1176,7 +1351,7 @@ export default function ProductsPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
-                className="hidden lg:flex items-center justify-between mb-6"
+                className="hidden lg:flex items-center justify-between mb-6 mt-2"
               >
                 <div className="text-charcoal/60">
                   {loading ? (
@@ -1206,14 +1381,17 @@ export default function ProductsPage() {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
                   {products.map((product, index) => (
-                    <motion.div
-                      key={product._id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4, delay: index * 0.03 }}
-                    >
-                      {/* Product Image */}
-                      <div className="relative h-64 bg-white overflow-hidden">
+                    <Link key={product._id} href={`/products/${product._id}`}>
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: index * 0.03 }}
+                        className="cursor-pointer group bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden"
+                        onMouseEnter={() => setHoveredProduct(product._id)}
+                        onMouseLeave={() => setHoveredProduct(null)}
+                      >
+                        {/* Product Image */}
+                        <div className="relative h-64 bg-white overflow-hidden">
                         {/* Subtle Glow Effect */}
                         <motion.div
                           className="absolute inset-0 bg-gradient-to-br from-brass/5 to-transparent pointer-events-none"
@@ -1362,15 +1540,23 @@ export default function ProductsPage() {
                         </div>
                       </div>
                     </motion.div>
+                    </Link>
                   ))}
                 </div>
+              )}
+              
+              {/* Infinite scroll trigger - invisible element at bottom */}
+              {!loading && hasMore && (
+                <div ref={loadMoreRef} className="h-1 w-full" />
               )}
             </div>
           </div>
         </div>
       </main>
 
-      <LuxuryFooter />
+      <div ref={footerRef}>
+        <LuxuryFooter />
+      </div>
     </div>
   )
 }

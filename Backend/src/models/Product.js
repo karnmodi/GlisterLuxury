@@ -51,6 +51,7 @@ const ProductSchema = new Schema(
 			},
 			default: new Map()
 		},
+		isVisible: { type: Boolean, default: true, index: true },
 	},
 	{ timestamps: true }
 );

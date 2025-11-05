@@ -155,12 +155,23 @@ export default function BasicInfoTab({ data, onChange, categories }: BasicInfoTa
             onChange={(e) => handleChange('packagingPrice', parseFloat(e.target.value) || 0)}
             placeholder="0.00"
           />
-          <Input
-            label="Packaging Unit"
-            value={data.packagingUnit}
-            onChange={(e) => handleChange('packagingUnit', e.target.value)}
-            placeholder="e.g., Set, Box, Piece"
-          />
+          <div className="w-full">
+            <label className="block text-xs font-medium text-charcoal mb-1">
+              Packaging Unit
+            </label>
+            <input
+              type="text"
+              list="packaging-unit-options"
+              value={data.packagingUnit}
+              onChange={(e) => handleChange('packagingUnit', e.target.value)}
+              placeholder="e.g., 1 set of pair"
+              className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass focus:border-transparent transition-all duration-300"
+            />
+            <datalist id="packaging-unit-options">
+              <option value="1 set of pair" />
+              <option value="2 pairs of one" />
+            </datalist>
+          </div>
         </div>
         <p className="text-[10px] text-charcoal/60 mt-1.5">
           Packaging price is added when customers include packaging in their order.

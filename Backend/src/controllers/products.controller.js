@@ -158,7 +158,7 @@ async function createProduct(req, res) {
 
 async function listProducts(req, res) {
 	try {
-		const { q, material, hasSize, finishId, category, subcategory, subcategoryId, sortBy, sortOrder, hasDiscount } = req.query;
+		const { q, material, hasSize, finishId, category, subcategory, subcategoryId, sortBy, sortOrder, hasDiscount, limit, skip } = req.query;
 		const Category = require('../models/Category');
 		const filter = {};
 
@@ -249,10 +249,24 @@ async function listProducts(req, res) {
 			sortOptions.createdAt = -1;
 		}
 
-		const items = await Product.find(filter)
+		// Parse pagination parameters
+		const limitNum = limit ? parseInt(limit, 10) : undefined;
+		const skipNum = skip ? parseInt(skip, 10) : undefined;
+
+		// Build query
+		let query = Product.find(filter)
 			.populate('category', 'name slug description subcategories')
-			.sort(sortOptions)
-			.lean();
+			.sort(sortOptions);
+
+		// Apply pagination
+		if (skipNum !== undefined && skipNum >= 0) {
+			query = query.skip(skipNum);
+		}
+		if (limitNum !== undefined && limitNum > 0) {
+			query = query.limit(limitNum);
+		}
+
+		const items = await query.lean();
 
 		const transformedItems = items.map(item => transformMongoTypes(item));
 		return res.json(transformedItems);
@@ -716,16 +730,37 @@ async function updateImageFinishMapping(req, res) {
  */
 async function listProductsMinimal(req, res) {
 	try {
-		const { q, material, hasSize, finishId, category, subcategory, subcategoryId } = req.query;
+		const { q, material, hasSize, finishId, category, subcategory, subcategoryId, limit, skip } = req.query;
 		const Category = require('../models/Category');
 		const filter = {};
+		const andConditions = [];
+
+		// Only show visible products to customers
+		// Include products where isVisible is true, undefined, or doesn't exist (for backward compatibility)
+		// This matches: isVisible = true OR isVisible doesn't exist OR isVisible = null
+		const visibilityCondition = {
+			$or: [
+				{ isVisible: true },
+				{ isVisible: { $exists: false } },
+				{ isVisible: null }
+			]
+		};
 
 		// Search query
-		if (q) filter.$or = [
-			{ name: { $regex: q, $options: 'i' } },
-			{ productID: { $regex: q, $options: 'i' } },
-			{ productUID: { $regex: q, $options: 'i' } },
-		];
+		if (q) {
+			andConditions.push(visibilityCondition);
+			andConditions.push({
+				$or: [
+					{ name: { $regex: q, $options: 'i' } },
+					{ productID: { $regex: q, $options: 'i' } },
+					{ productUID: { $regex: q, $options: 'i' } },
+				]
+			});
+			filter.$and = andConditions;
+		} else {
+			// If no search query, use visibility condition directly
+			filter.$or = visibilityCondition.$or;
+		}
 
 		// Material filter
 		if (material) filter['materials.name'] = { $regex: material, $options: 'i' };
@@ -776,10 +811,23 @@ async function listProductsMinimal(req, res) {
 			}
 		}
 
-		// Fetch products with only necessary fields
-		const items = await Product.find(filter)
-			.select('_id productID name description imageURLs materials')
-			.lean();
+		// Parse pagination parameters
+		const limitNum = limit ? parseInt(limit, 10) : undefined;
+		const skipNum = skip ? parseInt(skip, 10) : undefined;
+
+		// Build query with only necessary fields
+		let query = Product.find(filter)
+			.select('_id productID name description imageURLs materials');
+
+		// Apply pagination
+		if (skipNum !== undefined && skipNum >= 0) {
+			query = query.skip(skipNum);
+		}
+		if (limitNum !== undefined && limitNum > 0) {
+			query = query.limit(limitNum);
+		}
+
+		const items = await query.lean();
 
 		// Transform to minimal format
 		const minimalProducts = items.map(item => {
@@ -857,6 +905,38 @@ async function getProductFinishes(req, res) {
 	}
 }
 
+/**
+ * Toggle product visibility status
+ * PATCH /api/products/:id/visibility
+ */
+async function toggleProductVisibility(req, res) {
+	try {
+		const productId = req.params.id;
+		const { isVisible } = req.body;
+
+		if (typeof isVisible !== 'boolean') {
+			return res.status(400).json({ message: 'isVisible must be a boolean value' });
+		}
+
+		const product = await Product.findById(productId);
+		if (!product) {
+			return res.status(404).json({ message: 'Product not found' });
+		}
+
+		product.isVisible = isVisible;
+		await product.save();
+
+		const transformedProduct = transformMongoTypes(product.toObject());
+		return res.json({
+			message: `Product ${isVisible ? 'made visible' : 'hidden'} successfully`,
+			product: transformedProduct,
+		});
+	} catch (err) {
+		console.error('Toggle product visibility error:', err);
+		return res.status(400).json({ message: err.message });
+	}
+}
+
 module.exports = {
 	createProduct,
 	listProducts,
@@ -868,6 +948,7 @@ module.exports = {
 	deleteProductImage,
 	updateImageFinishMapping,
 	getProductFinishes,
+	toggleProductVisibility,
 };
 
 

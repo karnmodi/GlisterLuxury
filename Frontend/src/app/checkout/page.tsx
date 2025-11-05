@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCart } from '@/contexts/CartContext'
@@ -24,6 +25,7 @@ export default function CheckoutPage() {
   const [processing, setProcessing] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
+  const [termsAccepted, setTermsAccepted] = useState(false)
   
   // Address modal state
   const [showAddressModal, setShowAddressModal] = useState(false)
@@ -141,6 +143,11 @@ export default function CheckoutPage() {
 
     if (!selectedAddressId) {
       toast.warning('Please select a delivery address')
+      return
+    }
+
+    if (!termsAccepted) {
+      toast.warning('Please confirm that you have read and agree to the Terms & Conditions')
       return
     }
 
@@ -362,17 +369,32 @@ export default function CheckoutPage() {
                 />
               )}
               
+              {/* Terms & Conditions Checkbox */}
+              <div className="bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg p-4 mt-6">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="termsAccepted"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-1 w-4 h-4 text-brass bg-charcoal border-brass/30 rounded focus:ring-brass focus:ring-2 cursor-pointer"
+                  />
+                  <label htmlFor="termsAccepted" className="text-ivory/70 text-sm leading-relaxed cursor-pointer flex-1">
+                    I confirm that I have read and agree to the{' '}
+                    <Link href="/terms" className="text-brass hover:text-olive underline transition-colors" target="_blank" rel="noopener noreferrer">
+                      Terms & Conditions
+                    </Link>
+                  </label>
+                </div>
+              </div>
+              
               <button
                 onClick={handlePlaceOrder}
-                disabled={processing || !selectedAddressId}
+                disabled={processing || !selectedAddressId || !termsAccepted}
                 className="w-full mt-6 px-6 py-4 bg-brass text-charcoal font-bold text-lg rounded-md hover:bg-olive transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {processing ? 'Processing...' : 'Place Order'}
               </button>
-
-              <p className="text-ivory/50 text-xs text-center mt-4">
-                By placing this order, you agree to our terms and conditions
-              </p>
             </div>
           </div>
         </div>

@@ -88,6 +88,7 @@ export interface Product {
   materials: Material[]
   finishes: FinishOption[]
   imageURLs: Record<string, ProductImage> // Object with keys as image IDs and values as image data
+  isVisible?: boolean
   createdAt?: string
   updatedAt?: string
 }

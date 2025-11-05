@@ -7,6 +7,7 @@ import { WishlistProvider } from '@/contexts/WishlistContext'
 import { LoadingProvider } from '@/contexts/LoadingContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 import VisitTracker from '@/components/VisitTracker'
+import WhatsAppFloatingButton from '@/components/WhatsAppFloatingButton'
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -71,6 +72,7 @@ export default function RootLayout({
               <WishlistProvider>
                 <VisitTracker />
                 {children}
+                <WhatsAppFloatingButton />
               </WishlistProvider>
             </CartProvider>
           </AuthProvider>

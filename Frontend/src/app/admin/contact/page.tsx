@@ -17,6 +17,7 @@ export default function AdminContactPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedInfo, setSelectedInfo] = useState<ContactInfo | null>(null)
   const [selectedInquiry, setSelectedInquiry] = useState<ContactInquiry | null>(null)
+  const [adminNotes, setAdminNotes] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
 
@@ -26,6 +27,16 @@ export default function AdminContactPage() {
     value: '',
     displayOrder: 0,
     isActive: true,
+    socialMedia: {
+      instagram: '',
+      facebook: '',
+      linkedin: '',
+      twitter: '',
+      youtube: '',
+      pinterest: '',
+      tiktok: '',
+    },
+    businessWhatsApp: '',
   })
 
   useEffect(() => {
@@ -81,6 +92,16 @@ export default function AdminContactPage() {
       value: '',
       displayOrder: 0,
       isActive: true,
+      socialMedia: {
+        instagram: '',
+        facebook: '',
+        linkedin: '',
+        twitter: '',
+        youtube: '',
+        pinterest: '',
+        tiktok: '',
+      },
+      businessWhatsApp: '',
     })
     setIsModalOpen(true)
   }
@@ -93,6 +114,16 @@ export default function AdminContactPage() {
       value: item.value,
       displayOrder: item.displayOrder,
       isActive: item.isActive,
+      socialMedia: {
+        instagram: item.socialMedia?.instagram || '',
+        facebook: item.socialMedia?.facebook || '',
+        linkedin: item.socialMedia?.linkedin || '',
+        twitter: item.socialMedia?.twitter || '',
+        youtube: item.socialMedia?.youtube || '',
+        pinterest: item.socialMedia?.pinterest || '',
+        tiktok: item.socialMedia?.tiktok || '',
+      },
+      businessWhatsApp: item.businessWhatsApp || '',
     })
     setIsModalOpen(true)
   }
@@ -101,10 +132,28 @@ export default function AdminContactPage() {
     if (!token) return
     e.preventDefault()
     try {
+      // Prepare payload - only include socialMedia if at least one platform has a value
+      const hasSocialMedia = Object.values(formData.socialMedia).some(val => val.trim() !== '')
+      const payload: any = {
+        type: formData.type,
+        label: formData.label,
+        value: formData.value,
+        displayOrder: formData.displayOrder,
+        isActive: formData.isActive,
+      }
+      
+      if (hasSocialMedia) {
+        payload.socialMedia = formData.socialMedia
+      }
+      
+      if (formData.businessWhatsApp.trim() !== '') {
+        payload.businessWhatsApp = formData.businessWhatsApp.trim()
+      }
+      
       if (selectedInfo) {
-        await contactApi.updateInfo(selectedInfo._id, formData, token)
+        await contactApi.updateInfo(selectedInfo._id, payload, token)
       } else {
-        await contactApi.createInfo(formData, token)
+        await contactApi.createInfo(payload, token)
       }
       setIsModalOpen(false)
       fetchContactInfo()
@@ -134,12 +183,53 @@ export default function AdminContactPage() {
     try {
       await contactApi.updateInquiry(inquiryId, { status: status as any, adminNotes }, token)
       await fetchInquiries()
+      // Refresh selected inquiry if it's the one being updated
       if (selectedInquiry?._id === inquiryId) {
-        setSelectedInquiry(null)
+        const updatedInquiries = await contactApi.listInquiries(token, {})
+        const updated = updatedInquiries.find(i => i._id === inquiryId)
+        if (updated) {
+          setSelectedInquiry(updated)
+          setAdminNotes(updated.adminNotes || '')
+        }
       }
     } catch (error) {
       console.error('Failed to update inquiry:', error)
       alert('Failed to update inquiry')
+    }
+  }
+
+  const saveAdminNotes = async (inquiryId: string) => {
+    if (!token) return
+    try {
+      await contactApi.updateInquiry(inquiryId, { adminNotes: adminNotes.trim() || undefined }, token)
+      await fetchInquiries()
+      // Refresh selected inquiry
+      if (selectedInquiry?._id === inquiryId) {
+        const updatedInquiries = await contactApi.listInquiries(token, {})
+        const updated = updatedInquiries.find(i => i._id === inquiryId)
+        if (updated) {
+          setSelectedInquiry(updated)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save admin notes:', error)
+      alert('Failed to save admin notes')
+    }
+  }
+
+  const handleDeleteInquiry = async (id: string) => {
+    if (!token || !confirm('Are you sure you want to delete this inquiry?')) return
+    
+    try {
+      await contactApi.deleteInquiry(id, token)
+      if (selectedInquiry?._id === id) {
+        setSelectedInquiry(null)
+        setAdminNotes('')
+      }
+      await fetchInquiries()
+    } catch (error) {
+      console.error('Failed to delete inquiry:', error)
+      alert('Failed to delete inquiry')
     }
   }
 
@@ -331,7 +421,10 @@ export default function AdminContactPage() {
               <h2 className="text-xs font-semibold">INQUIRY LIST</h2>
               {selectedInquiry && (
                 <button
-                  onClick={() => setSelectedInquiry(null)}
+                  onClick={() => {
+                    setSelectedInquiry(null)
+                    setAdminNotes('')
+                  }}
                   className="md:hidden text-ivory hover:text-brass transition-colors p-1"
                   title="Close Details"
                 >
@@ -356,7 +449,10 @@ export default function AdminContactPage() {
                       className={`p-2 rounded border cursor-pointer transition-all ${
                         selectedInquiry?._id === inquiry._id ? 'bg-brass/10 border-brass/30' : 'bg-white border-brass/20 hover:border-brass/40'
                       }`}
-                      onClick={() => setSelectedInquiry(inquiry)}
+                      onClick={() => {
+                        setSelectedInquiry(inquiry)
+                        setAdminNotes(inquiry.adminNotes || '')
+                      }}
                     >
                       <div className="flex items-start gap-2">
                         <div className="flex-shrink-0">
@@ -393,7 +489,10 @@ export default function AdminContactPage() {
               <h2 className="text-xs font-semibold">INQUIRY DETAILS</h2>
               {selectedInquiry && (
                 <button
-                  onClick={() => setSelectedInquiry(null)}
+                  onClick={() => {
+                    setSelectedInquiry(null)
+                    setAdminNotes('')
+                  }}
                   className="text-ivory hover:text-brass transition-colors p-1"
                   title="Close Details"
                 >
@@ -411,7 +510,7 @@ export default function AdminContactPage() {
                     <div className="mt-1">
                       <select
                         value={selectedInquiry.status}
-                        onChange={(e) => updateInquiryStatus(selectedInquiry._id, e.target.value)}
+                        onChange={(e) => updateInquiryStatus(selectedInquiry._id, e.target.value, adminNotes)}
                         className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
                       >
                         <option value="new">New</option>
@@ -419,6 +518,24 @@ export default function AdminContactPage() {
                         <option value="replied">Replied</option>
                         <option value="closed">Closed</option>
                       </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Admin Notes</label>
+                    <div className="mt-1">
+                      <textarea
+                        value={adminNotes}
+                        onChange={(e) => setAdminNotes(e.target.value)}
+                        placeholder="Add internal notes about this inquiry..."
+                        className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+                        rows={4}
+                      />
+                      <button
+                        onClick={() => saveAdminNotes(selectedInquiry._id)}
+                        className="mt-2 text-[10px] bg-brass text-white px-3 py-1.5 rounded hover:bg-brass/90 transition-colors font-semibold"
+                      >
+                        Save Notes
+                      </button>
                     </div>
                   </div>
                   <div>
@@ -443,17 +560,19 @@ export default function AdminContactPage() {
                     <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Message</label>
                     <p className="text-xs text-charcoal/80 mt-1 leading-relaxed whitespace-pre-wrap break-words">{selectedInquiry.message}</p>
                   </div>
-                  {selectedInquiry.adminNotes && (
-                    <div>
-                      <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Admin Notes</label>
-                      <p className="text-xs text-charcoal/80 mt-1 leading-relaxed whitespace-pre-wrap break-words">{selectedInquiry.adminNotes}</p>
-                    </div>
-                  )}
                   <div className="pt-2 border-t border-brass/20">
                     <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Submitted</label>
                     <p className="text-xs text-charcoal/60 mt-1">
                       {new Date(selectedInquiry.createdAt || '').toLocaleString()}
                     </p>
+                  </div>
+                  <div className="pt-2 border-t border-brass/20">
+                    <button
+                      onClick={() => handleDeleteInquiry(selectedInquiry._id)}
+                      className="w-full text-[10px] bg-red-600 text-white px-3 py-1.5 rounded hover:bg-red-700 transition-colors font-semibold"
+                    >
+                      Delete Inquiry
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -518,6 +637,85 @@ export default function AdminContactPage() {
             />
           </div>
 
+          {/* Social Media Fields - shown when type is 'social' */}
+          {formData.type === 'social' && (
+            <div className="space-y-2 border-t border-brass/20 pt-3">
+              <label className="block text-xs font-medium text-charcoal mb-2">
+                Social Media URLs (Optional)
+              </label>
+              <Input
+                label="Instagram"
+                value={formData.socialMedia.instagram}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  socialMedia: { ...formData.socialMedia, instagram: e.target.value } 
+                })}
+                placeholder="https://instagram.com/username"
+                type="url"
+              />
+              <Input
+                label="Facebook"
+                value={formData.socialMedia.facebook}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  socialMedia: { ...formData.socialMedia, facebook: e.target.value } 
+                })}
+                placeholder="https://facebook.com/username"
+                type="url"
+              />
+              <Input
+                label="LinkedIn"
+                value={formData.socialMedia.linkedin}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  socialMedia: { ...formData.socialMedia, linkedin: e.target.value } 
+                })}
+                placeholder="https://linkedin.com/company/username"
+                type="url"
+              />
+              <Input
+                label="Twitter"
+                value={formData.socialMedia.twitter}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  socialMedia: { ...formData.socialMedia, twitter: e.target.value } 
+                })}
+                placeholder="https://twitter.com/username"
+                type="url"
+              />
+              <Input
+                label="YouTube"
+                value={formData.socialMedia.youtube}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  socialMedia: { ...formData.socialMedia, youtube: e.target.value } 
+                })}
+                placeholder="https://youtube.com/@username"
+                type="url"
+              />
+              <Input
+                label="Pinterest"
+                value={formData.socialMedia.pinterest}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  socialMedia: { ...formData.socialMedia, pinterest: e.target.value } 
+                })}
+                placeholder="https://pinterest.com/username"
+                type="url"
+              />
+              <Input
+                label="TikTok"
+                value={formData.socialMedia.tiktok}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  socialMedia: { ...formData.socialMedia, tiktok: e.target.value } 
+                })}
+                placeholder="https://tiktok.com/@username"
+                type="url"
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-medium text-charcoal mb-1">
               Display Order
@@ -529,6 +727,22 @@ export default function AdminContactPage() {
               min="0"
               className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-charcoal mb-1">
+              Business WhatsApp (Optional)
+            </label>
+            <input
+              type="tel"
+              value={formData.businessWhatsApp}
+              onChange={(e) => setFormData({ ...formData, businessWhatsApp: e.target.value })}
+              placeholder="e.g., +1234567890"
+              className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+            />
+            <p className="text-[10px] text-charcoal/50 mt-1">
+              Must be in E.164 format with country code (e.g., +1234567890)
+            </p>
           </div>
 
           <div className="flex items-center gap-2">

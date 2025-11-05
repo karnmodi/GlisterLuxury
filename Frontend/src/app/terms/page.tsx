@@ -111,7 +111,27 @@ export default function TermsConditionsPage() {
               {/* Section 6 */}
               <div className="mb-10">
                 <h2 className="text-lg sm:text-xl font-serif font-bold text-charcoal mb-4 pb-2 border-b-2 border-brass/30">
-                  6. PAYMENT TERMS
+                  6. FINISHING COLORS
+                </h2>
+                <div className="space-y-3">
+                  <p className="text-sm sm:text-base leading-relaxed">
+                    Product images displayed on our website are generated for illustrative purposes and may not accurately represent the actual finish colors available. The actual finish colors may differ from the product images shown.
+                  </p>
+                  <p className="text-sm sm:text-base leading-relaxed">
+                    Customers are advised to consult our physical catalogues or contact us directly to view the actual finish colors before placing an order. We recommend reviewing finish samples or catalogues to ensure you are satisfied with the finish color selection.
+                  </p>
+                  <p className="text-sm sm:text-base leading-relaxed">
+                    The Company shall not be liable for any discrepancies between product images and actual finish colors delivered. All finish colors are subject to manufacturing variations and should be verified through our catalogues or samples prior to ordering.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t border-charcoal/10 my-10"></div>
+
+              {/* Section 7 */}
+              <div className="mb-10">
+                <h2 className="text-lg sm:text-xl font-serif font-bold text-charcoal mb-4 pb-2 border-b-2 border-brass/30">
+                  7. PAYMENT TERMS
                 </h2>
                 <div className="space-y-3">
                   <p className="text-sm sm:text-base leading-relaxed">
@@ -128,10 +148,10 @@ export default function TermsConditionsPage() {
 
               <div className="border-t border-charcoal/10 my-10"></div>
 
-              {/* Section 7 */}
+              {/* Section 8 */}
               <div className="mb-10">
                 <h2 className="text-lg sm:text-xl font-serif font-bold text-charcoal mb-4 pb-2 border-b-2 border-brass/30">
-                  7. RETENTION OF TITLE
+                  8. RETENTION OF TITLE
                 </h2>
                 <p className="text-sm sm:text-base leading-relaxed">
                   All goods remain the exclusive property of Glister London Limited until full payment has been received by the Company.
@@ -140,16 +160,16 @@ export default function TermsConditionsPage() {
 
               <div className="border-t border-charcoal/10 my-10"></div>
 
-              {/* Section 8 */}
+              {/* Section 9 */}
               <div className="mb-10">
                 <h2 className="text-lg sm:text-xl font-serif font-bold text-charcoal mb-4 pb-2 border-b-2 border-brass/30">
-                  8. COMPANY LIABILITY
+                  9. COMPANY LIABILITY
                 </h2>
 
-                {/* 8.1 */}
+                {/* 9.1 */}
                 <div className="ml-4 sm:ml-6 mb-8 mt-6">
                   <h3 className="text-base sm:text-lg font-serif font-semibold text-charcoal mb-3">
-                    8.1 Statutory Exclusions
+                    9.1 Statutory Exclusions
                   </h3>
                   <p className="text-sm sm:text-base mb-3 leading-relaxed">
                     Nothing in these Terms shall exclude or restrict the Company's liability:
@@ -161,10 +181,10 @@ export default function TermsConditionsPage() {
                   </ul>
                 </div>
 
-                {/* 8.2 */}
+                {/* 9.2 */}
                 <div className="ml-4 sm:ml-6 mb-8">
                   <h3 className="text-base sm:text-lg font-serif font-semibold text-charcoal mb-3">
-                    8.2 Warranties on Delivery
+                    9.2 Warranties on Delivery
                   </h3>
                   <p className="text-sm sm:text-base mb-3 leading-relaxed">
                     Subject to the provisions below, upon delivery the Company warrants that:
@@ -175,13 +195,13 @@ export default function TermsConditionsPage() {
                   </ul>
                 </div>
 
-                {/* 8.3 */}
+                {/* 9.3 */}
                 <div className="ml-4 sm:ml-6 mb-8">
                   <h3 className="text-base sm:text-lg font-serif font-semibold text-charcoal mb-3">
-                    8.3 Notice of Defects
+                    9.3 Notice of Defects
                   </h3>
                   <p className="text-sm sm:text-base mb-3 leading-relaxed">
-                    The Company shall not be liable for breach of the warranties in Clause 8.2 unless:
+                    The Company shall not be liable for breach of the warranties in Clause 9.2 unless:
                   </p>
                   <ul className="list-disc list-inside space-y-2 ml-2 text-sm sm:text-base leading-relaxed mb-3">
                     <li>The defect is discovered within 7 days of delivery and reported in writing to the Company within 7 days of discovery;</li>
@@ -194,13 +214,13 @@ export default function TermsConditionsPage() {
                   </p>
                 </div>
 
-                {/* 8.4 */}
+                {/* 9.4 */}
                 <div className="ml-4 sm:ml-6 mb-8">
                   <h3 className="text-base sm:text-lg font-serif font-semibold text-charcoal mb-3">
-                    8.4 Remedies
+                    9.4 Remedies
                   </h3>
                   <p className="text-sm sm:text-base mb-3 leading-relaxed">
-                    Subject to Clause 8.3, if goods fail to meet the warranties in Clause 8.2, the Company will, at its sole discretion:
+                    Subject to Clause 9.3, if goods fail to meet the warranties in Clause 9.2, the Company will, at its sole discretion:
                   </p>
                   <ul className="list-disc list-inside space-y-2 ml-2 text-sm sm:text-base leading-relaxed">
                     <li>Repair or replace the goods (or defective parts); or</li>
@@ -211,10 +231,10 @@ export default function TermsConditionsPage() {
                   </p>
                 </div>
 
-                {/* 8.5 */}
+                {/* 9.5 */}
                 <div className="ml-4 sm:ml-6 mb-8">
                   <h3 className="text-base sm:text-lg font-serif font-semibold text-charcoal mb-3">
-                    8.5 Goods Manufactured to Buyer Specifications
+                    9.5 Goods Manufactured to Buyer Specifications
                   </h3>
                   <p className="text-sm sm:text-base mb-3 leading-relaxed">
                     Where goods are manufactured or processed according to the buyer's design, specification, or approval:
@@ -225,13 +245,13 @@ export default function TermsConditionsPage() {
                   </ul>
                 </div>
 
-                {/* 8.6 */}
+                {/* 9.6 */}
                 <div className="ml-4 sm:ml-6 mb-8">
                   <h3 className="text-base sm:text-lg font-serif font-semibold text-charcoal mb-3">
-                    8.6 Limitation of Liability
+                    9.6 Limitation of Liability
                   </h3>
                   <p className="text-sm sm:text-base mb-3 leading-relaxed">
-                    Subject to Clauses 8.1 and 8.12, the Company shall not be liable for:
+                    Subject to Clauses 9.1 and 9.12, the Company shall not be liable for:
                   </p>
                   <ul className="list-disc list-inside space-y-2 ml-2 text-sm sm:text-base leading-relaxed mb-3">
                     <li>Any financial loss, third-party liability, or loss of profit, revenue, business, reputation, or goodwill; or</li>
@@ -242,27 +262,27 @@ export default function TermsConditionsPage() {
                   </p>
                 </div>
 
-                {/* 8.7 */}
+                {/* 9.7 */}
                 <div className="ml-4 sm:ml-6 mb-8">
                   <h3 className="text-base sm:text-lg font-serif font-semibold text-charcoal mb-3">
-                    8.7 Maximum Liability
+                    9.7 Maximum Liability
                   </h3>
                   <p className="text-sm sm:text-base leading-relaxed">
                     Without prejudice to the above, the Company's total liability for any claim (whether arising from negligence or otherwise) shall not exceed twice the contract price.
                   </p>
                 </div>
 
-                {/* 8.8 */}
+                {/* 9.8 */}
                 <div className="ml-4 sm:ml-6">
                   <h3 className="text-base sm:text-lg font-serif font-semibold text-charcoal mb-3">
-                    8.8 Entire Agreement
+                    9.8 Entire Agreement
                   </h3>
                   <div className="space-y-3">
                     <p className="text-sm sm:text-base leading-relaxed">
                       This contract constitutes the entire agreement between the Company and the buyer. The buyer acknowledges that they have not relied on any statement, promise, or representation not expressly set out in this contract, except where otherwise required by law.
                     </p>
                     <p className="text-sm sm:text-base leading-relaxed">
-                      All warranties, conditions, or terms implied by statute or common law are excluded to the fullest extent permitted by law (subject to Clause 8.1 and Section 12 of the Sale of Goods Act 1979).
+                      All warranties, conditions, or terms implied by statute or common law are excluded to the fullest extent permitted by law (subject to Clause 9.1 and Section 12 of the Sale of Goods Act 1979).
                     </p>
                     <p className="text-sm sm:text-base leading-relaxed">
                       Where goods are sold under a consumer transaction (as defined by the Consumer Transactions (Restrictions on Statements) Order 1976), the statutory rights of consumers remain unaffected.

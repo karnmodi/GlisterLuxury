@@ -49,12 +49,14 @@ export const productsApi = {
   },
 
   // Optimized endpoint for product listing - returns minimal data
-  getListing: (params?: { q?: string; material?: string; category?: string; subcategory?: string }) => {
+  getListing: (params?: { q?: string; material?: string; category?: string; subcategory?: string; limit?: number; skip?: number }) => {
     const queryParams = new URLSearchParams()
     if (params?.q) queryParams.append('q', params.q)
     if (params?.material) queryParams.append('material', params.material)
     if (params?.category) queryParams.append('category', params.category)
     if (params?.subcategory) queryParams.append('subcategory', params.subcategory)
+    if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString())
+    if (params?.skip !== undefined) queryParams.append('skip', params.skip.toString())
 
     const query = queryParams.toString()
     return apiCall<Array<{
@@ -179,6 +181,12 @@ export const productsApi = {
     apiCall<{ message: string; product: Product }>(`/products/${id}/images/mapping`, {
       method: 'PUT',
       body: JSON.stringify({ imageUrl, mappedFinishID }),
+    }),
+
+  toggleVisibility: (id: string, isVisible: boolean) =>
+    apiCall<{ message: string; product: Product }>(`/products/${id}/visibility`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isVisible }),
     }),
 }
 

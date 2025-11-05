@@ -750,7 +750,7 @@ export default function LuxuryNavigation() {
 
             {/* Favourites Icon - Mobile */}
             <Link 
-              href="/favourites"
+              href="/favorites"
               className="text-ivory hover:text-brass transition-colors duration-300"
               aria-label="Favourites"
             >
