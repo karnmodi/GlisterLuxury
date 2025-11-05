@@ -63,8 +63,8 @@ export default function OffersPage() {
       fetchOffers()
       return
     }
-    const filtered = offers.filter(offer => 
-      offer.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const filtered = offers.filter(offer =>
+      offer.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       offer.description.toLowerCase().includes(searchQuery.toLowerCase())
     )
     setOffers(filtered)
@@ -90,7 +90,7 @@ export default function OffersPage() {
   const openEditModal = (offer: Offer) => {
     setEditingOffer(offer)
     setFormData({
-      code: offer.code,
+      code: offer.code || '',
       description: offer.description,
       discountType: offer.discountType,
       discountValue: toNumber(offer.discountValue).toString(),

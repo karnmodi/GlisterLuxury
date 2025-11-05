@@ -1,4 +1,4 @@
-import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, Announcement, AboutUs, ContactInfo, ContactInquiry, CartItem, Order, OrderStats, Wishlist, DashboardSummary, WebsiteVisitAnalytics, RevenueAnalytics, ProductAnalytics, UserAnalytics, OrderAnalytics, ConversionAnalytics } from '@/types'
+import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, Announcement, AboutUs, ContactInfo, ContactInquiry, CartItem, Order, OrderStats, Wishlist, DashboardSummary, WebsiteVisitAnalytics, RevenueAnalytics, ProductAnalytics, UserAnalytics, OrderAnalytics, ConversionAnalytics, NearMissOffer } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
@@ -401,7 +401,7 @@ export const cartApi = {
   // NEW: Get near-miss offers (offers customer is close to qualifying for)
   getNearMissOffers: (sessionID: string, userId?: string) => {
     const query = userId ? `?userId=${userId}` : '';
-    return apiCall<{ nearMissOffers: Array<{ offer: Offer; gapAmount: number; potentialDiscount: number }>; currentSubtotal: number }>(
+    return apiCall<{ nearMissOffers: NearMissOffer[]; currentSubtotal: number }>(
       `/cart/${sessionID}/near-miss-offers${query}`
     );
   },

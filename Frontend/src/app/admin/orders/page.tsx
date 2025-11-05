@@ -291,10 +291,17 @@ export default function AdminOrdersPage() {
                         {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-xs font-semibold text-charcoal">
-                        {formatCurrency(order.pricing.total)}
-                      </span>
+                    <td className="px-4 py-3">
+                      <div>
+                        <span className="text-xs font-semibold text-charcoal">
+                          {formatCurrency(order.pricing.total)}
+                        </span>
+                        {order.discountCode && order.pricing.discount && (
+                          <div className="text-xs text-green-600 font-medium mt-0.5">
+                            💰 -{formatCurrency(order.pricing.discount)}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <StatusBadge status={order.status} type="order" size="sm" />

@@ -123,6 +123,14 @@ async function sendOrderEmails(order, user) {
 									<td colspan="3" style="padding: 20px 12px; text-align: right;">Subtotal:</td>
 									<td style="padding: 20px 12px; text-align: right;">${formatPrice(order.pricing.subtotal)}</td>
 								</tr>
+								${order.discountCode && order.pricing.discount ? `
+								<tr style="background-color: #d4edda;">
+									<td colspan="3" style="padding: 12px; text-align: right;">
+										<span style="color: #155724;">💰 Discount Applied (${order.discountCode}):</span>
+									</td>
+									<td style="padding: 12px; text-align: right; color: #155724; font-weight: bold;">-${formatPrice(order.pricing.discount)}</td>
+								</tr>
+								` : ''}
 								<tr class="total-row" style="background-color: #D4AF37; color: #2C2C2C;">
 									<td colspan="3" style="padding: 20px 12px; text-align: right;">TOTAL:</td>
 									<td style="padding: 20px 12px; text-align: right;">${formatPrice(order.pricing.total)}</td>
@@ -203,9 +211,56 @@ async function sendOrderEmails(order, user) {
 										<td style="padding: 12px; border-bottom: 1px solid #e5e5e5; text-align: right;">${formatPrice(item.totalPrice)}</td>
 									</tr>
 								`).join('')}
+
+								<!-- Pricing Summary -->
+								<tr>
+									<td colspan="2" style="padding: 12px; text-align: right; border-top: 2px solid #e5e5e5;">
+										<span style="color: #666;">Subtotal:</span>
+									</td>
+									<td style="padding: 12px; text-align: right; border-top: 2px solid #e5e5e5;">
+										${formatPrice(order.pricing.subtotal)}
+									</td>
+								</tr>
+
+								${order.discountCode && order.pricing.discount ? `
+								<tr style="background-color: #d4edda;">
+									<td colspan="2" style="padding: 12px; text-align: right;">
+										<div>
+											<span style="color: #155724; font-weight: bold;">💰 Discount Applied</span><br>
+											<span style="color: #666; font-size: 12px; font-family: monospace;">${order.discountCode}</span>
+										</div>
+									</td>
+									<td style="padding: 12px; text-align: right; color: #155724; font-weight: bold;">
+										-${formatPrice(order.pricing.discount)}
+									</td>
+								</tr>
+								` : ''}
+
+								<tr>
+									<td colspan="2" style="padding: 12px; text-align: right;">
+										<span style="color: #666;">Shipping:</span>
+									</td>
+									<td style="padding: 12px; text-align: right;">
+										${formatPrice(order.pricing.shipping)}
+									</td>
+								</tr>
+
+								<tr>
+									<td colspan="2" style="padding: 12px; text-align: right;">
+										<span style="color: #666;">Tax:</span>
+									</td>
+									<td style="padding: 12px; text-align: right;">
+										${formatPrice(order.pricing.tax)}
+									</td>
+								</tr>
+
 								<tr class="total-row">
-									<td colspan="2" style="padding: 20px 12px; text-align: right;">Total:</td>
-									<td style="padding: 20px 12px; text-align: right;">${formatPrice(order.pricing.total)}</td>
+									<td colspan="2" style="padding: 20px 12px; text-align: right; border-top: 2px solid #2c3e50; font-size: 18px;">
+										<strong>Total:</strong>
+									</td>
+									<td style="padding: 20px 12px; text-align: right; border-top: 2px solid #2c3e50; font-size: 18px;">
+										<strong>${formatPrice(order.pricing.total)}</strong>
+									</td>
 								</tr>
 							</tbody>
 						</table>

@@ -14,12 +14,13 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
     ? (data as Order).pricing.subtotal 
     : (data as Cart).subtotal
   
-  const discountAmount = type === 'cart' 
-    ? (data as Cart).discountAmount 
+  const discountAmount = type === 'cart'
+    ? (data as Cart).discountAmount
     : (data as Order).pricing.discount
-  const discountCode = type === 'cart' 
-    ? (data as Cart).discountCode 
+  const discountCode = type === 'cart'
+    ? (data as Cart).discountCode
     : (data as Order).discountCode
+  const isAutoApplied = type === 'cart' ? (data as Cart).isAutoApplied : false
 
   return (
     <div className="bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg p-6">
@@ -56,15 +57,34 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
           <span>{formatCurrency(subtotal)}</span>
         </div>
         
-        {/* Discount Display */}
+        {/* Discount Display - Enhanced */}
         {discountCode && discountAmount && toNumber(discountAmount) > 0 && (
           <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className="flex justify-between text-sm text-green-400"
+            className={`flex justify-between items-center text-sm p-2 rounded-md -mx-2 ${
+              isAutoApplied
+                ? 'bg-brass/10 border border-brass/20'
+                : 'bg-green-500/10 border border-green-500/20'
+            }`}
           >
-            <span>Discount ({discountCode})</span>
-            <span className="font-medium">-{formatCurrency(discountAmount)}</span>
+            <div className="flex items-center gap-1.5">
+              {isAutoApplied && (
+                <svg className="w-3.5 h-3.5 text-brass" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              )}
+              <span className={isAutoApplied ? 'text-brass font-medium' : 'text-green-400 font-medium'}>
+                Discount
+                {isAutoApplied && <span className="text-xs ml-1">(Auto-Applied)</span>}
+              </span>
+            </div>
+            <div className="text-right">
+              <p className={`font-semibold ${isAutoApplied ? 'text-brass' : 'text-green-400'}`}>
+                -{formatCurrency(discountAmount)}
+              </p>
+              <p className="text-xs text-ivory/60 font-mono">{discountCode}</p>
+            </div>
           </motion.div>
         )}
         
