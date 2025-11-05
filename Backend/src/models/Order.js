@@ -30,7 +30,16 @@ const OrderItemSchema = new Schema(
 			size: { type: Schema.Types.Decimal128 },
 			finishes: { type: Schema.Types.Decimal128 },
 			packaging: { type: Schema.Types.Decimal128 },
+			// VAT breakdown for each component
+			materialVAT: { type: Schema.Types.Decimal128, default: 0 },
+			sizeVAT: { type: Schema.Types.Decimal128, default: 0 },
+			finishesVAT: { type: Schema.Types.Decimal128, default: 0 },
+			packagingVAT: { type: Schema.Types.Decimal128, default: 0 },
+			totalVAT: { type: Schema.Types.Decimal128, default: 0 }
 		},
+		// Item-level VAT amounts
+		unitPriceVAT: { type: Schema.Types.Decimal128, default: 0 },
+		totalPriceVAT: { type: Schema.Types.Decimal128, default: 0 }
 	},
 	{ _id: true }
 );
@@ -67,6 +76,8 @@ const OrderSchema = new Schema(
 		orderNotes: { type: String },
 		discountCode: { type: String },
 		discountAmount: { type: Schema.Types.Decimal128, default: 0 },
+		discountType: { type: String, enum: ['percentage', 'fixed', null], default: null },
+		discountValue: { type: Schema.Types.Decimal128, default: 0 },
 		offerID: { type: Schema.Types.ObjectId, ref: 'Offer' },
 		pricing: {
 			subtotal: { type: Schema.Types.Decimal128, required: true },

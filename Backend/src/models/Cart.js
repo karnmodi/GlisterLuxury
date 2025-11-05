@@ -31,7 +31,16 @@ const CartItemSchema = new Schema(
 			finishes: { type: Schema.Types.Decimal128 },
 			packaging: { type: Schema.Types.Decimal128 },
 			discount: { type: Schema.Types.Decimal128, default: 0 },
+			// VAT breakdown for each component
+			materialVAT: { type: Schema.Types.Decimal128, default: 0 },
+			sizeVAT: { type: Schema.Types.Decimal128, default: 0 },
+			finishesVAT: { type: Schema.Types.Decimal128, default: 0 },
+			packagingVAT: { type: Schema.Types.Decimal128, default: 0 },
+			totalVAT: { type: Schema.Types.Decimal128, default: 0 }
 		},
+		// Item-level VAT amounts
+		unitPriceVAT: { type: Schema.Types.Decimal128, default: 0 },
+		totalPriceVAT: { type: Schema.Types.Decimal128, default: 0 }
 	},
 	{ _id: true }
 );
@@ -44,6 +53,8 @@ const CartSchema = new Schema(
 		subtotal: { type: Schema.Types.Decimal128, default: 0 },
 		discountCode: { type: String },
 		discountAmount: { type: Schema.Types.Decimal128, default: 0 },
+		discountType: { type: String, enum: ['percentage', 'fixed', null], default: null },
+		discountValue: { type: Schema.Types.Decimal128, default: 0 },
 		offerID: { type: Schema.Types.ObjectId, ref: 'Offer' },
 		vat: { type: Schema.Types.Decimal128, default: 0 },
 		total: { type: Schema.Types.Decimal128, default: 0 },
