@@ -1,5 +1,5 @@
 import React from 'react'
-import { formatCurrency, toNumber } from '@/lib/utils'
+import { formatCurrency, toNumber, formatDiscountLabel } from '@/lib/utils'
 import type { Order, Cart } from '@/types'
 import { motion } from 'framer-motion'
 
@@ -20,7 +20,16 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
   const discountCode = type === 'cart'
     ? (data as Cart).discountCode
     : (data as Order).discountCode
+  const discountType = type === 'cart'
+    ? (data as Cart).discountType
+    : (data as Order).discountType
+  const discountValue = type === 'cart'
+    ? (data as Cart).discountValue
+    : (data as Order).discountValue
   const isAutoApplied = type === 'cart' ? (data as Cart).isAutoApplied : false
+
+  // Format discount label (e.g., "20% OFF" or "£10 OFF")
+  const discountLabel = formatDiscountLabel(discountType, discountValue)
 
   return (
     <div className="bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg p-6">
@@ -75,8 +84,8 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
                 </svg>
               )}
               <span className={isAutoApplied ? 'text-brass font-medium' : 'text-green-400 font-medium'}>
-                Discount
-                {isAutoApplied && <span className="text-xs ml-1">(Auto-Applied)</span>}
+                Discount {discountLabel && `(${discountLabel})`}
+                {isAutoApplied && <span className="text-xs ml-1 block">Auto-Applied</span>}
               </span>
             </div>
             <div className="text-right">

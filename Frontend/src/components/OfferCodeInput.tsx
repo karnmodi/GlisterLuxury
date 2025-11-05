@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useToast } from '@/contexts/ToastContext'
 import { cartApi } from '@/lib/api'
-import { formatCurrency, toNumber } from '@/lib/utils'
+import { formatCurrency, toNumber, formatDiscountLabel } from '@/lib/utils'
 import type { Cart } from '@/types'
 import Button from '@/components/ui/Button'
 
@@ -91,6 +91,9 @@ export default function OfferCodeInput({
   const isAutoApplied = cart?.isAutoApplied || false
   const discountMethod = cart?.discountApplicationMethod || 'none'
 
+  // Format discount label (e.g., "20% OFF" or "£10 OFF")
+  const discountLabel = formatDiscountLabel(cart?.discountType, cart?.discountValue)
+
   return (
     <div className="bg-gradient-ivory rounded-lg border border-brass/20 p-4">
       <h3 className="text-sm font-semibold text-charcoal mb-3">Discount Code</h3>
@@ -168,9 +171,16 @@ export default function OfferCodeInput({
                   </>
                 )}
               </div>
-              <p className="text-sm font-mono font-bold text-brass mt-1">
-                {cart?.discountCode || 'N/A'}
-              </p>
+              <div className="flex items-baseline gap-2 mt-1">
+                <p className="text-sm font-mono font-bold text-brass">
+                  {cart?.discountCode || 'N/A'}
+                </p>
+                {discountLabel && (
+                  <span className="text-xs font-semibold text-brass bg-brass/10 px-2 py-0.5 rounded">
+                    {discountLabel}
+                  </span>
+                )}
+              </div>
               <p className="text-sm font-semibold text-green-600 mt-1">
                 💰 You save: {formatCurrency(discountAmount)}
               </p>

@@ -122,7 +122,16 @@ export interface CartItem {
     finishes: number
     packaging: number
     discount?: number
+    // VAT breakdown for each component
+    materialVAT?: number
+    sizeVAT?: number
+    finishesVAT?: number
+    packagingVAT?: number
+    totalVAT?: number
   }
+  // Item-level VAT amounts
+  unitPriceVAT?: number
+  totalPriceVAT?: number
 }
 
 export interface Cart {
@@ -133,6 +142,8 @@ export interface Cart {
   subtotal: number
   discountCode?: string
   discountAmount?: number
+  discountType?: 'percentage' | 'fixed' | null
+  discountValue?: number
   offerID?: string
   vat?: number
   total?: number
@@ -351,7 +362,16 @@ export interface OrderItem {
     finishes: number
     packaging: number
     discount?: number
+    // VAT breakdown for each component
+    materialVAT?: number
+    sizeVAT?: number
+    finishesVAT?: number
+    packagingVAT?: number
+    totalVAT?: number
   }
+  // Item-level VAT amounts
+  unitPriceVAT?: number
+  totalPriceVAT?: number
 }
 
 export interface Order {
@@ -377,6 +397,8 @@ export interface Order {
   orderNotes?: string
   discountCode?: string
   discountAmount?: number
+  discountType?: 'percentage' | 'fixed' | null
+  discountValue?: number
   offerID?: string
   pricing: {
     subtotal: number

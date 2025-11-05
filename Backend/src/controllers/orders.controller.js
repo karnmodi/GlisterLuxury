@@ -476,6 +476,8 @@ exports.createOrder = async (req, res, next) => {
 			orderNotes,
 			discountCode: cart.discountCode || undefined,
 			discountAmount: cart.discountAmount || 0,
+			discountType: cart.discountType || null,
+			discountValue: cart.discountValue || 0,
 			offerID: cart.offerID || undefined,
 			pricing: {
 				subtotal: cart.subtotal,

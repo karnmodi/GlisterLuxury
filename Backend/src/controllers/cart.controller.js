@@ -4,6 +4,7 @@ const Finish = require('../models/Finish');
 const Offer = require('../models/Offer');
 const { computePriceAndValidate, toNumber } = require('../utils/pricing');
 const offerAutoApplyService = require('../services/offerAutoApply.service');
+const VATService = require('../services/vat.service');
 
 /**
  * Validate and auto-remove discount if cart no longer meets requirements
@@ -20,6 +21,8 @@ async function validateAndCleanupDiscount(cart, userId) {
 			// Offer no longer exists, remove discount
 			cart.discountCode = undefined;
 			cart.discountAmount = 0;
+			cart.discountType = null;
+			cart.discountValue = 0;
 			cart.offerID = undefined;
 			return;
 		}
@@ -28,6 +31,8 @@ async function validateAndCleanupDiscount(cart, userId) {
 		if (!offer.isActive) {
 			cart.discountCode = undefined;
 			cart.discountAmount = 0;
+			cart.discountType = null;
+			cart.discountValue = 0;
 			cart.offerID = undefined;
 			return;
 		}
@@ -37,12 +42,16 @@ async function validateAndCleanupDiscount(cart, userId) {
 		if (offer.validFrom && now < offer.validFrom) {
 			cart.discountCode = undefined;
 			cart.discountAmount = 0;
+			cart.discountType = null;
+			cart.discountValue = 0;
 			cart.offerID = undefined;
 			return;
 		}
 		if (offer.validTo && now > offer.validTo) {
 			cart.discountCode = undefined;
 			cart.discountAmount = 0;
+			cart.discountType = null;
+			cart.discountValue = 0;
 			cart.offerID = undefined;
 			return;
 		}
@@ -51,6 +60,8 @@ async function validateAndCleanupDiscount(cart, userId) {
 		if (offer.maxUses !== null && offer.maxUses > 0 && offer.usedCount >= offer.maxUses) {
 			cart.discountCode = undefined;
 			cart.discountAmount = 0;
+			cart.discountType = null;
+			cart.discountValue = 0;
 			cart.offerID = undefined;
 			return;
 		}
@@ -62,6 +73,8 @@ async function validateAndCleanupDiscount(cart, userId) {
 			// Cart total is below minimum, remove discount
 			cart.discountCode = undefined;
 			cart.discountAmount = 0;
+			cart.discountType = null;
+			cart.discountValue = 0;
 			cart.offerID = undefined;
 			return;
 		}
@@ -88,6 +101,8 @@ async function validateAndCleanupDiscount(cart, userId) {
 			if (!userIsNew) {
 				cart.discountCode = undefined;
 				cart.discountAmount = 0;
+				cart.discountType = null;
+				cart.discountValue = 0;
 				cart.offerID = undefined;
 				return;
 			}
@@ -101,6 +116,8 @@ async function validateAndCleanupDiscount(cart, userId) {
 		// On error, remove discount to be safe
 		cart.discountCode = undefined;
 		cart.discountAmount = 0;
+		cart.discountType = null;
+		cart.discountValue = 0;
 		cart.offerID = undefined;
 	}
 }
@@ -212,6 +229,15 @@ async function addToCart(req, res, next) {
 			priceBreakdown: breakdown,
 		};
 
+		// Calculate and add VAT breakdown for this item
+		const vatData = VATService.calculateItemVAT(cartItem);
+		cartItem.priceBreakdown = {
+			...cartItem.priceBreakdown,
+			...vatData.priceBreakdown
+		};
+		cartItem.unitPriceVAT = vatData.unitPriceVAT;
+		cartItem.totalPriceVAT = vatData.totalPriceVAT;
+
 		cart.items.push(cartItem);
 		await cart.save();
 
@@ -299,6 +325,15 @@ async function updateCartItem(req, res, next) {
 		item.quantity = quantity;
 		const unitPrice = toNumber(item.unitPrice);
 		item.totalPrice = unitPrice * quantity;
+
+		// Recalculate VAT for updated item
+		const vatData = VATService.calculateItemVAT(item);
+		item.priceBreakdown = {
+			...item.priceBreakdown,
+			...vatData.priceBreakdown
+		};
+		item.unitPriceVAT = vatData.unitPriceVAT;
+		item.totalPriceVAT = vatData.totalPriceVAT;
 
 		await cart.save();
 
@@ -594,6 +629,8 @@ async function applyDiscountCode(req, res, next) {
 
 			cart.discountCode = appliedOffer.code || `AUTO_${appliedOffer._id}`;
 			cart.discountAmount = appliedDiscount;
+			cart.discountType = appliedOffer.discountType;
+			cart.discountValue = appliedOffer.discountValue;
 			cart.offerID = appliedOffer._id;
 			cart.isAutoApplied = true;
 			cart.discountApplicationMethod = 'auto';
@@ -620,6 +657,8 @@ async function applyDiscountCode(req, res, next) {
 
 			cart.discountCode = appliedOffer.code;
 			cart.discountAmount = appliedDiscount;
+			cart.discountType = appliedOffer.discountType;
+			cart.discountValue = appliedOffer.discountValue;
 			cart.offerID = appliedOffer._id;
 			cart.isAutoApplied = false;
 			cart.discountApplicationMethod = 'manual';
@@ -660,6 +699,8 @@ async function removeDiscountCode(req, res, next) {
 
 		cart.discountCode = undefined;
 		cart.discountAmount = 0;
+		cart.discountType = null;
+		cart.discountValue = 0;
 		cart.offerID = undefined;
 		cart.isAutoApplied = false;
 		cart.discountApplicationMethod = 'none';
