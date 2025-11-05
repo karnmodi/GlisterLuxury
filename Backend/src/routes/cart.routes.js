@@ -10,6 +10,8 @@ const {
 	linkCartToUser,
 	applyDiscountCode,
 	removeDiscountCode,
+	unlockManualDiscount,
+	getNearMissOffers,
 } = require('../controllers/cart.controller');
 
 const router = express.Router();
@@ -40,6 +42,12 @@ router.post('/:sessionID/apply-discount', applyDiscountCode);
 
 // Remove discount code
 router.delete('/:sessionID/remove-discount', removeDiscountCode);
+
+// Unlock manual discount (allow auto-apply to re-evaluate)
+router.post('/:sessionID/unlock-discount', unlockManualDiscount);
+
+// Get near-miss offers (offers customer is close to qualifying for)
+router.get('/:sessionID/near-miss-offers', getNearMissOffers);
 
 module.exports = router;
 

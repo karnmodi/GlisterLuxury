@@ -136,14 +136,24 @@ export interface Cart {
   offerID?: string
   total?: number
   status: 'active' | 'checkout' | 'completed'
+  // Auto-apply tracking fields
+  isAutoApplied?: boolean
+  discountApplicationMethod?: 'manual' | 'auto' | 'none'
+  eligibleAutoOffers?: Array<{
+    offerID: string
+    calculatedDiscount: number
+    priority: number
+  }>
+  manualCodeLocked?: boolean
   createdAt: string
   updatedAt: string
 }
 
 export interface Offer {
   _id: string
-  code: string
+  code?: string  // Optional for auto-apply offers
   description: string
+  displayName?: string  // Display name for auto-applied offers
   discountType: 'percentage' | 'fixed'
   discountValue: number
   minOrderAmount: number
@@ -153,8 +163,28 @@ export interface Offer {
   validTo?: string
   isActive: boolean
   applicableTo: 'all' | 'new_users'
+  // Auto-apply configuration
+  autoApply?: boolean
+  priority?: number
+  applicationScope?: 'cart' | 'products' | 'categories' | 'shipping'
+  applicableProducts?: string[]
+  excludedProducts?: string[]
+  applicableCategories?: string[]
+  excludedCategories?: string[]
+  isStackable?: boolean
+  showInCart?: boolean
+  // Analytics tracking
+  autoApplyCount?: number
+  manualApplyCount?: number
   createdAt?: string
   updatedAt?: string
+}
+
+// Near-miss offer (for UI hints)
+export interface NearMissOffer {
+  offer: Offer
+  gapAmount: number
+  potentialDiscount: number
 }
 
 export interface MaterialMaster {

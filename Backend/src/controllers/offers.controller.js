@@ -255,6 +255,75 @@ async function incrementUsage(req, res) {
 	}
 }
 
+/**
+ * Get offer analytics (admin only)
+ * GET /api/offers/:id/analytics
+ */
+async function getOfferAnalytics(req, res) {
+	try {
+		const { id } = req.params;
+		const mongoose = require('mongoose');
+
+		const offer = await Offer.findById(id);
+		if (!offer) {
+			return res.status(404).json({ message: 'Offer not found' });
+		}
+
+		// Calculate conversion rate
+		const totalApplications = (offer.autoApplyCount || 0) + (offer.manualApplyCount || 0);
+
+		// Get orders that used this offer
+		const Order = require('../models/Order');
+		const ordersWithOffer = await Order.countDocuments({ offerID: id });
+
+		const conversionRate = totalApplications > 0
+			? ((ordersWithOffer / totalApplications) * 100).toFixed(2)
+			: 0;
+
+		// Calculate revenue impact
+		const ordersWithDiscount = await Order.aggregate([
+			{ $match: { offerID: mongoose.Types.ObjectId(id) } },
+			{
+				$group: {
+					_id: null,
+					totalRevenue: { $sum: { $toDouble: '$pricing.total' } },
+					totalDiscount: { $sum: { $toDouble: '$pricing.discount' } },
+					orderCount: { $sum: 1 }
+				}
+			}
+		]);
+
+		const revenueData = ordersWithDiscount[0] || {
+			totalRevenue: 0,
+			totalDiscount: 0,
+			orderCount: 0
+		};
+
+		const analytics = {
+			offer: {
+				code: offer.code,
+				displayName: offer.displayName || offer.description,
+				autoApply: offer.autoApply || false
+			},
+			usage: {
+				autoApplyCount: offer.autoApplyCount || 0,
+				manualApplyCount: offer.manualApplyCount || 0,
+				totalApplications
+			},
+			conversion: {
+				ordersCreated: ordersWithOffer,
+				conversionRate: `${conversionRate}%`
+			},
+			revenue: revenueData
+		};
+
+		res.json(analytics);
+	} catch (error) {
+		console.error('Error fetching analytics:', error);
+		res.status(500).json({ message: 'Server error', error: error.message });
+	}
+}
+
 module.exports = {
 	createOffer,
 	listOffers,
@@ -262,6 +331,7 @@ module.exports = {
 	updateOffer,
 	deleteOffer,
 	validateOffer,
-	incrementUsage
+	incrementUsage,
+	getOfferAnalytics
 };
 

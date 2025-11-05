@@ -3,6 +3,7 @@ const Product = require('../models/Product');
 const Finish = require('../models/Finish');
 const Offer = require('../models/Offer');
 const { computePriceAndValidate, toNumber } = require('../utils/pricing');
+const offerAutoApplyService = require('../services/offerAutoApply.service');
 
 /**
  * Validate and auto-remove discount if cart no longer meets requirements
@@ -217,8 +218,12 @@ async function addToCart(req, res, next) {
 		// Validate and cleanup discount if cart no longer meets requirements
 		// (though adding items usually increases total, discount might have expired or become invalid)
 		// Try to get userId from request if available (from auth middleware)
-		const userId = req.user?.userId || null;
+		const userId = req.user?.userId || cart.userID || null;
 		await validateAndCleanupDiscount(cart, userId);
+
+		// Apply best auto-apply offer after validation
+		await offerAutoApplyService.applyBestAutoOffer(cart, userId);
+
 		if (cart.isModified()) {
 			await cart.save();
 		}
@@ -299,8 +304,12 @@ async function updateCartItem(req, res, next) {
 
 		// Validate and cleanup discount if cart no longer meets requirements
 		// Try to get userId from request if available (from auth middleware)
-		const userId = req.user?.userId || null;
+		const userId = req.user?.userId || cart.userID || null;
 		await validateAndCleanupDiscount(cart, userId);
+
+		// Apply best auto-apply offer after validation
+		await offerAutoApplyService.applyBestAutoOffer(cart, userId);
+
 		if (cart.isModified()) {
 			await cart.save();
 		}
@@ -342,8 +351,12 @@ async function removeCartItem(req, res, next) {
 
 		// Validate and cleanup discount if cart no longer meets requirements
 		// Try to get userId from request if available (from auth middleware)
-		const userId = req.user?.userId || null;
+		const userId = req.user?.userId || cart.userID || null;
 		await validateAndCleanupDiscount(cart, userId);
+
+		// Apply best auto-apply offer after validation
+		await offerAutoApplyService.applyBestAutoOffer(cart, userId);
+
 		if (cart.isModified()) {
 			await cart.save();
 		}
@@ -471,10 +484,14 @@ async function linkCartToUser(req, res, next) {
 
 			// Validate discount now that we have userId (user eligibility might have changed)
 			await validateAndCleanupDiscount(cart, userId);
+
+			// Apply best auto-apply offer after validation (user eligibility may have changed)
+			await offerAutoApplyService.applyBestAutoOffer(cart, userId);
+
 			if (cart.isModified()) {
 				await cart.save();
 			}
-			
+
 			return res.json({
 				message: 'Cart linked to user account',
 				cart: await Cart.findById(cart._id).populate({
@@ -560,24 +577,69 @@ async function applyDiscountCode(req, res, next) {
 			});
 		}
 
-		// Calculate discount
-		const discount = offer.calculateDiscount(subtotal);
+		// Calculate discount for manual code
+		const manualDiscount = offer.calculateDiscount(subtotal);
 
-		// Apply discount to cart (only one discount allowed)
-		cart.discountCode = offer.code;
-		cart.discountAmount = discount; // Mongoose will convert number to Decimal128 if needed
-		cart.offerID = offer._id;
-		
-		await cart.save();
+		// Check if there's a better auto-apply offer available
+		const eligibleAutoOffers = await offerAutoApplyService.findEligibleAutoOffers(cart, userId);
+		const bestAutoOffer = offerAutoApplyService.selectBestOffer(eligibleAutoOffers);
 
-		res.json({
-			message: 'Discount code applied successfully',
-			cart: await Cart.findById(cart._id).populate({
-				path: 'items.productID',
-				model: 'Product',
-				select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
-			}).populate('offerID'),
-		});
+		let appliedOffer, appliedDiscount, isAuto = false;
+
+		if (bestAutoOffer && bestAutoOffer.calculatedDiscount > manualDiscount) {
+			// Auto-apply offer is better - inform user
+			appliedOffer = bestAutoOffer.offer;
+			appliedDiscount = bestAutoOffer.calculatedDiscount;
+			isAuto = true;
+
+			cart.discountCode = appliedOffer.code || `AUTO_${appliedOffer._id}`;
+			cart.discountAmount = appliedDiscount;
+			cart.offerID = appliedOffer._id;
+			cart.isAutoApplied = true;
+			cart.discountApplicationMethod = 'auto';
+			cart.manualCodeLocked = false;
+
+			// Increment auto-apply count
+			await Offer.findByIdAndUpdate(appliedOffer._id, { $inc: { autoApplyCount: 1 } });
+
+			await cart.save();
+
+			return res.status(200).json({
+				message: `We found a better discount for you! Automatically applied "${appliedOffer.displayName || appliedOffer.description}" (saves £${appliedDiscount.toFixed(2)})`,
+				cart: await Cart.findById(cart._id).populate({
+					path: 'items.productID',
+					model: 'Product',
+					select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
+				}).populate('offerID'),
+				betterOfferApplied: true
+			});
+		} else {
+			// Manual code is better or equal
+			appliedOffer = offer;
+			appliedDiscount = manualDiscount;
+
+			cart.discountCode = appliedOffer.code;
+			cart.discountAmount = appliedDiscount;
+			cart.offerID = appliedOffer._id;
+			cart.isAutoApplied = false;
+			cart.discountApplicationMethod = 'manual';
+			cart.manualCodeLocked = true; // Lock to prevent auto-apply from overriding
+
+			// Increment manual apply count
+			await Offer.findByIdAndUpdate(appliedOffer._id, { $inc: { manualApplyCount: 1 } });
+
+			await cart.save();
+
+			res.json({
+				message: 'Discount code applied successfully',
+				cart: await Cart.findById(cart._id).populate({
+					path: 'items.productID',
+					model: 'Product',
+					select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
+				}).populate('offerID'),
+				savings: appliedDiscount
+			});
+		}
 	} catch (error) {
 		next(error);
 	}
@@ -599,8 +661,19 @@ async function removeDiscountCode(req, res, next) {
 		cart.discountCode = undefined;
 		cart.discountAmount = 0;
 		cart.offerID = undefined;
-		
+		cart.isAutoApplied = false;
+		cart.discountApplicationMethod = 'none';
+		cart.manualCodeLocked = false;
+
 		await cart.save();
+
+		// After removing discount, check if auto-apply offers qualify
+		const userId = cart.userID || null;
+		await offerAutoApplyService.applyBestAutoOffer(cart, userId);
+
+		if (cart.isModified()) {
+			await cart.save();
+		}
 
 		res.json({
 			message: 'Discount code removed',
@@ -609,6 +682,68 @@ async function removeDiscountCode(req, res, next) {
 				model: 'Product',
 				select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
 			}),
+		});
+	} catch (error) {
+		next(error);
+	}
+}
+
+/**
+ * Unlock manual discount and allow auto-apply to re-evaluate
+ * POST /api/cart/:sessionID/unlock-discount
+ */
+async function unlockManualDiscount(req, res, next) {
+	try {
+		const { sessionID } = req.params;
+
+		const cart = await Cart.findOne({ sessionID });
+		if (!cart) {
+			return res.status(404).json({ error: 'Cart not found' });
+		}
+
+		// Unlock the manual code lock
+		cart.manualCodeLocked = false;
+
+		// Re-evaluate auto-apply offers
+		const userId = cart.userID || null;
+		await offerAutoApplyService.applyBestAutoOffer(cart, userId);
+
+		if (cart.isModified()) {
+			await cart.save();
+		}
+
+		res.json({
+			message: 'Discount unlocked, re-evaluated offers',
+			cart: await Cart.findById(cart._id).populate({
+				path: 'items.productID',
+				model: 'Product',
+				select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
+			})
+		});
+	} catch (error) {
+		next(error);
+	}
+}
+
+/**
+ * Get near-miss offers (offers customer is close to qualifying for)
+ * GET /api/cart/:sessionID/near-miss-offers
+ */
+async function getNearMissOffers(req, res, next) {
+	try {
+		const { sessionID } = req.params;
+		const { userId } = req.query;
+
+		const cart = await Cart.findOne({ sessionID });
+		if (!cart) {
+			return res.status(404).json({ error: 'Cart not found' });
+		}
+
+		const nearMissOffers = await offerAutoApplyService.getNearMissOffers(cart, userId || cart.userID);
+
+		res.json({
+			nearMissOffers,
+			currentSubtotal: cart.subtotal
 		});
 	} catch (error) {
 		next(error);
@@ -625,5 +760,7 @@ module.exports = {
 	linkCartToUser,
 	applyDiscountCode,
 	removeDiscountCode,
+	unlockManualDiscount,
+	getNearMissOffers,
 };
 

@@ -153,6 +153,11 @@ export default function OrdersPage() {
                       <p className="text-brass text-2xl font-bold">
                         {formatCurrency(order.pricing.total)}
                       </p>
+                      {order.discountCode && order.pricing.discount && parseFloat(order.pricing.discount.toString()) > 0 && (
+                        <p className="text-green-400 text-sm font-medium">
+                          💰 Saved {formatCurrency(order.pricing.discount)}
+                        </p>
+                      )}
                       <p className="text-ivory/60 text-sm">
                         {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
                       </p>

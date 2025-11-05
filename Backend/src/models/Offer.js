@@ -6,8 +6,11 @@ const OfferSchema = new Schema(
 	{
 		code: {
 			type: String,
-			required: true,
+			required: function() {
+				return !this.autoApply; // Code is required only for manual-apply offers
+			},
 			unique: true,
+			sparse: true, // Allows multiple null values for auto-apply offers
 			uppercase: true,
 			trim: true,
 			index: true
@@ -15,6 +18,13 @@ const OfferSchema = new Schema(
 		description: {
 			type: String,
 			required: true
+		},
+		// Display name shown to customers when auto-applied
+		displayName: {
+			type: String,
+			default: function() {
+				return this.description;
+			}
 		},
 		discountType: {
 			type: String,
@@ -60,6 +70,60 @@ const OfferSchema = new Schema(
 		createdBy: {
 			type: Schema.Types.ObjectId,
 			ref: 'User'
+		},
+		// ========== AUTO-APPLY CONFIGURATION ==========
+		autoApply: {
+			type: Boolean,
+			default: false,
+			index: true
+		},
+		// Priority when multiple auto-apply offers qualify (higher = wins)
+		priority: {
+			type: Number,
+			default: 0,
+			index: true
+		},
+		// Application scope (for future scalability)
+		applicationScope: {
+			type: String,
+			enum: ['cart', 'products', 'categories', 'shipping'],
+			default: 'cart'
+		},
+		// Target specific products (future feature)
+		applicableProducts: [{
+			type: Schema.Types.ObjectId,
+			ref: 'Product'
+		}],
+		// Target specific categories (future feature)
+		applicableCategories: [{
+			type: String
+		}],
+		// Exclusions
+		excludedProducts: [{
+			type: Schema.Types.ObjectId,
+			ref: 'Product'
+		}],
+		excludedCategories: [{
+			type: String
+		}],
+		// Combinability rules (future: allow multiple discounts to stack)
+		isStackable: {
+			type: Boolean,
+			default: false
+		},
+		// Offer presentation
+		showInCart: {
+			type: Boolean,
+			default: true
+		},
+		// Analytics tracking
+		autoApplyCount: {
+			type: Number,
+			default: 0
+		},
+		manualApplyCount: {
+			type: Number,
+			default: 0
 		}
 	},
 	{ timestamps: true }
@@ -67,6 +131,25 @@ const OfferSchema = new Schema(
 
 // Index for active offers with valid dates
 OfferSchema.index({ isActive: 1, validFrom: 1, validTo: 1 });
+// Index for auto-apply offers with priority
+OfferSchema.index({ autoApply: 1, isActive: 1, priority: -1 });
+// Index for minimum order amount filtering
+OfferSchema.index({ minOrderAmount: 1, autoApply: 1 });
+
+// Pre-save validation
+OfferSchema.pre('save', function(next) {
+	// If autoApply is true and no displayName, use description
+	if (this.autoApply && !this.displayName) {
+		this.displayName = this.description;
+	}
+
+	// Ensure priority is set for auto-apply offers
+	if (this.autoApply && this.priority === undefined) {
+		this.priority = 0;
+	}
+
+	next();
+});
 
 // Method to check if offer is valid
 OfferSchema.methods.isValid = function(userIsNew = false) {
