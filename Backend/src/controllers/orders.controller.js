@@ -245,21 +245,20 @@ async function sendOrderEmails(order, user) {
 									</td>
 								</tr>
 
-								<tr>
-									<td colspan="2" style="padding: 12px; text-align: right;">
-										<span style="color: #666;">Tax:</span>
-									</td>
-									<td style="padding: 12px; text-align: right;">
-										${formatPrice(order.pricing.tax)}
-									</td>
-								</tr>
-
 								<tr class="total-row">
 									<td colspan="2" style="padding: 20px 12px; text-align: right; border-top: 2px solid #2c3e50; font-size: 18px;">
 										<strong>Total:</strong>
 									</td>
 									<td style="padding: 20px 12px; text-align: right; border-top: 2px solid #2c3e50; font-size: 18px;">
 										<strong>${formatPrice(order.pricing.total)}</strong>
+									</td>
+								</tr>
+
+								<tr style="background-color: #f8f9fa;">
+									<td colspan="3" style="padding: 8px 12px; text-align: right;">
+										<span style="color: #666; font-size: 11px; font-style: italic;">
+											(Includes VAT of ${formatPrice(order.pricing.tax)} @ 20%)
+										</span>
 									</td>
 								</tr>
 							</tbody>
@@ -424,8 +423,13 @@ exports.createOrder = async (req, res, next) => {
 		const subtotal = cart.subtotal.$numberDecimal ? parseFloat(cart.subtotal.$numberDecimal) : parseFloat(cart.subtotal);
 		const discount = cart.discountAmount?.$numberDecimal ? parseFloat(cart.discountAmount.$numberDecimal) : parseFloat(cart.discountAmount || 0);
 		const shipping = 0; // TBD
-		const tax = 0; // TBD
-		const total = Math.max(0, subtotal - discount + shipping + tax);
+
+		// Calculate VAT (20% included in the prices)
+		// VAT = (subtotal - discount) * (20/120) = (subtotal - discount) / 6
+		const totalAfterDiscount = Math.max(0, subtotal - discount);
+		const tax = totalAfterDiscount / 6; // VAT is 20% of the total (already included)
+
+		const total = Math.max(0, totalAfterDiscount + shipping);
 
 		// Create order
 		const order = new Order({

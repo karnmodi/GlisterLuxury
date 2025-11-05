@@ -89,32 +89,36 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
         )}
         
         {type === 'order' && (
-          <>
-            <div className="flex justify-between text-sm text-ivory/70">
-              <span>Shipping</span>
-              <span>{formatCurrency((data as Order).pricing.shipping)}</span>
-            </div>
-            <div className="flex justify-between text-sm text-ivory/70">
-              <span>Tax</span>
-              <span>{formatCurrency((data as Order).pricing.tax)}</span>
-            </div>
-          </>
+          <div className="flex justify-between text-sm text-ivory/70">
+            <span>Shipping</span>
+            <span>{formatCurrency((data as Order).pricing.shipping)}</span>
+          </div>
         )}
-        
+
         <div className="flex justify-between text-lg font-bold text-ivory border-t border-brass/20 pt-3 mt-3">
           <span>Total</span>
           <span className="text-brass">
-            {type === 'order' 
+            {type === 'order'
               ? formatCurrency((data as Order).pricing.total)
               : formatCurrency((data as Cart).total || (toNumber(subtotal) - toNumber(discountAmount || 0)))
             }
           </span>
         </div>
+
+        {/* VAT included notice */}
+        <div className="bg-ivory/5 border border-brass/10 rounded-md p-2 -mx-2">
+          <p className="text-xs text-ivory/60 text-center italic">
+            Includes VAT of {type === 'order'
+              ? formatCurrency((data as Order).pricing.tax)
+              : formatCurrency((data as Cart).vat || ((toNumber(subtotal) - toNumber(discountAmount || 0)) / 6))
+            } @ 20%
+          </p>
+        </div>
       </div>
 
       {type === 'cart' && (
         <p className="text-xs text-ivory/50 mt-4 text-center">
-          Shipping and taxes calculated at checkout
+          Shipping calculated at checkout
         </p>
       )}
     </div>

@@ -134,6 +134,7 @@ export interface Cart {
   discountCode?: string
   discountAmount?: number
   offerID?: string
+  vat?: number
   total?: number
   status: 'active' | 'checkout' | 'completed'
   // Auto-apply tracking fields

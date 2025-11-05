@@ -45,6 +45,7 @@ const CartSchema = new Schema(
 		discountCode: { type: String },
 		discountAmount: { type: Schema.Types.Decimal128, default: 0 },
 		offerID: { type: Schema.Types.ObjectId, ref: 'Offer' },
+		vat: { type: Schema.Types.Decimal128, default: 0 },
 		total: { type: Schema.Types.Decimal128, default: 0 },
 		status: { type: String, enum: ['active', 'checkout', 'completed'], default: 'active' },
 		// ========== AUTO-APPLY TRACKING ==========
@@ -77,17 +78,24 @@ const CartSchema = new Schema(
 	{ timestamps: true }
 );
 
-// Calculate subtotal and total before saving
+// Calculate subtotal, VAT, and total before saving
 CartSchema.pre('save', function (next) {
 	const subtotal = this.items.reduce((sum, item) => {
 		const itemTotal = parseFloat(item.totalPrice?.toString() || 0);
 		return sum + itemTotal;
 	}, 0);
 	this.subtotal = subtotal;
-	
+
 	// Calculate total with discount
 	const discount = parseFloat(this.discountAmount?.toString() || 0);
-	this.total = Math.max(0, subtotal - discount);
+	const totalAfterDiscount = Math.max(0, subtotal - discount);
+
+	// Calculate VAT (20% included in total)
+	// VAT = total * (20/120) = total / 6
+	const vat = totalAfterDiscount / 6;
+	this.vat = vat;
+	this.total = totalAfterDiscount;
+
 	next();
 });
 

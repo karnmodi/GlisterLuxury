@@ -410,16 +410,17 @@ export default function AdminOrderDetailPage() {
                     <span className="font-semibold">{formatCurrency(order.pricing.shipping)}</span>
                   </div>
                 )}
-                {order.pricing.tax && parseFloat(order.pricing.tax.toString()) > 0 && (
-                  <div className="flex justify-between text-charcoal text-sm">
-                    <span className="font-medium">Tax:</span>
-                    <span className="font-semibold">{formatCurrency(order.pricing.tax)}</span>
-                  </div>
-                )}
                 <div className="flex justify-between text-lg font-bold text-white bg-brass rounded-lg px-4 py-3 mt-3">
                   <span>Total:</span>
                   <span>{formatCurrency(order.pricing.total)}</span>
                 </div>
+                {order.pricing.tax && parseFloat(order.pricing.tax.toString()) > 0 && (
+                  <div className="bg-charcoal/5 border border-brass/20 rounded-lg px-3 py-2 mt-2">
+                    <p className="text-xs text-charcoal/60 text-center italic">
+                      Includes VAT of {formatCurrency(order.pricing.tax)} @ 20%
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
