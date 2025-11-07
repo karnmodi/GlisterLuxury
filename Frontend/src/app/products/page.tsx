@@ -693,22 +693,22 @@ export default function ProductsPage() {
 
         <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 pt-6 sm:pt-8 pb-4 sm:pb-8">
           {/* Mobile Filter Toggle Button */}
-          <div className="lg:hidden mb-4 flex items-center justify-between">
+          <div className="lg:hidden mb-4 sm:mb-6 flex items-center justify-between gap-3">
             <Button
               onClick={() => setMobileFiltersOpen(true)}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 min-h-[44px] px-4 text-sm sm:text-base"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
-              Filters
+              <span className="hidden xs:inline">Filters</span>
               {activeFilterCount > 0 && (
-                <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-semibold">
+                <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-semibold min-w-[20px] text-center">
                   {activeFilterCount}
                 </span>
               )}
             </Button>
-            <div className="text-sm text-charcoal/60">
+            <div className="text-xs sm:text-sm text-charcoal/60">
               {loading ? 'Loading...' : `${products.length} ${products.length === 1 ? 'product' : 'products'}`}
             </div>
           </div>
@@ -735,10 +735,11 @@ export default function ProductsPage() {
                     animate={{ x: 0 }}
                     exit={{ x: '-100%' }}
                     transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-                    className="fixed left-0 top-0 h-full w-80 max-w-[85vw] bg-white shadow-2xl z-50 lg:hidden overflow-y-auto"
+                    className="fixed left-0 top-0 h-full w-full max-w-[min(380px,90vw)] bg-white shadow-2xl z-50 lg:hidden overflow-y-auto"
                     style={{
                       scrollbarWidth: 'thin',
                       scrollbarColor: 'rgba(218, 165, 32, 0.3) transparent',
+                      paddingBottom: 'env(safe-area-inset-bottom)',
                     }}
                   >
               <style dangerouslySetInnerHTML={{
@@ -758,14 +759,14 @@ export default function ProductsPage() {
                   }
                 `
               }} />
-                    <div className="sticky top-0 bg-white border-b border-brass/20 p-4 flex items-center justify-between z-10">
-                      <h2 className="text-lg font-serif font-semibold text-charcoal flex items-center gap-2">
+                    <div className="sticky top-0 bg-white border-b border-brass/20 p-4 sm:p-5 flex items-center justify-between z-10" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
+                      <h2 className="text-lg sm:text-xl font-serif font-semibold text-charcoal flex items-center gap-2">
                         <span className="w-1 h-6 bg-brass"></span>
                         Filters
                       </h2>
                       <button
                         onClick={() => setMobileFiltersOpen(false)}
-                        className="p-2 hover:bg-brass/10 rounded-full transition-colors"
+                        className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-brass/10 rounded-full transition-colors"
                         aria-label="Close filters"
                       >
                         <svg className="w-6 h-6 text-charcoal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -773,29 +774,29 @@ export default function ProductsPage() {
                         </svg>
                       </button>
                     </div>
-                    <div className="p-6 space-y-6">
+                    <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
                       {activeFilterCount > 0 && (
-                        <p className="text-sm text-charcoal/60 mb-4">
+                        <p className="text-sm text-charcoal/60 mb-2">
                           {activeFilterCount} {activeFilterCount === 1 ? 'filter' : 'filters'} active
                         </p>
                       )}
 
                       {/* Search */}
                       <div>
-                        <label className="block text-sm font-medium text-charcoal mb-2">
+                        <label className="block text-sm font-medium text-charcoal mb-2.5">
                           Search Products
                         </label>
                         <Input
                           placeholder="Search by name, ID..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full"
+                          className="w-full min-h-[44px] text-base"
                         />
                       </div>
 
                       {/* Category */}
                       <div>
-                        <label className="block text-sm font-medium text-charcoal mb-2">
+                        <label className="block text-sm font-medium text-charcoal mb-2.5">
                           Category
                         </label>
                         <select
@@ -804,7 +805,7 @@ export default function ProductsPage() {
                             setSelectedCategory(e.target.value)
                             setSelectedSubcategory('')
                           }}
-                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                          className="w-full px-3 sm:px-4 py-3 text-sm sm:text-base bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all min-h-[44px]"
                         >
                           <option value="">All Categories</option>
                           {filteredCategories.map((cat) => (
@@ -817,14 +818,14 @@ export default function ProductsPage() {
 
                       {/* Subcategory */}
                       <div>
-                        <label className="block text-sm font-medium text-charcoal mb-2">
+                        <label className="block text-sm font-medium text-charcoal mb-2.5">
                           Subcategory
                         </label>
                         <select
                           value={selectedSubcategory}
                           onChange={(e) => setSelectedSubcategory(e.target.value)}
                           disabled={!selectedCategory || availableSubcategories.length === 0}
-                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full px-3 sm:px-4 py-3 text-sm sm:text-base bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                         >
                           <option value="">All Subcategories</option>
                           {availableSubcategories.map((sub: any) => (
@@ -837,13 +838,13 @@ export default function ProductsPage() {
 
                       {/* Material */}
                       <div>
-                        <label className="block text-sm font-medium text-charcoal mb-2">
+                        <label className="block text-sm font-medium text-charcoal mb-2.5">
                           Material
                         </label>
                         <select
                           value={selectedMaterial}
                           onChange={(e) => setSelectedMaterial(e.target.value)}
-                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                          className="w-full px-3 sm:px-4 py-3 text-sm sm:text-base bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all min-h-[44px]"
                         >
                           <option value="">All Materials</option>
                           {filteredMaterials.map((mat) => (
@@ -856,13 +857,13 @@ export default function ProductsPage() {
 
                       {/* Finish */}
                       <div>
-                        <label className="block text-sm font-medium text-charcoal mb-2">
+                        <label className="block text-sm font-medium text-charcoal mb-2.5">
                           Finish
                         </label>
                         <select
                           value={selectedFinish}
                           onChange={(e) => setSelectedFinish(e.target.value)}
-                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                          className="w-full px-3 sm:px-4 py-3 text-sm sm:text-base bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all min-h-[44px]"
                         >
                           <option value="">All Finishes</option>
                           {filteredFinishes.map((fin) => (
@@ -875,13 +876,13 @@ export default function ProductsPage() {
 
                       {/* Sort */}
                       <div>
-                        <label className="block text-sm font-medium text-charcoal mb-2">
+                        <label className="block text-sm font-medium text-charcoal mb-2.5">
                           Sort By
                         </label>
                         <select
                           value={sortOption}
                           onChange={(e) => setSortOption(e.target.value as SortOption)}
-                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                          className="w-full px-3 sm:px-4 py-3 text-sm sm:text-base bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all min-h-[44px]"
                         >
                           <option value="newest">Newest First</option>
                           <option value="oldest">Oldest First</option>
@@ -895,27 +896,27 @@ export default function ProductsPage() {
                       </div>
 
                       {/* Toggle Filters */}
-                      <div className="space-y-3 border-t border-brass/20 pt-4">
-                        <label className="flex items-center gap-3 cursor-pointer group">
+                      <div className="space-y-4 border-t border-brass/20 pt-4 sm:pt-5">
+                        <label className="flex items-center gap-3 cursor-pointer group min-h-[44px]">
                           <input
                             type="checkbox"
                             checked={hasSize}
                             onChange={(e) => setHasSize(e.target.checked)}
-                            className="w-5 h-5 text-brass border-brass/30 rounded focus:ring-brass transition-all group-hover:border-brass"
+                            className="w-6 h-6 text-brass border-brass/30 rounded focus:ring-brass transition-all group-hover:border-brass flex-shrink-0"
                           />
-                          <span className="text-sm text-charcoal group-hover:text-brass transition-colors">
+                          <span className="text-sm sm:text-base text-charcoal group-hover:text-brass transition-colors">
                             Has Size Options
                           </span>
                         </label>
 
-                        <label className="flex items-center gap-3 cursor-pointer group">
+                        <label className="flex items-center gap-3 cursor-pointer group min-h-[44px]">
                           <input
                             type="checkbox"
                             checked={hasDiscount}
                             onChange={(e) => setHasDiscount(e.target.checked)}
-                            className="w-5 h-5 text-brass border-brass/30 rounded focus:ring-brass transition-all group-hover:border-brass"
+                            className="w-6 h-6 text-brass border-brass/30 rounded focus:ring-brass transition-all group-hover:border-brass flex-shrink-0"
                           />
-                          <span className="text-sm text-charcoal group-hover:text-brass transition-colors">
+                          <span className="text-sm sm:text-base text-charcoal group-hover:text-brass transition-colors">
                             Discounted Items
                           </span>
                         </label>
@@ -923,19 +924,19 @@ export default function ProductsPage() {
 
                       {/* Clear Filters */}
                       {activeFilterCount > 0 && (
-                        <div className="border-t border-brass/20 pt-4">
+                        <div className="border-t border-brass/20 pt-4 sm:pt-5">
                           <button
                             onClick={() => {
                               clearFilters()
                               setMobileFiltersOpen(false)
                             }}
-                            className="w-full px-4 py-2.5 bg-brass/10 hover:bg-brass/20 text-brass border border-brass/40 rounded-sm text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 group"
+                            className="w-full px-4 py-3 min-h-[44px] bg-brass/10 hover:bg-brass/20 text-brass border border-brass/40 rounded-sm text-sm sm:text-base font-medium transition-all duration-200 flex items-center justify-center gap-2 group"
                           >
-                            <svg className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                             Clear All Filters
-                            <span className="bg-brass/20 px-1.5 py-0.5 rounded text-xs font-semibold">
+                            <span className="bg-brass/20 px-2 py-0.5 rounded text-xs sm:text-sm font-semibold">
                               {activeFilterCount}
                             </span>
                           </button>
@@ -944,87 +945,94 @@ export default function ProductsPage() {
 
                       {/* Active Filter Badges */}
                       {(activeCategory || activeSubcategory || debouncedSearchQuery || selectedMaterial || selectedFinish || hasSize || hasDiscount) && (
-                        <div className="border-t border-brass/20 pt-4">
-                          <p className="text-xs font-medium text-charcoal/60 mb-2">Active Filters:</p>
+                        <div className="border-t border-brass/20 pt-4 sm:pt-5">
+                          <p className="text-xs font-medium text-charcoal/60 mb-3">Active Filters:</p>
                           <div className="flex flex-wrap gap-2">
                             {activeCategory && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
-                                {activeCategory.name}
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brass/10 text-brass text-xs sm:text-sm rounded-full border border-brass/30">
+                                <span className="truncate max-w-[150px]">{activeCategory.name}</span>
                                 <button
                                   onClick={() => {
                                     setSelectedCategory('')
                                     setSelectedSubcategory('')
                                   }}
-                                  className="hover:text-charcoal transition-colors"
+                                  className="hover:text-charcoal transition-colors min-w-[20px] min-h-[20px] flex items-center justify-center"
+                                  aria-label="Remove category filter"
                                 >
                                   ×
                                 </button>
                               </span>
                             )}
                             {activeSubcategory && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
-                                {activeSubcategory.name}
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brass/10 text-brass text-xs sm:text-sm rounded-full border border-brass/30">
+                                <span className="truncate max-w-[150px]">{activeSubcategory.name}</span>
                                 <button
                                   onClick={() => setSelectedSubcategory('')}
-                                  className="hover:text-charcoal transition-colors"
+                                  className="hover:text-charcoal transition-colors min-w-[20px] min-h-[20px] flex items-center justify-center"
+                                  aria-label="Remove subcategory filter"
                                 >
                                   ×
                                 </button>
                               </span>
                             )}
                             {debouncedSearchQuery && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
-                                "{debouncedSearchQuery}"
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brass/10 text-brass text-xs sm:text-sm rounded-full border border-brass/30">
+                                <span className="truncate max-w-[150px]">"{debouncedSearchQuery}"</span>
                                 <button
                                   onClick={() => {
                                     setSearchQuery('')
                                     setDebouncedSearchQuery('')
                                   }}
-                                  className="hover:text-charcoal transition-colors"
+                                  className="hover:text-charcoal transition-colors min-w-[20px] min-h-[20px] flex items-center justify-center"
+                                  aria-label="Remove search filter"
                                 >
                                   ×
                                 </button>
                               </span>
                             )}
                             {selectedMaterial && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
-                                {selectedMaterial}
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brass/10 text-brass text-xs sm:text-sm rounded-full border border-brass/30">
+                                <span className="truncate max-w-[150px]">{selectedMaterial}</span>
                                 <button
                                   onClick={() => setSelectedMaterial('')}
-                                  className="hover:text-charcoal transition-colors"
+                                  className="hover:text-charcoal transition-colors min-w-[20px] min-h-[20px] flex items-center justify-center"
+                                  aria-label="Remove material filter"
                                 >
                                   ×
                                 </button>
                               </span>
                             )}
                             {selectedFinish && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
-                                {finishes.find(f => f._id === selectedFinish)?.name || selectedFinish}
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brass/10 text-brass text-xs sm:text-sm rounded-full border border-brass/30">
+                                <span className="truncate max-w-[150px]">{finishes.find(f => f._id === selectedFinish)?.name || selectedFinish}</span>
                                 <button
                                   onClick={() => setSelectedFinish('')}
-                                  className="hover:text-charcoal transition-colors"
+                                  className="hover:text-charcoal transition-colors min-w-[20px] min-h-[20px] flex items-center justify-center"
+                                  aria-label="Remove finish filter"
                                 >
                                   ×
                                 </button>
                               </span>
                             )}
                             {hasSize && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brass/10 text-brass text-xs sm:text-sm rounded-full border border-brass/30">
                                 Size Options
                                 <button
                                   onClick={() => setHasSize(false)}
-                                  className="hover:text-charcoal transition-colors"
+                                  className="hover:text-charcoal transition-colors min-w-[20px] min-h-[20px] flex items-center justify-center"
+                                  aria-label="Remove size filter"
                                 >
                                   ×
                                 </button>
                               </span>
                             )}
                             {hasDiscount && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brass/10 text-brass text-xs sm:text-sm rounded-full border border-brass/30">
                                 Discounted
                                 <button
                                   onClick={() => setHasDiscount(false)}
-                                  className="hover:text-charcoal transition-colors"
+                                  className="hover:text-charcoal transition-colors min-w-[20px] min-h-[20px] flex items-center justify-center"
+                                  aria-label="Remove discount filter"
                                 >
                                   ×
                                 </button>
@@ -1367,13 +1375,13 @@ export default function ProductsPage() {
               {/* Products Grid - More Columns */}
               {loading ? (
                 <div className="flex items-center justify-center h-64">
-                  <div className="text-charcoal/60 text-lg">Loading products...</div>
+                  <div className="text-charcoal/60 text-base sm:text-lg">Loading products...</div>
                 </div>
               ) : products.length === 0 ? (
                 <div className="flex items-center justify-center h-64">
-                  <div className="text-center">
-                    <p className="text-charcoal/60 text-lg mb-4">No products found</p>
-                    <Button onClick={clearFilters} variant="secondary">
+                  <div className="text-center px-4">
+                    <p className="text-charcoal/60 text-base sm:text-lg mb-4">No products found</p>
+                    <Button onClick={clearFilters} variant="secondary" className="min-h-[44px]">
                       Clear Filters
                     </Button>
                   </div>
@@ -1391,7 +1399,7 @@ export default function ProductsPage() {
                         onMouseLeave={() => setHoveredProduct(null)}
                       >
                         {/* Product Image */}
-                        <div className="relative h-64 bg-white overflow-hidden">
+                        <div className="relative h-48 sm:h-56 lg:h-64 bg-white overflow-hidden">
                         {/* Subtle Glow Effect */}
                         <motion.div
                           className="absolute inset-0 bg-gradient-to-br from-brass/5 to-transparent pointer-events-none"
@@ -1519,22 +1527,22 @@ export default function ProductsPage() {
                           </div>
 
                       {/* Product Info */}
-                      <div className="p-6 flex-1 flex flex-col">
-                        <p className="text-xs text-brass tracking-luxury mb-2">
+                      <div className="p-3 sm:p-4 lg:p-6 flex-1 flex flex-col">
+                        <p className="text-xs text-brass tracking-luxury mb-1.5 sm:mb-2">
                           {product.productID}
                         </p>
-                        <h3 className="text-lg font-serif font-bold text-charcoal mb-2 group-hover:text-brass transition-colors">
+                        <h3 className="text-sm sm:text-base lg:text-lg font-serif font-bold text-charcoal mb-1.5 sm:mb-2 group-hover:text-brass transition-colors line-clamp-2">
                           {product.name}
                         </h3>
-                        <p className="text-sm text-charcoal/60 mb-4 line-clamp-2">
+                        <p className="text-xs sm:text-sm text-charcoal/60 mb-3 sm:mb-4 line-clamp-2 flex-1">
                           {product.description || 'Premium quality product'}
                         </p>
-                        
-                        <div className="flex items-center justify-between mt-auto">
-                          <span className="text-sm text-charcoal">
-                            {product.materialsCount} materials
+
+                        <div className="flex items-center justify-between mt-auto gap-2">
+                          <span className="text-xs sm:text-sm text-charcoal whitespace-nowrap">
+                            {product.materialsCount} {product.materialsCount === 1 ? 'material' : 'materials'}
                           </span>
-                          <span className="text-brass font-medium text-sm group-hover:underline">
+                          <span className="text-brass font-medium text-xs sm:text-sm group-hover:underline whitespace-nowrap">
                             View Details →
                           </span>
                         </div>

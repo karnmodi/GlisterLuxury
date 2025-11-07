@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { toNumber, formatCurrency } from '@/lib/utils'
+import { useSettings } from '@/contexts/SettingsContext'
 import type { Product, Material, SizeOption, Finish } from '@/types'
 
 interface PriceSummaryProps {
@@ -23,6 +24,10 @@ export default function PriceSummary({
   quantity,
   availableFinishes 
 }: PriceSummaryProps) {
+  const { settings } = useSettings()
+  const vatRate = settings?.vatRate || 20
+  const vatEnabled = settings?.vatEnabled !== false
+
   if (!selectedMaterial) {
     return null
   }
@@ -191,6 +196,32 @@ export default function PriceSummary({
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* VAT Information */}
+            {vatEnabled && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.0 }}
+                className="text-xs text-ivory/70 bg-brass/5 rounded-lg p-3 space-y-1 mt-3 border border-brass/10"
+              >
+                <div className="flex justify-between items-center">
+                  <span>VAT ({vatRate}%) included:</span>
+                  <span className="font-semibold text-ivory">
+                    {formatCurrency((unitPrice * quantity * (vatRate / 100) / (1 + vatRate / 100)))}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center font-bold text-brass border-t border-ivory/10 pt-2 mt-2">
+                  <span>Total (inc. VAT):</span>
+                  <span className="text-base">
+                    {formatCurrency((unitPrice * quantity))}
+                  </span>
+                </div>
+                <p className="text-[10px] text-ivory/50 mt-1 italic">
+                  All prices include {vatRate}% VAT. Delivery charges calculated at checkout.
+                </p>
+              </motion.div>
+            )}
           </div>
         </div>
       </motion.div>

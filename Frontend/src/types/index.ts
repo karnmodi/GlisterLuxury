@@ -608,3 +608,24 @@ export interface ConversionAnalytics {
   }
 }
 
+// Settings types
+export interface DeliveryTier {
+  minAmount: number
+  maxAmount: number | null  // null means infinity (no upper limit)
+  fee: number
+}
+
+export interface FreeDeliveryThreshold {
+  enabled: boolean
+  amount: number
+}
+
+export interface Settings {
+  deliveryTiers: DeliveryTier[]
+  freeDeliveryThreshold: FreeDeliveryThreshold
+  vatRate: number
+  vatEnabled: boolean
+  lastUpdated?: string
+  updatedBy?: string
+}
+

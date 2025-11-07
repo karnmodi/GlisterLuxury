@@ -412,7 +412,7 @@ export default function AdminOrderDetailPage() {
                 )}
                 {order.pricing.tax && parseFloat(order.pricing.tax.toString()) > 0 && (
                   <div className="flex justify-between text-charcoal text-sm">
-                    <span className="font-medium">Tax:</span>
+                    <span className="font-medium">VAT (included in prices):</span>
                     <span className="font-semibold">{formatCurrency(order.pricing.tax)}</span>
                   </div>
                 )}

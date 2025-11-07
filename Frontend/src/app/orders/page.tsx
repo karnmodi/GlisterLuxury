@@ -68,30 +68,30 @@ export default function OrdersPage() {
     <div className="min-h-screen bg-charcoal">
       <LuxuryNavigation />
       
-      <main className="pt-32 pb-20 px-6 lg:px-12 xl:px-16">
+      <main className="pt-24 sm:pt-28 lg:pt-32 pb-16 sm:pb-20 px-4 sm:px-6 lg:px-12 xl:px-16">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="mb-8"
+            className="mb-6 sm:mb-8"
           >
-            <h1 className="text-4xl font-serif font-bold text-ivory mb-2 tracking-wide">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-ivory mb-2 tracking-wide">
               My Orders
             </h1>
-            <p className="text-brass text-sm tracking-luxury">
+            <p className="text-brass text-xs sm:text-sm tracking-luxury">
               Track and manage your orders
             </p>
           </motion.div>
 
           {/* Filters */}
-          <div className="flex gap-3 mb-8 overflow-x-auto pb-2">
+          <div className="flex gap-2 sm:gap-3 mb-6 sm:mb-8 overflow-x-auto pb-2 scrollbar-hide">
             {filters.map((f) => (
               <button
                 key={f.value}
                 onClick={() => setFilter(f.value)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-300 whitespace-nowrap ${
+                className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-md text-xs sm:text-sm font-medium transition-all duration-300 whitespace-nowrap min-h-[44px] ${
                   filter === f.value
                     ? 'bg-brass text-charcoal'
                     : 'bg-charcoal/50 text-ivory border border-brass/30 hover:bg-brass/10'
@@ -123,7 +123,7 @@ export default function OrdersPage() {
               }}
             />
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {orders.map((order, index) => (
                 <motion.div
                   key={order._id}
@@ -131,17 +131,17 @@ export default function OrdersPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: index * 0.05 }}
                   onClick={() => router.push(`/orders/${order._id}`)}
-                  className="bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg p-6 hover:border-brass/40 transition-all duration-300 cursor-pointer"
+                  className="bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg p-4 sm:p-5 lg:p-6 hover:border-brass/40 transition-all duration-300 cursor-pointer"
                 >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-serif font-bold text-ivory">
+                  <div className="flex flex-col sm:flex-row sm:items-start md:items-center justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start sm:items-center gap-2 sm:gap-3 mb-2 flex-wrap">
+                        <h3 className="text-base sm:text-lg lg:text-xl font-serif font-bold text-ivory">
                           Order #{order.orderNumber}
                         </h3>
                         <StatusBadge status={order.status} size="sm" />
                       </div>
-                      <p className="text-ivory/60 text-sm">
+                      <p className="text-ivory/60 text-xs sm:text-sm">
                         Placed on {new Date(order.createdAt).toLocaleDateString('en-GB', {
                           day: 'numeric',
                           month: 'long',
@@ -149,31 +149,31 @@ export default function OrdersPage() {
                         })}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-brass text-2xl font-bold">
+                    <div className="text-left sm:text-right flex-shrink-0">
+                      <p className="text-brass text-xl sm:text-2xl font-bold">
                         {formatCurrency(order.pricing.total)}
                       </p>
                       {order.discountCode && order.pricing.discount && parseFloat(order.pricing.discount.toString()) > 0 && (
-                        <p className="text-green-400 text-sm font-medium">
+                        <p className="text-green-400 text-xs sm:text-sm font-medium">
                           💰 Saved {formatCurrency(order.pricing.discount)}
                         </p>
                       )}
-                      <p className="text-ivory/60 text-sm">
+                      <p className="text-ivory/60 text-xs sm:text-sm">
                         {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
                       </p>
                     </div>
                   </div>
 
                   {/* Order Items Preview */}
-                  <div className="flex gap-2 overflow-x-auto pb-2">
+                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                     {order.items.slice(0, 3).map((item) => (
-                      <div key={item._id} className="flex-shrink-0 bg-charcoal/50 border border-brass/10 rounded px-3 py-2 text-sm">
-                        <p className="text-ivory font-medium">{item.productName}</p>
+                      <div key={item._id} className="flex-shrink-0 bg-charcoal/50 border border-brass/10 rounded px-2.5 sm:px-3 py-2 text-xs sm:text-sm min-w-[140px]">
+                        <p className="text-ivory font-medium truncate">{item.productName}</p>
                         <p className="text-ivory/60 text-xs">Qty: {item.quantity}</p>
                       </div>
                     ))}
                     {order.items.length > 3 && (
-                      <div className="flex-shrink-0 flex items-center px-3 text-brass text-sm">
+                      <div className="flex-shrink-0 flex items-center px-2.5 sm:px-3 text-brass text-xs sm:text-sm whitespace-nowrap">
                         +{order.items.length - 3} more
                       </div>
                     )}

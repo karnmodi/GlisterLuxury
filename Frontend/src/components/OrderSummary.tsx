@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { formatCurrency, toNumber } from '@/lib/utils'
+import { useSettings } from '@/contexts/SettingsContext'
 import type { Order, Cart } from '@/types'
 import { motion } from 'framer-motion'
 
@@ -9,6 +10,47 @@ interface OrderSummaryProps {
 }
 
 export default function OrderSummary({ data, type }: OrderSummaryProps) {
+  const { settings } = useSettings()
+  const [estimatedShipping, setEstimatedShipping] = useState(0)
+  const [estimatedVAT, setEstimatedVAT] = useState(0)
+
+  // Calculate shipping and VAT for cart
+  useEffect(() => {
+    if (type !== 'cart' || !settings) {
+      setEstimatedShipping(0)
+      setEstimatedVAT(0)
+      return
+    }
+
+    const cart = data as Cart
+    const subtotal = toNumber(cart.subtotal)
+    const discount = toNumber(cart.discountAmount || 0)
+    const totalAfterDiscount = Math.max(0, subtotal - discount)
+
+    // Calculate shipping
+    let shipping = 0
+    if (settings.freeDeliveryThreshold?.enabled &&
+        totalAfterDiscount >= settings.freeDeliveryThreshold.amount) {
+      shipping = 0
+    } else {
+      for (const tier of settings.deliveryTiers) {
+        if (totalAfterDiscount >= tier.minAmount &&
+            (tier.maxAmount === null || totalAfterDiscount <= tier.maxAmount)) {
+          shipping = tier.fee
+          break
+        }
+      }
+    }
+
+    // Calculate VAT (extract from VAT-inclusive prices)
+    // VAT amount = price / (1 + rate/100) * (rate/100)
+    const vatRate = settings.vatRate || 20
+    const taxableAmount = totalAfterDiscount + shipping
+    const vat = settings.vatEnabled ? (taxableAmount * (vatRate / 100)) / (1 + vatRate / 100) : 0
+
+    setEstimatedShipping(shipping)
+    setEstimatedVAT(vat)
+  }, [type, data, settings])
   const items = data.items
   const subtotal = type === 'order' 
     ? (data as Order).pricing.subtotal 
@@ -88,35 +130,50 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
           </motion.div>
         )}
         
-        {type === 'order' && (
+        {/* Shipping and Tax - Show for both order and cart */}
+        {type === 'order' ? (
           <>
             <div className="flex justify-between text-sm text-ivory/70">
               <span>Shipping</span>
               <span>{formatCurrency((data as Order).pricing.shipping)}</span>
             </div>
             <div className="flex justify-between text-sm text-ivory/70">
-              <span>Tax</span>
+              <span>Tax (VAT)</span>
               <span>{formatCurrency((data as Order).pricing.tax)}</span>
             </div>
           </>
+        ) : (
+          <>
+            <div className="flex justify-between text-sm text-ivory/70">
+              <span>Shipping</span>
+              <span>
+                {estimatedShipping === 0 ? (
+                  <span className="text-green-400 font-semibold">FREE</span>
+                ) : (
+                  formatCurrency(estimatedShipping)
+                )}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm text-ivory/70">
+              <span>VAT ({settings?.vatRate || 20}%) included:</span>
+              <span>{formatCurrency(estimatedVAT)}</span>
+            </div>
+          </>
         )}
-        
+
         <div className="flex justify-between text-lg font-bold text-ivory border-t border-brass/20 pt-3 mt-3">
-          <span>Total</span>
+          <span>Total (inc. VAT)</span>
           <span className="text-brass">
-            {type === 'order' 
+            {type === 'order'
               ? formatCurrency((data as Order).pricing.total)
-              : formatCurrency((data as Cart).total || (toNumber(subtotal) - toNumber(discountAmount || 0)))
+              : formatCurrency(
+                  Math.max(0, toNumber(subtotal) - toNumber(discountAmount || 0) + estimatedShipping)
+                )
             }
           </span>
         </div>
+        <p className="text-xs text-ivory/60 mt-1">All prices include VAT</p>
       </div>
-
-      {type === 'cart' && (
-        <p className="text-xs text-ivory/50 mt-4 text-center">
-          Shipping and taxes calculated at checkout
-        </p>
-      )}
     </div>
   )
 }

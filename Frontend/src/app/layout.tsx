@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Playfair_Display, Crimson_Text } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { SettingsProvider } from '@/contexts/SettingsContext'
 import { CartProvider } from '@/contexts/CartContext'
 import { WishlistProvider } from '@/contexts/WishlistContext'
 import { LoadingProvider } from '@/contexts/LoadingContext'
@@ -68,13 +69,15 @@ export default function RootLayout({
       <ToastProvider>
         <LoadingProvider>
           <AuthProvider>
-            <CartProvider>
-              <WishlistProvider>
-                <VisitTracker />
-                {children}
-                <WhatsAppFloatingButton />
-              </WishlistProvider>
-            </CartProvider>
+            <SettingsProvider>
+              <CartProvider>
+                <WishlistProvider>
+                  <VisitTracker />
+                  {children}
+                  <WhatsAppFloatingButton />
+                </WishlistProvider>
+              </CartProvider>
+            </SettingsProvider>
           </AuthProvider>
         </LoadingProvider>
       </ToastProvider>

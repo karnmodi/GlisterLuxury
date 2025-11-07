@@ -74,6 +74,7 @@ const OrderSchema = new Schema(
 			shipping: { type: Schema.Types.Decimal128, default: 0 },
 			tax: { type: Schema.Types.Decimal128, default: 0 },
 			total: { type: Schema.Types.Decimal128, required: true },
+			vatRate: { type: Number, default: 20 }, // Store VAT rate at time of order for historical accuracy
 		},
 	status: {
 		type: String,

@@ -131,9 +131,26 @@ async function sendOrderEmails(order, user) {
 									<td style="padding: 12px; text-align: right; color: #155724; font-weight: bold;">-${formatPrice(order.pricing.discount)}</td>
 								</tr>
 								` : ''}
+								<tr>
+									<td colspan="3" style="padding: 12px; text-align: right;">Shipping:</td>
+									<td style="padding: 12px; text-align: right;">${formatPrice(order.pricing.shipping)}</td>
+								</tr>
+								<tr>
+									<td colspan="3" style="padding: 12px; text-align: right; color: #666;">
+										<small>VAT (20%) included in prices:</small>
+									</td>
+									<td style="padding: 12px; text-align: right; color: #666;">
+										<small>${formatPrice(order.pricing.tax)}</small>
+									</td>
+								</tr>
 								<tr class="total-row" style="background-color: #D4AF37; color: #2C2C2C;">
 									<td colspan="3" style="padding: 20px 12px; text-align: right;">TOTAL:</td>
 									<td style="padding: 20px 12px; text-align: right;">${formatPrice(order.pricing.total)}</td>
+								</tr>
+								<tr>
+									<td colspan="4" style="padding: 8px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #e5e5e5;">
+										All prices include 20% UK VAT
+									</td>
 								</tr>
 							</tbody>
 						</table>
@@ -247,19 +264,24 @@ async function sendOrderEmails(order, user) {
 
 								<tr>
 									<td colspan="2" style="padding: 12px; text-align: right;">
-										<span style="color: #666;">Tax:</span>
+										<span style="color: #666; font-size: 12px;">VAT (20%) included:</span>
 									</td>
-									<td style="padding: 12px; text-align: right;">
+									<td style="padding: 12px; text-align: right; color: #666; font-size: 12px;">
 										${formatPrice(order.pricing.tax)}
 									</td>
 								</tr>
 
 								<tr class="total-row">
 									<td colspan="2" style="padding: 20px 12px; text-align: right; border-top: 2px solid #2c3e50; font-size: 18px;">
-										<strong>Total:</strong>
+										<strong>Total (inc. VAT):</strong>
 									</td>
 									<td style="padding: 20px 12px; text-align: right; border-top: 2px solid #2c3e50; font-size: 18px;">
 										<strong>${formatPrice(order.pricing.total)}</strong>
+									</td>
+								</tr>
+								<tr>
+									<td colspan="3" style="padding: 8px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #e5e5e5;">
+										All prices include 20% UK VAT
 									</td>
 								</tr>
 							</tbody>
@@ -423,9 +445,23 @@ exports.createOrder = async (req, res, next) => {
 		// Calculate pricing
 		const subtotal = cart.subtotal.$numberDecimal ? parseFloat(cart.subtotal.$numberDecimal) : parseFloat(cart.subtotal);
 		const discount = cart.discountAmount?.$numberDecimal ? parseFloat(cart.discountAmount.$numberDecimal) : parseFloat(cart.discountAmount || 0);
-		const shipping = 0; // TBD
-		const tax = 0; // TBD
-		const total = Math.max(0, subtotal - discount + shipping + tax);
+
+		// Get settings and calculate shipping & VAT
+		const Settings = require('../models/Settings');
+		const { calculateShippingFee, calculateVAT } = require('../utils/shipping');
+
+		const settings = await Settings.getSettings();
+
+		// Calculate shipping based on total after discount
+		const totalAfterDiscount = Math.max(0, subtotal - discount);
+		const shipping = calculateShippingFee(totalAfterDiscount, settings);
+
+		// Extract VAT from VAT-inclusive prices (for display/reporting)
+		const taxableAmount = totalAfterDiscount + shipping;
+		const tax = calculateVAT(taxableAmount, settings);
+
+		// Total = subtotal - discount + shipping (VAT already in prices)
+		const total = Math.max(0, subtotal - discount + shipping);
 
 		// Create order
 		const order = new Order({
@@ -471,7 +507,8 @@ exports.createOrder = async (req, res, next) => {
 				discount: cart.discountAmount || 0,
 				shipping: shipping,
 				tax: tax,
-				total: total
+				total: total,
+				vatRate: settings.vatRate || 20 // Store VAT rate at time of order for historical accuracy
 			},
 		status: 'pending',
 		orderStatusHistory: [{

@@ -1,6 +1,6 @@
-import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, Announcement, AboutUs, ContactInfo, ContactInquiry, CartItem, Order, OrderStats, Wishlist, DashboardSummary, WebsiteVisitAnalytics, RevenueAnalytics, ProductAnalytics, UserAnalytics, OrderAnalytics, ConversionAnalytics, NearMissOffer } from '@/types'
+import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, Announcement, AboutUs, ContactInfo, ContactInquiry, CartItem, Order, OrderStats, Wishlist, DashboardSummary, WebsiteVisitAnalytics, RevenueAnalytics, ProductAnalytics, UserAnalytics, OrderAnalytics, ConversionAnalytics, NearMissOffer, Settings } from '@/types'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api'
 
 // Helper function for API calls
 async function apiCall<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -1101,6 +1101,31 @@ export const analyticsApi = {
         Authorization: `Bearer ${token}`
       },
       body: JSON.stringify({ date }),
+    }),
+}
+
+// Settings API
+export const settingsApi = {
+  // Get current settings (public endpoint - needed for cart/checkout)
+  get: () => apiCall<Settings>('/settings'),
+
+  // Update settings (admin only)
+  update: (token: string, updates: Partial<Settings>) =>
+    apiCall<{ message: string; settings: Settings }>('/settings', {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(updates),
+    }),
+
+  // Reset settings to default (admin only)
+  reset: (token: string) =>
+    apiCall<{ message: string; settings: Settings }>('/settings/reset', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
     }),
 }
 
