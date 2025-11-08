@@ -136,25 +136,59 @@ async function listCategoriesWithProducts(req, res) {
 	try {
 		const { q } = req.query;
 		
-		// Find all unique category IDs that have products
-		const productsWithCategories = await Product.find({ isVisible: true })
-			.select('category subcategoryId')
-			.lean();
-		
-		const categoryIds = new Set();
-		const subcategoryIds = new Set();
-		
-		productsWithCategories.forEach(product => {
-			if (product.category) {
-				categoryIds.add(product.category.toString());
+		// Use aggregation pipeline to get distinct category and subcategory IDs efficiently
+		// This is much faster than fetching all products
+		const aggregationResult = await Product.aggregate([
+			// Match only visible products
+			{ $match: { isVisible: true } },
+			// Project only category and subcategoryId fields
+			{
+				$project: {
+					category: 1,
+					subcategoryId: 1
+				}
+			},
+			// Group to get distinct category and subcategory IDs
+			{
+				$group: {
+					_id: null,
+					categoryIds: { $addToSet: '$category' },
+					subcategoryIds: { $addToSet: '$subcategoryId' }
+				}
+			},
+			// Project to clean up null values
+			{
+				$project: {
+					_id: 0,
+					categoryIds: {
+						$filter: {
+							input: '$categoryIds',
+							as: 'catId',
+							cond: { $ne: ['$$catId', null] }
+						}
+					},
+					subcategoryIds: {
+						$filter: {
+							input: '$subcategoryIds',
+							as: 'subId',
+							cond: { $ne: ['$$subId', null] }
+						}
+					}
+				}
 			}
-			if (product.subcategoryId) {
-				subcategoryIds.add(product.subcategoryId.toString());
-			}
-		});
+		]);
 		
-		// Build filter for categories
-		const filter = { _id: { $in: Array.from(categoryIds) } };
+		// Extract category and subcategory IDs from aggregation result
+		// MongoDB aggregation returns ObjectIds, so we can use them directly
+		const categoryIds = aggregationResult.length > 0 
+			? aggregationResult[0].categoryIds
+			: [];
+		const subcategoryIds = aggregationResult.length > 0
+			? aggregationResult[0].subcategoryIds
+			: [];
+		
+		// Build filter for categories - use ObjectIds directly
+		const filter = categoryIds.length > 0 ? { _id: { $in: categoryIds } } : { _id: { $in: [] } };
 		if (q) {
 			filter.$or = [
 				{ name: { $regex: q, $options: 'i' } },
@@ -166,9 +200,11 @@ async function listCategoriesWithProducts(req, res) {
 		const categories = await Category.find(filter).lean();
 		
 		// Filter subcategories to only include those that have products
+		// Convert subcategoryIds to strings for comparison
+		const subcategoryIdStrings = subcategoryIds.map(id => id.toString());
 		const filteredCategories = categories.map(category => {
 			const filteredSubcategories = category.subcategories.filter(subcat => 
-				subcategoryIds.has(subcat._id.toString())
+				subcategoryIdStrings.includes(subcat._id.toString())
 			);
 			return {
 				...category,

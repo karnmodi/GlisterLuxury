@@ -37,14 +37,16 @@ export default function ImageFinishMapper({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [compressing, setCompressing] = useState(false)
   const [compressionProgress, setCompressionProgress] = useState<Record<number, number>>({})
+  const [isDraggingOver, setIsDraggingOver] = useState(false)
 
-  const handleFileSelect = async (files: FileList | null) => {
+  // Shared function to process files (used by both file input and drag-drop)
+  const processFiles = async (files: FileList | null, source: 'input' | 'dragdrop') => {
     if (!files || files.length === 0) {
-      console.log('ImageFinishMapper: No files selected')
+      console.log(`[ImageFinishMapper] No files provided from ${source}`)
       return
     }
 
-    console.log(`ImageFinishMapper: Processing ${files.length} file(s)`)
+    console.log(`[ImageFinishMapper] Processing ${files.length} file(s) from ${source}`)
     const maxFiles = 10
     const remainingSlots = maxFiles - images.length
     const maxFileSize = 10 * 1024 * 1024 // 10MB limit (original file size limit)
@@ -52,32 +54,64 @@ export default function ImageFinishMapper({
 
     // Validate files first
     const validFiles: File[] = []
-    for (let i = 0; i < Math.min(files.length, remainingSlots); i++) {
-      const file = files[i]
+    const fileArray = Array.from(files)
+    
+    console.log(`[ImageFinishMapper] Validating ${fileArray.length} file(s)`, {
+      remainingSlots,
+      maxFiles,
+      currentImageCount: images.length
+    })
+    
+    for (let i = 0; i < Math.min(fileArray.length, remainingSlots); i++) {
+      const file = fileArray[i]
+      
+      // Validate file exists and has required properties
+      if (!file || !file.name || file.size === undefined) {
+        const errorMsg = `File ${i + 1} is invalid or corrupted`
+        console.error(`[ImageFinishMapper] ${errorMsg}`, file)
+        toast.error(errorMsg)
+        continue
+      }
       
       // Validate file type
-      if (!file.type.startsWith('image/')) {
-        const errorMsg = `${file.name} is not an image file`
-        console.error(`ImageFinishMapper: ${errorMsg} (MIME type: ${file.type})`)
+      if (!file.type || !file.type.startsWith('image/')) {
+        const errorMsg = `${file.name} is not an image file (type: ${file.type || 'unknown'})`
+        console.error(`[ImageFinishMapper] ${errorMsg}`)
         toast.error(errorMsg)
         continue
       }
 
       // Validate file size (10MB limit for original)
+      if (file.size === 0) {
+        const errorMsg = `${file.name} is empty (0 bytes)`
+        console.error(`[ImageFinishMapper] ${errorMsg}`)
+        toast.error(errorMsg)
+        continue
+      }
+      
       if (file.size > maxFileSize) {
         const errorMsg = `${file.name} is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 10MB`
-        console.error(`ImageFinishMapper: ${errorMsg}`)
+        console.error(`[ImageFinishMapper] ${errorMsg}`)
         toast.error(errorMsg)
         continue
       }
 
       validFiles.push(file)
+      console.log(`[ImageFinishMapper] File validated: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB, ${file.type})`)
     }
 
     if (validFiles.length === 0) {
-      console.warn('ImageFinishMapper: No valid images were added after validation')
+      const errorMsg = 'No valid images were added after validation'
+      console.warn(`[ImageFinishMapper] ${errorMsg}`)
+      toast.error('No valid images selected. Please ensure files are images and under 10MB.')
+      // Reset input value to ensure onChange fires next time (only for file input)
+      if (source === 'input' && fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
       return
     }
+    
+    console.log(`[ImageFinishMapper] ${validFiles.length} valid file(s) ready for processing`)
 
     // Compress images
     setCompressing(true)
@@ -89,7 +123,15 @@ export default function ImageFinishMapper({
     // Process all files sequentially, ensuring each one is handled even if others fail
     for (let i = 0; i < validFiles.length; i++) {
       const file = validFiles[i]
-      console.log(`ImageFinishMapper: Processing file ${i + 1}/${validFiles.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB, type: ${file.type})`)
+      
+      // Defensive check: ensure file is still valid
+      if (!file || !file.name || file.size === 0) {
+        console.error(`[ImageFinishMapper] File ${i + 1} is invalid, skipping:`, file)
+        toast.error(`File ${i + 1} is invalid or corrupted, skipping`)
+        continue
+      }
+      
+      console.log(`[ImageFinishMapper] Processing file ${i + 1}/${validFiles.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB, type: ${file.type})`)
 
       try {
         // Compress image to target size (2MB)
@@ -102,49 +144,82 @@ export default function ImageFinishMapper({
           }
         )
         
-        const compressionResult = await compressionPromise
+        // Add timeout protection (30 seconds max per file)
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Compression timeout')), 30000)
+        })
+        
+        const compressionResult = await Promise.race([compressionPromise, timeoutPromise]) as Awaited<ReturnType<typeof compressImage>>
 
         const compressedFile = compressionResult.compressedFile
-        console.log(`ImageFinishMapper: Compression complete for ${file.name}: ${(compressionResult.originalSize / 1024 / 1024).toFixed(2)}MB → ${(compressionResult.compressedSize / 1024 / 1024).toFixed(2)}MB (saved ${(compressionResult.savedBytes / 1024 / 1024).toFixed(2)}MB)`)
+        
+        // Defensive check: ensure compressed file is valid
+        if (!compressedFile || compressedFile.size === 0) {
+          throw new Error('Compressed file is invalid or empty')
+        }
+        
+        console.log(`[ImageFinishMapper] Compression complete for ${file.name}: ${(compressionResult.originalSize / 1024 / 1024).toFixed(2)}MB → ${(compressionResult.compressedSize / 1024 / 1024).toFixed(2)}MB (saved ${(compressionResult.savedBytes / 1024 / 1024).toFixed(2)}MB)`)
 
         // Create preview URL from compressed file
         try {
           const previewUrl = URL.createObjectURL(compressedFile)
+          if (!previewUrl) {
+            throw new Error('Failed to create object URL')
+          }
+          
           newImages.push({
             url: previewUrl,
             file: compressedFile, // Use compressed file for upload
             mappedFinishID: undefined
           })
           processedCount++
-          console.log(`ImageFinishMapper: Successfully processed ${file.name} (${processedCount}/${validFiles.length})`)
+          console.log(`[ImageFinishMapper] Successfully processed ${file.name} (${processedCount}/${validFiles.length})`)
         } catch (urlError) {
-          console.error(`ImageFinishMapper: Failed to create preview URL for ${file.name}:`, urlError)
-          // Still add the file even if URL creation fails
-          const previewUrl = URL.createObjectURL(file)
-          newImages.push({
-            url: previewUrl,
-            file: compressedFile,
-            mappedFinishID: undefined
-          })
-          processedCount++
+          console.error(`[ImageFinishMapper] Failed to create preview URL for compressed ${file.name}:`, urlError)
+          // Fallback: try with original file
+          try {
+            const previewUrl = URL.createObjectURL(file)
+            if (!previewUrl) {
+              throw new Error('Failed to create fallback object URL')
+            }
+            newImages.push({
+              url: previewUrl,
+              file: compressedFile,
+              mappedFinishID: undefined
+            })
+            processedCount++
+            console.log(`[ImageFinishMapper] Used fallback preview URL for ${file.name}`)
+          } catch (fallbackError) {
+            console.error(`[ImageFinishMapper] Fallback preview URL creation also failed for ${file.name}:`, fallbackError)
+            toast.error(`Failed to create preview for ${file.name}. Please try again.`)
+          }
         }
       } catch (error) {
-        console.error(`ImageFinishMapper: Compression failed for ${file.name}, using original:`, error)
+        console.error(`[ImageFinishMapper] Compression failed for ${file.name}, using original:`, error)
         failedCount++
         
         // If compression fails, use original file
         try {
+          // Defensive check: ensure original file is still valid
+          if (!file || file.size === 0) {
+            throw new Error('Original file is invalid or empty')
+          }
+          
           const previewUrl = URL.createObjectURL(file)
+          if (!previewUrl) {
+            throw new Error('Failed to create object URL for original file')
+          }
+          
           newImages.push({
             url: previewUrl,
             file, // Use original file if compression fails
             mappedFinishID: undefined
           })
           processedCount++
-          console.log(`ImageFinishMapper: Using original file for ${file.name} (${processedCount}/${validFiles.length})`)
+          console.log(`[ImageFinishMapper] Using original file for ${file.name} (${processedCount}/${validFiles.length})`)
           toast.warning(`Compression failed for ${file.name}, using original file`)
         } catch (urlError) {
-          console.error(`ImageFinishMapper: Failed to create preview URL for original ${file.name}:`, urlError)
+          console.error(`[ImageFinishMapper] Failed to create preview URL for original ${file.name}:`, urlError)
           // If we can't even create a preview URL, log it but don't add the file
           toast.error(`Failed to process ${file.name}. Please try again.`)
         }
@@ -153,33 +228,121 @@ export default function ImageFinishMapper({
 
     // Update state with all processed images
     if (newImages.length > 0) {
-      onChange([...images, ...newImages])
-      const totalOriginalSize = validFiles.reduce((sum, f) => sum + f.size, 0)
-      const totalCompressedSize = newImages.reduce((sum, img) => sum + (img.file?.size || 0), 0)
-      const savedMB = ((totalOriginalSize - totalCompressedSize) / 1024 / 1024).toFixed(2)
-      
-      let message = `${newImages.length} image(s) added`
-      if (savedMB !== '0.00') {
-        message += ` (compressed, saved ${savedMB}MB)`
+      try {
+        const updatedImages = [...images, ...newImages]
+        console.log(`[ImageFinishMapper] Updating images state: ${images.length} → ${updatedImages.length} images`)
+        onChange(updatedImages)
+        
+        const totalOriginalSize = validFiles.reduce((sum, f) => sum + f.size, 0)
+        const totalCompressedSize = newImages.reduce((sum, img) => sum + (img.file?.size || 0), 0)
+        const savedMB = ((totalOriginalSize - totalCompressedSize) / 1024 / 1024).toFixed(2)
+        
+        let message = `${newImages.length} image(s) added`
+        if (savedMB !== '0.00') {
+          message += ` (compressed, saved ${savedMB}MB)`
+        }
+        if (failedCount > 0) {
+          message += ` (${failedCount} file(s) used original due to compression issues)`
+        }
+        
+        toast.success(message)
+        console.log(`[ImageFinishMapper] Successfully added ${newImages.length} image(s) to the form (${processedCount} processed, ${failedCount} used original)`)
+      } catch (error) {
+        console.error('[ImageFinishMapper] Error updating images state:', error)
+        toast.error('Failed to add images. Please try again.')
       }
-      if (failedCount > 0) {
-        message += ` (${failedCount} file(s) used original due to compression issues)`
-      }
-      
-      toast.success(message)
-      console.log(`ImageFinishMapper: Successfully added ${newImages.length} image(s) to the form (${processedCount} processed, ${failedCount} used original)`)
     } else if (validFiles.length > 0) {
-      console.error(`ImageFinishMapper: No images were successfully processed from ${validFiles.length} valid files`)
+      const errorMsg = `No images were successfully processed from ${validFiles.length} valid files`
+      console.error(`[ImageFinishMapper] ${errorMsg}`)
       toast.error('Failed to process any images. Please try again.')
+    } else {
+      console.warn('[ImageFinishMapper] No valid files to process')
     }
 
     setCompressing(false)
     setCompressionProgress({})
 
-    // Reset file input
-    if (fileInputRef.current) {
+    // Reset file input to ensure onChange fires next time (only for file input)
+    if (source === 'input' && fileInputRef.current) {
       fileInputRef.current.value = ''
+      console.log('[ImageFinishMapper] File input value reset after processing')
     }
+  }
+
+  // File input change handler
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    
+    console.log('[ImageFinishMapper] File input onChange event fired', {
+      files: files ? files.length : 0,
+      fileInputValue: e.target.value,
+      timestamp: new Date().toISOString()
+    })
+    
+    if (!files || files.length === 0) {
+      console.log('[ImageFinishMapper] No files selected or files list is empty')
+      // Reset input value to ensure onChange fires next time
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      return
+    }
+
+    await processFiles(files, 'input')
+  }
+
+  // Drag and drop handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    // Only handle file drags, not image reordering
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault()
+      setIsDraggingOver(true)
+      console.log('[ImageFinishMapper] Files dragged into drop zone')
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    // Only handle file drags, not image reordering
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault()
+      e.stopPropagation()
+      // Set dropEffect to show it's a valid drop target
+      e.dataTransfer.dropEffect = 'copy'
+    }
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only reset if we're actually leaving the drop zone (not just a child element)
+    const relatedTarget = e.relatedTarget as Node | null
+    if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
+      setIsDraggingOver(false)
+      console.log('[ImageFinishMapper] Files dragged out of drop zone')
+    }
+  }
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingOver(false)
+
+    // Only handle file drops, not image reordering
+    if (!e.dataTransfer.types.includes('Files')) {
+      console.log('[ImageFinishMapper] Drop event is not for files, ignoring')
+      return
+    }
+
+    const files = e.dataTransfer.files
+    console.log('[ImageFinishMapper] Files dropped', {
+      files: files ? files.length : 0,
+      timestamp: new Date().toISOString()
+    })
+
+    if (!files || files.length === 0) {
+      console.log('[ImageFinishMapper] No files in drop event')
+      return
+    }
+
+    await processFiles(files, 'dragdrop')
   }
 
   const handleUpload = async () => {
@@ -325,15 +488,24 @@ export default function ImageFinishMapper({
     onChange(newImages)
   }
 
-  const handleDragStart = (index: number) => {
+  // Image reordering drag handlers (for reordering existing images)
+  const handleImageDragStart = (index: number) => {
     setDraggedIndex(index)
   }
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
+  const handleImageDragOver = (e: React.DragEvent) => {
+    // Only prevent default if this is for image reordering (not file drag)
+    if (!e.dataTransfer.types.includes('Files')) {
+      e.preventDefault()
+    }
   }
 
-  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+  const handleImageDrop = (e: React.DragEvent, dropIndex: number) => {
+    // Only handle image reordering, not file drops
+    if (e.dataTransfer.types.includes('Files')) {
+      return // Let the file drop handler handle it
+    }
+    
     e.preventDefault()
     if (draggedIndex !== null && draggedIndex !== dropIndex) {
       moveImage(draggedIndex, dropIndex)
@@ -349,7 +521,13 @@ export default function ImageFinishMapper({
   const unmappedImages = images.filter(img => !img.mappedFinishID)
 
   return (
-    <div className="space-y-3">
+    <div 
+      className="space-y-3 relative"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h3 className="text-xs font-semibold text-charcoal">Product Images</h3>
@@ -359,11 +537,44 @@ export default function ImageFinishMapper({
             type="file"
             multiple
             accept="image/*"
-            onChange={(e) => handleFileSelect(e.target.files)}
+            onChange={handleFileSelect}
             className="hidden"
           />
           <button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              try {
+                console.log('[ImageFinishMapper] Add button clicked, opening file dialog')
+                // Defensive check: ensure file input ref is available
+                if (!fileInputRef.current) {
+                  console.error('[ImageFinishMapper] File input ref is not available')
+                  toast.error('File input not available. Please refresh the page.')
+                  return
+                }
+                
+                // Reset file input value BEFORE opening dialog to ensure onChange fires every time
+                fileInputRef.current.value = ''
+                console.log('[ImageFinishMapper] File input value reset before opening dialog')
+                
+                // Small delay to ensure value reset is processed
+                setTimeout(() => {
+                  try {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.click()
+                      console.log('[ImageFinishMapper] File dialog opened')
+                    } else {
+                      console.error('[ImageFinishMapper] File input ref lost during timeout')
+                      toast.error('Failed to open file dialog. Please try again.')
+                    }
+                  } catch (clickError) {
+                    console.error('[ImageFinishMapper] Error clicking file input:', clickError)
+                    toast.error('Failed to open file dialog. Please try again.')
+                  }
+                }, 10)
+              } catch (error) {
+                console.error('[ImageFinishMapper] Error in button click handler:', error)
+                toast.error('Failed to open file dialog. Please try again.')
+              }
+            }}
             disabled={images.length >= 10 || compressing}
             className="flex-1 sm:flex-none px-2 py-1 text-xs bg-brass text-white hover:bg-brass/90 disabled:opacity-50 rounded inline-flex items-center justify-center gap-1"
           >
@@ -423,6 +634,19 @@ export default function ImageFinishMapper({
         </div>
       )}
 
+      {/* Drag and Drop Overlay */}
+      {isDraggingOver && (
+        <div className="absolute inset-0 z-50 bg-brass/20 border-4 border-dashed border-brass rounded-md flex items-center justify-center backdrop-blur-sm">
+          <div className="text-center space-y-2">
+            <svg className="w-16 h-16 mx-auto text-brass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <h3 className="text-lg font-semibold text-brass">Drop images here</h3>
+            <p className="text-sm text-charcoal/70">Release to add images to your product</p>
+          </div>
+        </div>
+      )}
+
       {/* Info for new products */}
       {!productId && images.some(img => img.file) && (
         <div className="bg-blue-50 rounded-md p-2 border border-blue-200">
@@ -448,9 +672,9 @@ export default function ImageFinishMapper({
               selectedFinishes={selectedFinishes}
               onRemove={removeImage}
               onFinishChange={updateFinishMapping}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
+              onDragStart={handleImageDragStart}
+              onDragOver={handleImageDragOver}
+              onDrop={handleImageDrop}
               isDefault={!image.mappedFinishID}
               isDeleting={deleting === index}
             />
@@ -465,9 +689,42 @@ export default function ImageFinishMapper({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
           <h3 className="text-xs font-medium text-charcoal mb-1">No Images Added</h3>
-          <p className="text-[10px] text-charcoal/60 mb-3">Upload product images</p>
+          <p className="text-[10px] text-charcoal/60 mb-2">Upload product images or drag and drop them here</p>
           <button 
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              try {
+                console.log('[ImageFinishMapper] Upload Images button clicked (empty state)')
+                // Defensive check: ensure file input ref is available
+                if (!fileInputRef.current) {
+                  console.error('[ImageFinishMapper] File input ref is not available')
+                  toast.error('File input not available. Please refresh the page.')
+                  return
+                }
+                
+                // Reset file input value BEFORE opening dialog to ensure onChange fires every time
+                fileInputRef.current.value = ''
+                console.log('[ImageFinishMapper] File input value reset before opening dialog')
+                
+                // Small delay to ensure value reset is processed
+                setTimeout(() => {
+                  try {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.click()
+                      console.log('[ImageFinishMapper] File dialog opened')
+                    } else {
+                      console.error('[ImageFinishMapper] File input ref lost during timeout')
+                      toast.error('Failed to open file dialog. Please try again.')
+                    }
+                  } catch (clickError) {
+                    console.error('[ImageFinishMapper] Error clicking file input:', clickError)
+                    toast.error('Failed to open file dialog. Please try again.')
+                  }
+                }, 10)
+              } catch (error) {
+                console.error('[ImageFinishMapper] Error in button click handler:', error)
+                toast.error('Failed to open file dialog. Please try again.')
+              }
+            }}
             className="px-4 py-1.5 text-xs bg-brass text-white hover:bg-brass/90 rounded inline-flex items-center gap-1"
           >
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
