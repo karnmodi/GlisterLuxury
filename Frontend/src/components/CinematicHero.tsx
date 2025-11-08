@@ -47,7 +47,7 @@ export default function CinematicHero() {
             transition={{ duration: 0.4, delay: 0.4 }}
           >
             <Link
-              href="#collections"
+              href="/collections"
               className="inline-block px-10 py-4 bg-brass text-charcoal text-lg font-medium tracking-wide rounded-sm hover:bg-olive transition-all duration-500 hover:shadow-2xl hover:shadow-brass/50 group"
             >
               <span className="flex items-center gap-3">

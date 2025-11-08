@@ -1,28 +1,32 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { aboutUsApi } from '@/lib/api'
+import { blogApi } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
-import type { AboutUs } from '@/types'
+import type { Blog } from '@/types'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 
-export default function AdminAboutUsPage() {
+export default function AdminBlogPage() {
   const { token } = useAuth()
-  const [aboutUs, setAboutUs] = useState<AboutUs[]>([])
+  const [blogs, setBlogs] = useState<Blog[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingItem, setEditingItem] = useState<AboutUs | null>(null)
-  const [selectedItem, setSelectedItem] = useState<AboutUs | null>(null)
+  const [editingItem, setEditingItem] = useState<Blog | null>(null)
+  const [selectedItem, setSelectedItem] = useState<Blog | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [sectionFilter, setSectionFilter] = useState<string>('')
+  const [tagFilter, setTagFilter] = useState<string>('')
 
   const [formData, setFormData] = useState({
-    section: 'about' as 'about' | 'vision' | 'philosophy' | 'promise' | 'coreValues',
     title: '',
+    shortDescription: '',
     content: '',
-    subtitle: '',
+    tags: [] as string[],
+    tagInput: '',
+    seoTitle: '',
+    seoDescription: '',
+    featuredImage: '',
     order: 0,
     isActive: true,
   })
@@ -37,14 +41,14 @@ export default function AdminAboutUsPage() {
     if (!token) return
     try {
       setLoading(true)
-      const data = await aboutUsApi.getAll({ sortBy: 'order' }, token)
-      setAboutUs(data)
+      const data = await blogApi.getAll({ sortBy: 'order' }, token)
+      setBlogs(data)
       if (data.length > 0 && !selectedItem) {
         setSelectedItem(data[0])
       }
     } catch (error) {
-      console.error('Failed to fetch About Us content:', error)
-      alert('Failed to load About Us content')
+      console.error('Failed to fetch blog articles:', error)
+      alert('Failed to load blog articles')
     } finally {
       setLoading(false)
     }
@@ -54,8 +58,12 @@ export default function AdminAboutUsPage() {
     if (!token) return
     try {
       setLoading(true)
-      const results = await aboutUsApi.getAll({ q: searchQuery, section: sectionFilter || undefined, sortBy: 'order' }, token)
-      setAboutUs(results)
+      const results = await blogApi.getAll({ 
+        q: searchQuery, 
+        tags: tagFilter || undefined,
+        sortBy: 'order' 
+      }, token)
+      setBlogs(results)
     } catch (error) {
       console.error('Search failed:', error)
     } finally {
@@ -66,77 +74,111 @@ export default function AdminAboutUsPage() {
   const openCreateModal = () => {
     setEditingItem(null)
     setFormData({
-      section: 'about',
       title: '',
+      shortDescription: '',
       content: '',
-      subtitle: '',
+      tags: [],
+      tagInput: '',
+      seoTitle: '',
+      seoDescription: '',
+      featuredImage: '',
       order: 0,
       isActive: true,
     })
     setIsModalOpen(true)
   }
 
-  const openEditModal = (item: AboutUs) => {
+  const openEditModal = (item: Blog) => {
     setEditingItem(item)
     setFormData({
-      section: item.section,
       title: item.title,
+      shortDescription: item.shortDescription,
       content: item.content,
-      subtitle: item.subtitle || '',
+      tags: item.tags || [],
+      tagInput: '',
+      seoTitle: item.seoTitle || '',
+      seoDescription: item.seoDescription || '',
+      featuredImage: item.featuredImage || '',
       order: item.order,
       isActive: item.isActive,
     })
     setIsModalOpen(true)
   }
 
+  const handleAddTag = () => {
+    if (formData.tagInput.trim() && !formData.tags.includes(formData.tagInput.trim())) {
+      setFormData({
+        ...formData,
+        tags: [...formData.tags, formData.tagInput.trim()],
+        tagInput: '',
+      })
+    }
+  }
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setFormData({
+      ...formData,
+      tags: formData.tags.filter(tag => tag !== tagToRemove),
+    })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     if (!token) return
     e.preventDefault()
     try {
+      const submitData = {
+        ...formData,
+        tags: formData.tags,
+      }
+      delete (submitData as any).tagInput
+
       if (editingItem) {
-        await aboutUsApi.update(editingItem._id, formData, token)
+        await blogApi.update(editingItem._id, submitData, token)
       } else {
-        await aboutUsApi.create(formData, token)
+        await blogApi.create(submitData, token)
       }
       setIsModalOpen(false)
       fetchData()
     } catch (error) {
-      console.error('Failed to save About Us content:', error)
-      alert('Failed to save About Us content')
+      console.error('Failed to save blog article:', error)
+      alert('Failed to save blog article')
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (!token || !confirm('Are you sure you want to delete this content?')) return
+    if (!token || !confirm('Are you sure you want to delete this blog article?')) return
     
     try {
-      await aboutUsApi.delete(id, token)
+      await blogApi.delete(id, token)
       if (selectedItem?._id === id) {
         setSelectedItem(null)
       }
       fetchData()
     } catch (error) {
-      console.error('Failed to delete About Us content:', error)
-      alert('Failed to delete About Us content')
+      console.error('Failed to delete blog article:', error)
+      alert('Failed to delete blog article')
     }
   }
 
-  const toggleActive = async (item: AboutUs) => {
+  const toggleActive = async (item: Blog) => {
     if (!token) return
     try {
-      await aboutUsApi.update(item._id, { isActive: !item.isActive }, token)
+      await blogApi.update(item._id, { isActive: !item.isActive }, token)
       fetchData()
     } catch (error) {
-      console.error('Failed to toggle About Us content status:', error)
-      alert('Failed to update About Us content status')
+      console.error('Failed to toggle blog article status:', error)
+      alert('Failed to update blog article status')
     }
   }
 
-  const filteredItems = sectionFilter 
-    ? aboutUs.filter(item => item.section === sectionFilter)
-    : aboutUs
+  // Get all unique tags from blogs
+  const allTags = Array.from(new Set(blogs.flatMap(blog => blog.tags || [])))
 
-  if (loading && aboutUs.length === 0) {
+  const filteredItems = tagFilter 
+    ? blogs.filter(item => item.tags?.includes(tagFilter))
+    : blogs
+
+  if (loading && blogs.length === 0) {
     return (
       <div className="flex items-center justify-center h-40">
         <div className="text-center">
@@ -152,13 +194,13 @@ export default function AdminAboutUsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white rounded-lg px-3 py-2 shadow border border-brass/20 gap-2">
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-          <h1 className="text-base sm:text-lg font-serif font-bold text-charcoal">About Us Content</h1>
+          <h1 className="text-base sm:text-lg font-serif font-bold text-charcoal">Blog Articles</h1>
           <div className="flex items-center gap-2 sm:gap-3 text-xs">
             <span className="flex items-center gap-1 bg-brass/10 px-2 py-1 rounded">
-              <span className="font-semibold text-charcoal">{aboutUs.length} Items</span>
+              <span className="font-semibold text-charcoal">{blogs.length} Articles</span>
             </span>
             <span className="flex items-center gap-1 bg-green-50 px-2 py-1 rounded">
-              <span className="font-semibold text-charcoal">{aboutUs.filter(f => f.isActive).length} Active</span>
+              <span className="font-semibold text-charcoal">{blogs.filter(f => f.isActive).length} Active</span>
             </span>
           </div>
         </div>
@@ -166,7 +208,7 @@ export default function AdminAboutUsPage() {
           onClick={openCreateModal}
           className="text-[10px] sm:text-xs bg-brass text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded hover:bg-brass/90 transition-colors font-semibold"
         >
-          + Add Content
+          + Add Article
         </button>
       </div>
 
@@ -174,23 +216,21 @@ export default function AdminAboutUsPage() {
       <div className="flex gap-2 bg-white rounded-lg px-3 py-2 shadow border border-brass/20">
         <input
           type="text"
-          placeholder="Search content..."
+          placeholder="Search articles..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
           className="flex-1 px-2 py-1 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
         />
         <select
-          value={sectionFilter}
-          onChange={(e) => setSectionFilter(e.target.value)}
+          value={tagFilter}
+          onChange={(e) => setTagFilter(e.target.value)}
           className="px-2 py-1 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
         >
-          <option value="">All Sections</option>
-          <option value="about">About</option>
-          <option value="vision">Vision</option>
-          <option value="philosophy">Philosophy</option>
-          <option value="promise">Promise</option>
-          <option value="coreValues">Core Values</option>
+          <option value="">All Tags</option>
+          {allTags.map(tag => (
+            <option key={tag} value={tag}>{tag}</option>
+          ))}
         </select>
         <button
           onClick={handleSearch}
@@ -198,9 +238,9 @@ export default function AdminAboutUsPage() {
         >
           Search
         </button>
-        {(searchQuery || sectionFilter) && (
+        {(searchQuery || tagFilter) && (
           <button
-            onClick={() => { setSearchQuery(''); setSectionFilter(''); fetchData(); }}
+            onClick={() => { setSearchQuery(''); setTagFilter(''); fetchData(); }}
             className="text-[10px] bg-charcoal/10 text-charcoal px-3 py-1 rounded hover:bg-charcoal/20 transition-colors font-semibold"
           >
             Clear
@@ -210,21 +250,21 @@ export default function AdminAboutUsPage() {
 
       {/* Split Pane Layout */}
       <div className="flex-1 flex flex-col md:flex-row gap-2 overflow-hidden min-h-0">
-        {/* Left Panel - Content List */}
+        {/* Left Panel - Article List */}
         <div className="w-full md:w-2/5 h-[50vh] md:h-auto bg-white rounded-lg shadow border border-brass/20 flex flex-col overflow-hidden">
           <div className="px-3 py-2 bg-charcoal text-ivory border-b border-brass/20 flex items-center justify-between flex-shrink-0">
-            <h2 className="text-xs font-semibold">CONTENT LIST</h2>
+            <h2 className="text-xs font-semibold">ARTICLE LIST</h2>
           </div>
           <div className="flex-1 overflow-y-auto min-h-0">
             {filteredItems.length === 0 ? (
               <div className="flex items-center justify-center h-full text-charcoal/40 text-xs">
                 <div className="text-center">
-                  <p>No content yet</p>
+                  <p>No articles yet</p>
                   <button
                     onClick={openCreateModal}
                     className="text-brass hover:underline text-xs mt-2"
                   >
-                    Add first content
+                    Add first article
                   </button>
                 </div>
               </div>
@@ -246,18 +286,20 @@ export default function AdminAboutUsPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className="px-1.5 py-0.5 bg-brass/20 text-brass rounded text-[9px] font-semibold uppercase">
-                            {item.section}
-                          </span>
                           <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold ${
                             item.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
                             {item.isActive ? '✓' : '✗'}
                           </span>
+                          {item.tags && item.tags.length > 0 && (
+                            <span className="px-1.5 py-0.5 bg-brass/20 text-brass rounded text-[9px] font-semibold">
+                              {item.tags.length} tags
+                            </span>
+                          )}
                         </div>
                         <p className="font-semibold text-charcoal text-xs truncate">{item.title}</p>
                         <p className="text-[10px] text-charcoal/60 mt-0.5 line-clamp-2">
-                          {item.content.substring(0, 60)}...
+                          {item.shortDescription}
                         </p>
                       </div>
                     </div>
@@ -268,10 +310,10 @@ export default function AdminAboutUsPage() {
           </div>
         </div>
 
-        {/* Right Panel - Content Details */}
+        {/* Right Panel - Article Details */}
         <div className="w-full md:w-3/5 h-[50vh] md:h-auto bg-white rounded-lg shadow border border-brass/20 flex flex-col overflow-hidden">
           <div className="px-3 py-2 bg-charcoal text-ivory border-b border-brass/20 flex items-center justify-between flex-shrink-0">
-            <h2 className="text-xs font-semibold">CONTENT DETAILS</h2>
+            <h2 className="text-xs font-semibold">ARTICLE DETAILS</h2>
             {selectedItem && (
               <div className="flex gap-1">
                 <button
@@ -319,12 +361,12 @@ export default function AdminAboutUsPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Section</label>
-                  <p className="text-sm text-charcoal mt-1 capitalize">{selectedItem.section}</p>
-                </div>
-                <div>
                   <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Title</label>
                   <p className="text-sm text-charcoal mt-1 leading-relaxed">{selectedItem.title}</p>
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Short Description</label>
+                  <p className="text-xs text-charcoal/80 mt-1 leading-relaxed">{selectedItem.shortDescription}</p>
                 </div>
                 <div>
                   <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Content</label>
@@ -332,12 +374,37 @@ export default function AdminAboutUsPage() {
                     {selectedItem.content}
                   </p>
                 </div>
-                {selectedItem.subtitle && (
+                {selectedItem.tags && selectedItem.tags.length > 0 && (
                   <div>
-                    <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Subtitle</label>
-                    <p className="text-xs text-charcoal/80 mt-1 leading-relaxed whitespace-pre-wrap">
-                      {selectedItem.subtitle}
-                    </p>
+                    <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Tags</label>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {selectedItem.tags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className="px-2 py-1 bg-brass/10 text-brass rounded text-xs"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {selectedItem.seoTitle && (
+                  <div>
+                    <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">SEO Title</label>
+                    <p className="text-xs text-charcoal/80 mt-1">{selectedItem.seoTitle}</p>
+                  </div>
+                )}
+                {selectedItem.seoDescription && (
+                  <div>
+                    <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">SEO Description</label>
+                    <p className="text-xs text-charcoal/80 mt-1">{selectedItem.seoDescription}</p>
+                  </div>
+                )}
+                {selectedItem.featuredImage && (
+                  <div>
+                    <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Featured Image</label>
+                    <p className="text-xs text-charcoal/80 mt-1 break-all">{selectedItem.featuredImage}</p>
                   </div>
                 )}
                 <div className="pt-4 border-t border-brass/20">
@@ -352,7 +419,7 @@ export default function AdminAboutUsPage() {
             ) : (
               <div className="flex items-center justify-center h-full text-charcoal/40 text-xs">
                 <div className="text-center">
-                  <p>Select content to view details</p>
+                  <p>Select article to view details</p>
                 </div>
               </div>
             )}
@@ -364,35 +431,31 @@ export default function AdminAboutUsPage() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingItem ? 'Edit About Us Content' : 'New About Us Content'}
-        size="md"
+        title={editingItem ? 'Edit Blog Article' : 'New Blog Article'}
+        size="lg"
       >
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-charcoal mb-1">
-              Section *
-            </label>
-            <select
-              value={formData.section}
-              onChange={(e) => setFormData({ ...formData, section: e.target.value as any })}
-              required
-              className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
-            >
-              <option value="about">About</option>
-              <option value="vision">Vision</option>
-              <option value="philosophy">Philosophy</option>
-              <option value="promise">Promise</option>
-              <option value="coreValues">Core Values</option>
-            </select>
-          </div>
-
           <Input
             label="Title *"
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
             required
-            placeholder="Enter title"
+            placeholder="Enter article title"
           />
+
+          <div>
+            <label className="block text-xs font-medium text-charcoal mb-1">
+              Short Description *
+            </label>
+            <textarea
+              value={formData.shortDescription}
+              onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}
+              required
+              placeholder="Enter short description"
+              className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass resize-y"
+              rows={3}
+            />
+          </div>
 
           <div>
             <label className="block text-xs font-medium text-charcoal mb-1">
@@ -402,21 +465,80 @@ export default function AdminAboutUsPage() {
               value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
               required
-              placeholder="Enter content (press Enter for new lines)"
+              placeholder="Enter article content"
               className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass resize-y"
               rows={6}
-              style={{ minHeight: '100px' }}
+              style={{ minHeight: '150px' }}
             />
-            <p className="text-[10px] text-charcoal/60 mt-1">
-              Press Enter to create line breaks. Text formatting is preserved as entered.
-            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-charcoal mb-1">
+              Tags
+            </label>
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={formData.tagInput}
+                onChange={(e) => setFormData({ ...formData, tagInput: e.target.value })}
+                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
+                placeholder="Enter tag and press Enter"
+                className="flex-1 px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+              />
+              <button
+                type="button"
+                onClick={handleAddTag}
+                className="px-3 py-1.5 text-xs bg-brass text-white rounded hover:bg-brass/90 transition-colors"
+              >
+                Add
+              </button>
+            </div>
+            {formData.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {formData.tags.map((tag, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass rounded text-xs"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(tag)}
+                      className="hover:text-red-600"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <Input
-            label="Subtitle (Optional)"
-            value={formData.subtitle}
-            onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-            placeholder="Enter subtitle"
+            label="SEO Title (Optional)"
+            value={formData.seoTitle}
+            onChange={(e) => setFormData({ ...formData, seoTitle: e.target.value })}
+            placeholder="Enter SEO title"
+          />
+
+          <div>
+            <label className="block text-xs font-medium text-charcoal mb-1">
+              SEO Description (Optional)
+            </label>
+            <textarea
+              value={formData.seoDescription}
+              onChange={(e) => setFormData({ ...formData, seoDescription: e.target.value })}
+              placeholder="Enter SEO description"
+              className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass resize-y"
+              rows={2}
+            />
+          </div>
+
+          <Input
+            label="Featured Image URL (Optional)"
+            value={formData.featuredImage}
+            onChange={(e) => setFormData({ ...formData, featuredImage: e.target.value })}
+            placeholder="Enter image URL"
           />
 
           <div>

@@ -6,8 +6,8 @@ import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { categoriesApi, productsApi, collectionsApi } from '@/lib/api'
-import type { Category, Product, Collection } from '@/types'
+import { categoriesApi, collectionsApi } from '@/lib/api'
+import type { Category, Collection } from '@/types'
 
 export default function MobileNavigation() {
   const router = useRouter()
@@ -16,45 +16,23 @@ export default function MobileNavigation() {
   const [collections, setCollections] = useState<Collection[]>([])
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [expandedCollection, setExpandedCollection] = useState<string | null>(null)
-  const [categoriesWithProducts, setCategoriesWithProducts] = useState<Set<string>>(new Set())
-  const [subcategoriesWithProducts, setSubcategoriesWithProducts] = useState<Set<string>>(new Set())
   const [collectionsWithProducts, setCollectionsWithProducts] = useState<Set<string>>(new Set())
   const { user, isAuthenticated } = useAuth()
 
   const closeMenu = () => setIsOpen(false)
 
-  // Fetch categories, collections and products to determine which have products
+  // Fetch categories and collections - backend already filters categories/subcategories with products
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch categories, collections and products
-        const [categoriesData, collectionsData, allProducts] = await Promise.all([
-          categoriesApi.getAll(),
+        // Fetch categories (already filtered to only those with products) and collections
+        const [categoriesData, collectionsData] = await Promise.all([
+          categoriesApi.getAllWithProducts(),
           collectionsApi.getAll({ isActive: true, includeProductCount: true }),
-          productsApi.getAll(),
         ])
         
-        // Create sets to track categories and subcategories with products
-        const categorySet = new Set<string>()
-        const subcategorySet = new Set<string>()
-        const collectionSet = new Set<string>()
-        
-        allProducts.forEach((product: Product) => {
-          // Track categories with products
-          const categoryId = typeof product.category === 'string' 
-            ? product.category 
-            : product.category?._id
-          if (categoryId) {
-            categorySet.add(categoryId)
-          }
-          
-          // Track subcategories with products
-          if (product.subcategoryId) {
-            subcategorySet.add(product.subcategoryId)
-          }
-        })
-        
         // Track collections with products
+        const collectionSet = new Set<string>()
         collectionsData.forEach((collection: Collection) => {
           if (collection.productCount && collection.productCount > 0) {
             collectionSet.add(collection._id)
@@ -63,11 +41,9 @@ export default function MobileNavigation() {
         
         setCategories(categoriesData)
         setCollections(collectionsData.sort((a, b) => a.displayOrder - b.displayOrder))
-        setCategoriesWithProducts(categorySet)
-        setSubcategoriesWithProducts(subcategorySet)
         setCollectionsWithProducts(collectionSet)
       } catch (error) {
-        console.error('Failed to fetch categories, collections or products:', error)
+        console.error('Failed to fetch categories or collections:', error)
       }
     }
     fetchData()
@@ -205,22 +181,11 @@ export default function MobileNavigation() {
                         Products
                       </Link>
                       <div className="space-y-1 pb-2">
-                        {categories.length > 0 ? (() => {
-                          // Filter categories to only show those with products
-                          const filteredCategories = categories.filter((category) => {
-                            const hasDirectProducts = categoriesWithProducts.has(category._id)
-                            const hasSubcategoriesWithProducts = category.subcategories?.some((sub) => {
-                              return subcategoriesWithProducts.has(sub._id)
-                            }) || false
-                            return hasDirectProducts || hasSubcategoriesWithProducts
-                          })
-
-                          return filteredCategories.length > 0 ? (
-                            filteredCategories.map((category) => {
-                              // Filter subcategories to only show those with products
-                              const filteredSubcategories = category.subcategories?.filter((sub) => {
-                                return subcategoriesWithProducts.has(sub._id)
-                              }) || []
+                        {categories.length > 0 ? (
+                          // Backend already filters to only show categories/subcategories with products
+                          categories.map((category) => {
+                              // Subcategories are already filtered by backend
+                              const filteredSubcategories = category.subcategories || []
 
                               return (
                                 <div key={category._id}>
@@ -281,12 +246,7 @@ export default function MobileNavigation() {
                                 </div>
                               )
                             })
-                          ) : (
-                            <div className="px-4 py-2 text-sm text-ivory/50 ml-4">
-                              No categories with products available
-                            </div>
-                          )
-                        })() : (
+                        ) : (
                           <div className="px-4 py-2 text-sm text-ivory/50 ml-4">
                             Loading categories...
                           </div>

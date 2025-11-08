@@ -1,4 +1,4 @@
-import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, Announcement, AboutUs, ContactInfo, ContactInquiry, CartItem, Order, OrderStats, Wishlist, DashboardSummary, WebsiteVisitAnalytics, RevenueAnalytics, ProductAnalytics, UserAnalytics, OrderAnalytics, ConversionAnalytics, NearMissOffer, Settings, Collection } from '@/types'
+import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, Announcement, AboutUs, Blog, ContactInfo, ContactInquiry, CartItem, Order, OrderStats, Wishlist, DashboardSummary, WebsiteVisitAnalytics, RevenueAnalytics, ProductAnalytics, UserAnalytics, OrderAnalytics, ConversionAnalytics, NearMissOffer, Settings, Collection } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api'
 
@@ -914,6 +914,75 @@ export const aboutUsApi = {
 
   reorder: (orderedIds: string[], token: string) =>
     apiCall<{ message: string }>('/about-us/reorder', {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ orderedIds }),
+    }),
+}
+
+// Blog API
+export const blogApi = {
+  getAll: (params?: { tags?: string | string[]; q?: string; isActive?: boolean; sortBy?: string }, token?: string) => {
+    const queryParams = new URLSearchParams()
+    if (params?.tags) {
+      const tagsArray = Array.isArray(params.tags) ? params.tags : [params.tags]
+      tagsArray.forEach(tag => queryParams.append('tags', tag))
+    }
+    if (params?.q) queryParams.append('q', params.q)
+    if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString())
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+    
+    const query = queryParams.toString()
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    return apiCall<Blog[]>(`/blog${query ? `?${query}` : ''}`, {
+      headers
+    })
+  },
+
+  getById: (id: string, token?: string) => {
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    return apiCall<Blog>(`/blog/${id}`, { headers })
+  },
+
+  create: (data: Partial<Blog>, token: string) =>
+    apiCall<Blog>('/blog', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: Partial<Blog>, token: string) =>
+    apiCall<Blog>(`/blog/${id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string, token: string) =>
+    apiCall<{ message: string }>(`/blog/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }),
+
+  reorder: (orderedIds: string[], token: string) =>
+    apiCall<{ message: string }>('/blog/reorder', {
       method: 'PATCH',
       headers: {
         Authorization: `Bearer ${token}`

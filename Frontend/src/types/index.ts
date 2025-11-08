@@ -239,10 +239,25 @@ export interface Announcement {
 
 export interface AboutUs {
   _id: string
-  section: 'about' | 'vision' | 'philosophy' | 'coreValues'
+  section: 'about' | 'vision' | 'philosophy' | 'promise' | 'coreValues'
   title: string
   content: string
   subtitle?: string
+  order: number
+  isActive: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface Blog {
+  _id: string
+  title: string
+  shortDescription: string
+  content: string
+  tags: string[]
+  seoTitle?: string
+  seoDescription?: string
+  featuredImage?: string
   order: number
   isActive: boolean
   createdAt?: string

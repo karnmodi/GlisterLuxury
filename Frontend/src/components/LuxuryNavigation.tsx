@@ -9,8 +9,8 @@ import MobileNavigation from './MobileNavigation'
 import { useCart } from '@/contexts/CartContext'
 import { useWishlist } from '@/contexts/WishlistContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { categoriesApi, productsApi, collectionsApi } from '@/lib/api'
-import type { Category, Product, Collection } from '@/types'
+import { categoriesApi, collectionsApi } from '@/lib/api'
+import type { Category, Collection } from '@/types'
 
 export default function LuxuryNavigation() {
   const router = useRouter()
@@ -22,8 +22,6 @@ export default function LuxuryNavigation() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [menuMaxHeight, setMenuMaxHeight] = useState(600)
-  const [categoriesWithProducts, setCategoriesWithProducts] = useState<Set<string>>(new Set())
-  const [subcategoriesWithProducts, setSubcategoriesWithProducts] = useState<Set<string>>(new Set())
   const [collections, setCollections] = useState<Collection[]>([])
   const [collectionsWithProducts, setCollectionsWithProducts] = useState<Set<string>>(new Set())
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -61,54 +59,29 @@ export default function LuxuryNavigation() {
     }
   }, [])
 
-  // Fetch categories, collections and products to determine which have products
+  // Fetch categories and collections - backend already filters categories/subcategories with products
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch categories and collections
+        // Fetch categories (already filtered to only those with products) and collections
         const [categoriesData, collectionsData] = await Promise.all([
-          categoriesApi.getAll(),
+          categoriesApi.getAllWithProducts(),
           collectionsApi.getAll({ isActive: true, includeProductCount: true })
         ])
         setCategories(categoriesData)
         setCollections(collectionsData.sort((a, b) => a.displayOrder - b.displayOrder))
         
-        // Fetch all products to check which categories/subcategories have products
-        const allProducts = await productsApi.getAll()
-        
-        // Create sets to track categories and subcategories with products
-        const categorySet = new Set<string>()
-        const subcategorySet = new Set<string>()
-        const collectionSet = new Set<string>()
-        
-        allProducts.forEach((product: Product) => {
-          // Check if product has a category
-          const categoryId = typeof product.category === 'string' 
-            ? product.category 
-            : product.category?._id
-          
-          if (categoryId) {
-            categorySet.add(categoryId)
-          }
-          
-          // Check if product has a subcategory
-          if (product.subcategoryId) {
-            subcategorySet.add(product.subcategoryId)
-          }
-        })
-        
         // Track collections with products
+        const collectionSet = new Set<string>()
         collectionsData.forEach((collection: Collection) => {
           if (collection.productCount && collection.productCount > 0) {
             collectionSet.add(collection._id)
           }
         })
         
-        setCategoriesWithProducts(categorySet)
-        setSubcategoriesWithProducts(subcategorySet)
         setCollectionsWithProducts(collectionSet)
       } catch (error) {
-        console.error('Failed to fetch categories, collections or products:', error)
+        console.error('Failed to fetch categories or collections:', error)
       }
     }
     fetchData()
@@ -138,41 +111,16 @@ export default function LuxuryNavigation() {
     }
   }, [])
 
-  // Filter categories and subcategories based on search query and products availability
+  // Filter categories and subcategories based on search query
+  // Backend already filters to only show categories/subcategories with products
   const filteredCategories = useMemo(() => {
-    // Filter categories to show those with products (either directly or through subcategories)
-    const categoriesWithProductsList = categories.filter((category) => {
-      const categoryId = category._id
-      const hasDirectProducts = categoriesWithProducts.has(categoryId)
-      
-      // Check if any subcategory has products
-      const hasSubcategoriesWithProducts = category.subcategories?.some((subcategory) => {
-        return subcategoriesWithProducts.has(subcategory._id)
-      }) || false
-      
-      // Show category if it has products directly OR has subcategories with products
-      return hasDirectProducts || hasSubcategoriesWithProducts
-    })
-
-    // Then filter subcategories within each category to only show those with products
-    const categoriesWithFilteredSubcategories = categoriesWithProductsList.map((category) => {
-      const filteredSubcategories = category.subcategories?.filter((subcategory) => {
-        return subcategoriesWithProducts.has(subcategory._id)
-      }) || []
-      
-      return {
-        ...category,
-        subcategories: filteredSubcategories,
-      }
-    })
-
     // Apply search query filter if present
     if (!searchQuery.trim()) {
-      return categoriesWithFilteredSubcategories
+      return categories
     }
 
     const query = searchQuery.toLowerCase().trim()
-    return categoriesWithFilteredSubcategories
+    return categories
       .map((category) => {
         const categoryMatches = 
           category.name.toLowerCase().includes(query) ||
@@ -197,7 +145,7 @@ export default function LuxuryNavigation() {
         return null
       })
       .filter((category): category is Category => category !== null)
-  }, [categories, searchQuery, categoriesWithProducts, subcategoriesWithProducts])
+  }, [categories, searchQuery])
 
   // Helper function to highlight matching text (memoized search pattern)
   const highlightText = useMemo(() => {
@@ -262,6 +210,7 @@ export default function LuxuryNavigation() {
                 src="/images/business/G.png"
                 alt="Glister London Logo"
                 fill
+                sizes="48px"
                 className="object-contain"
                 priority
               />

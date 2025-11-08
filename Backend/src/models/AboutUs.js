@@ -6,7 +6,7 @@ const AboutUsSchema = new Schema(
 	{
 		section: {
 			type: String,
-			enum: ['about', 'vision', 'philosophy', 'coreValues'],
+			enum: ['about', 'vision', 'philosophy', 'promise', 'coreValues'],
 			required: true,
 			index: true
 		},

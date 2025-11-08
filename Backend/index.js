@@ -106,6 +106,7 @@ apiRouter.use('/wishlist', require('./src/routes/wishlist.routes'));
 apiRouter.use('/faqs', require('./src/routes/faq.routes'));
 apiRouter.use('/announcements', require('./src/routes/announcements.routes'));
 apiRouter.use('/about-us', require('./src/routes/aboutUs.routes'));
+apiRouter.use('/blog', require('./src/routes/blog.routes'));
 apiRouter.use('/contact', require('./src/routes/contact.routes'));
 apiRouter.use('/analytics', require('./src/routes/analytics.routes'));
 apiRouter.use('/offers', require('./src/routes/offers.routes'));

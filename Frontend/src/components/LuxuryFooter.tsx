@@ -4,49 +4,22 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
-import { categoriesApi, productsApi } from '@/lib/api'
-import type { Category, Product } from '@/types'
+import { categoriesApi } from '@/lib/api'
+import type { Category } from '@/types'
 
 export default function LuxuryFooter() {
   const currentYear = new Date().getFullYear()
   const [categoriesWithProducts, setCategoriesWithProducts] = useState<Category[]>([])
 
-  // Fetch categories and products to determine which categories have products
+  // Fetch categories - backend already filters to only show categories/subcategories with products
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch categories and products
-        const [categoriesData, allProducts] = await Promise.all([
-          categoriesApi.getAll(),
-          productsApi.getAll(),
-        ])
-        
-        // Create a set of category IDs that have products
-        const categorySet = new Set<string>()
-        allProducts.forEach((product: Product) => {
-          const categoryId = typeof product.category === 'string' 
-            ? product.category 
-            : product.category?._id
-          if (categoryId) {
-            categorySet.add(categoryId)
-          }
-        })
-        
-        // Filter categories to only show those with products
-        const filteredCategories = categoriesData.filter((category: Category) => {
-          const hasDirectProducts = categorySet.has(category._id)
-          const hasSubcategoriesWithProducts = category.subcategories?.some((sub) => {
-            // Check if any product has this subcategory
-            return allProducts.some((product: Product) => product.subcategoryId === sub._id)
-          }) || false
-          
-          // Show category if it has products directly OR has subcategories with products
-          return hasDirectProducts || hasSubcategoriesWithProducts
-        })
-        
-        setCategoriesWithProducts(filteredCategories)
+        // Fetch categories (already filtered to only those with products)
+        const categoriesData = await categoriesApi.getAllWithProducts()
+        setCategoriesWithProducts(categoriesData)
       } catch (error) {
-        console.error('Failed to fetch categories or products for footer:', error)
+        console.error('Failed to fetch categories for footer:', error)
         // Fallback to empty array on error
         setCategoriesWithProducts([])
       }
@@ -75,6 +48,7 @@ export default function LuxuryFooter() {
                   src="/images/business/G.png"
                   alt="Glister London Logo"
                   fill
+                  sizes="48px"
                   className="object-contain"
                 />
               </div>

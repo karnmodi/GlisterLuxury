@@ -510,7 +510,7 @@ export default function ProductDetailPage() {
                               isCurrentImage ? 'border-brass shadow-lg ring-2 ring-brass/20' : 'border-brass/20'
                             } hover:border-brass/50 transition-all duration-300`}
                           >
-                            <Image src={imageData.url} alt={`${product.name} ${index + 1}`} fill className="object-contain p-1" />
+                            <Image src={imageData.url} alt={`${product.name} ${index + 1}`} fill sizes="80px" className="object-contain p-1" />
                           </motion.button>
                         )
                       })}
