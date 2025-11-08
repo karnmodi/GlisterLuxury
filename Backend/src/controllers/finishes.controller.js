@@ -91,6 +91,36 @@ async function listFinishes(req, res) {
 	}
 }
 
+// Get only finishes that have products
+async function listFinishesWithProducts(req, res) {
+	try {
+		// Find all unique finish IDs that are used in products
+		const products = await Product.find({ isVisible: true })
+			.select('finishes')
+			.lean();
+		
+		const finishIds = new Set();
+		products.forEach(product => {
+			if (product.finishes && Array.isArray(product.finishes)) {
+				product.finishes.forEach(finish => {
+					if (finish.finishID) {
+						finishIds.add(finish.finishID.toString());
+					}
+				});
+			}
+		});
+		
+		// Get only finishes that have products
+		const items = await Finish.find({
+			_id: { $in: Array.from(finishIds) }
+		}).lean();
+		
+		return res.json(items);
+	} catch (err) {
+		return res.status(500).json({ message: err.message });
+	}
+}
+
 async function getFinish(req, res) {
 	try {
 		const item = await Finish.findById(req.params.id).lean();
@@ -206,7 +236,8 @@ async function deleteFinishImage(req, res) {
 
 module.exports = { 
 	createFinish, 
-	listFinishes, 
+	listFinishes,
+	listFinishesWithProducts, 
 	getFinish, 
 	updateFinish, 
 	deleteFinish,

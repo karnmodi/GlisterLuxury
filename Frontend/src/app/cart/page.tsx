@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Image from 'next/image'
 import { useCart } from '@/contexts/CartContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -469,7 +470,10 @@ export default function CartPage() {
                     {/* Estimated Shipping Display */}
                     {settings && (
                       <div className="flex justify-between text-xs sm:text-sm gap-3">
-                        <span className="text-charcoal">Estimated Delivery</span>
+                        <div className="flex flex-col">
+                          <span className="text-charcoal">Estimated Delivery</span>
+                          <span className="text-[10px] text-charcoal/60 mt-0.5">UK Mainland only (excl. Northern Ireland)</span>
+                        </div>
                         <span className="text-charcoal font-medium flex-shrink-0">
                           {estimatedShipping === 0 ? (
                             <span className="text-green-600 font-semibold">FREE</span>
@@ -517,6 +521,12 @@ export default function CartPage() {
                     {settings && settings.vatEnabled && (
                       <p className="text-[10px] sm:text-xs text-charcoal/60 mt-1">All prices include {settings.vatRate}% VAT</p>
                     )}
+                    <p className="text-[10px] sm:text-xs text-charcoal/60 mt-1">
+                      Delivery terms apply. See{' '}
+                      <Link href="/terms" className="text-brass hover:text-olive underline" target="_blank" rel="noopener noreferrer">
+                        Terms & Conditions
+                      </Link>
+                    </p>
                   </div>
 
                   <Button

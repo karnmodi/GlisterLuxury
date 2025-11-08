@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
+const mongoose = require('mongoose');
 const connectToDatabase = require('./src/config/database');
 const visitTracker = require('./src/middleware/visitTracker');
 
@@ -65,18 +66,22 @@ app.use((req, res, next) => {
 
 app.use(cookieParser());
 
-// Middleware to ensure database connection
+// Middleware to check database connection status (non-blocking)
 app.use(async (req, res, next) => {
-  try {
-    await connectToDatabase();
-    next();
-  } catch (error) {
-    console.error('Database connection failed:', error);
-    res.status(503).json({ 
-      message: 'Service temporarily unavailable. Database connection failed.',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+  // Check if database is connected
+  const dbState = mongoose.connection.readyState;
+  // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+  
+  if (dbState === 0) {
+    // Database is disconnected, try to reconnect in background (non-blocking)
+    connectToDatabase().catch(err => {
+      console.error('Background reconnection attempt failed:', err.message);
     });
   }
+  
+  // Always proceed - don't block requests
+  // Routes will handle their own database errors gracefully
+  next();
 });
 
 // Basic route
@@ -105,6 +110,7 @@ apiRouter.use('/contact', require('./src/routes/contact.routes'));
 apiRouter.use('/analytics', require('./src/routes/analytics.routes'));
 apiRouter.use('/offers', require('./src/routes/offers.routes'));
 apiRouter.use('/settings', require('./src/routes/settings.routes'));
+apiRouter.use('/collections', require('./src/routes/collections.routes'));
 
 app.use(apiRouter); // no prefix
 app.use('/api', apiRouter); // with /api prefix
@@ -112,18 +118,31 @@ app.use('/api', apiRouter); // with /api prefix
 // Error handler (must be last)
 app.use(require('./src/middleware/errorHandler'));
 
+// Initialize database connection at startup
+(async () => {
+  try {
+    console.log('🔄 Initializing database connection...');
+    await connectToDatabase();
+    console.log('✅ Database connection initialized successfully');
+  } catch (error) {
+    console.error('❌ Failed to initialize database connection:', error.message);
+    console.log('⚠️ Server will continue, but database operations may fail');
+    console.log('🔄 Will attempt to reconnect on first request...');
+  }
+})();
+
 // Start server (for local development)
 if (process.env.NODE_ENV !== 'production') {
   const { scheduleDailyAggregation } = require('./src/utils/analyticsAggregator');
 
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  app.listen(PORT, async () => {
+    console.log(`🚀 Server is running on port ${PORT}`);
 
     // DEPRECATED: Daily aggregation is no longer needed
     // Analytics now use real-time queries with 5-minute caching
     // Uncomment below if you want to keep historical aggregated data
     // scheduleDailyAggregation();
-    console.log('Analytics system running in REAL-TIME mode with caching');
+    console.log('📊 Analytics system running in REAL-TIME mode with caching');
   });
 }
 

@@ -817,7 +817,7 @@ async function listProductsMinimal(req, res) {
 
 		// Build query with only necessary fields
 		let query = Product.find(filter)
-			.select('_id productID name description imageURLs materials');
+			.select('_id productID name description imageURLs materials finishes');
 
 		// Apply pagination
 		if (skipNum !== undefined && skipNum >= 0) {
@@ -837,8 +837,22 @@ async function listProductsMinimal(req, res) {
 			// Find default image (mappedFinishID is null)
 			const defaultImage = imageURLsArray.find(img => img.mappedFinishID === null);
 
-			// Find first finish-specific image for hover
-			const hoverImage = imageURLsArray.find(img => img.mappedFinishID !== null);
+			// Get valid finish IDs from product's finishes array
+			const validFinishIds = (item.finishes || []).map(f => {
+				// Handle both populated and non-populated finishes
+				if (typeof f.finishID === 'object' && f.finishID !== null) {
+					return f.finishID._id ? f.finishID._id.toString() : f.finishID.toString();
+				}
+				return f.finishID ? f.finishID.toString() : null;
+			}).filter(Boolean);
+
+			// Find first finish-specific image for hover that matches a valid finish
+			// Only select images whose mappedFinishID is in the product's finishes array
+			const hoverImage = imageURLsArray.find(img => {
+				if (!img.mappedFinishID) return false;
+				const mappedFinishIdStr = img.mappedFinishID.toString();
+				return validFinishIds.includes(mappedFinishIdStr);
+			});
 
 			return {
 				_id: item._id.toString(),

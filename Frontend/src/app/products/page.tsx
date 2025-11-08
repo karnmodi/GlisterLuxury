@@ -58,16 +58,14 @@ export default function ProductsPage() {
   const [activeCategory, setActiveCategory] = useState<Category | null>(null)
   const [activeSubcategory, setActiveSubcategory] = useState<{ _id: string; name: string; slug: string } | null>(null)
   
-  // Track if we're fetching from URL params to prevent duplicate fetches
-  const isFetchingFromUrlRef = useRef(false)
-  // Track if we're initializing from URL params to prevent URL overwrites
-  const isInitializingFromUrlRef = useRef(false)
-  
   // Track which filter options have products
   const [categoriesWithProducts, setCategoriesWithProducts] = useState<Set<string>>(new Set())
   const [subcategoriesWithProducts, setSubcategoriesWithProducts] = useState<Set<string>>(new Set())
   const [materialsWithProducts, setMaterialsWithProducts] = useState<Set<string>>(new Set())
   const [finishesWithProducts, setFinishesWithProducts] = useState<Set<string>>(new Set())
+  
+  // Track if initial fetch is complete
+  const initialFetchDone = useRef(false)
 
   // Debounce search query
   useEffect(() => {
@@ -89,9 +87,6 @@ export default function ProductsPage() {
     const sortBy = searchParams.get('sortBy') || ''
     const sortOrder = searchParams.get('sortOrder') || ''
 
-    // Mark that we're initializing from URL params
-    isInitializingFromUrlRef.current = true
-
     setSearchQuery(q)
     setDebouncedSearchQuery(q)
     setSelectedCategory(category)
@@ -112,13 +107,14 @@ export default function ProductsPage() {
       } else if (sortBy === 'productID') {
         setSortOption(sortOrder === 'asc' ? 'productid-asc' : 'productid-desc')
       }
+    } else {
+      // Reset to default if no sort params
+      setSortOption('newest')
     }
 
-    // Fetch products immediately using URL params (before state updates complete)
-    // This ensures products are filtered correctly when navigating from menu
+    // Fetch products immediately using URL params
     const fetchProductsFromUrl = async () => {
       try {
-        isFetchingFromUrlRef.current = true
         setLoading(true)
         setProducts([])
         setHasMore(true)
@@ -146,15 +142,11 @@ export default function ProductsPage() {
         setProducts(results)
         productsLengthRef.current = results.length
         setHasMore(results.length === 20)
+        initialFetchDone.current = true
       } catch (error) {
         console.error('Failed to fetch products from URL params:', error)
       } finally {
         setLoading(false)
-        // Reset flags after a delay to allow state updates to complete
-        setTimeout(() => {
-          isFetchingFromUrlRef.current = false
-          isInitializingFromUrlRef.current = false
-        }, 200)
       }
     }
 
@@ -162,14 +154,14 @@ export default function ProductsPage() {
     fetchProductsFromUrl()
   }, [searchParams])
 
-  // Fetch initial data (categories, finishes, materials) - removed inefficient getAll() call
+  // Fetch initial data (categories, finishes, materials) - only those with products
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
         const [categoriesData, finishesData, materialsData] = await Promise.all([
-          categoriesApi.getAll(),
-          finishesApi.getAll(),
-          materialsApi.getAll(),
+          categoriesApi.getAllWithProducts(),
+          finishesApi.getAllWithProducts(),
+          materialsApi.getAllWithProducts(),
         ])
         setCategories(categoriesData)
         setFinishes(finishesData)
@@ -189,21 +181,19 @@ export default function ProductsPage() {
   }, [])
 
 
-  // Update active category when selection changes manually (not from URL initialization)
-  // This handles manual filter changes in the dropdowns
+  // Update active category when selection changes
   useEffect(() => {
-    // Skip if we're initializing from URL params to avoid conflicts
-    if (isInitializingFromUrlRef.current || categories.length === 0) {
+    if (categories.length === 0) {
       return
     }
     
-    if (selectedCategory && categories.length > 0) {
-      const category = categories.find(c => c._id === selectedCategory)
+    if (selectedCategory) {
+      const category = categories.find(c => c._id === selectedCategory || c.slug === selectedCategory)
       setActiveCategory(category || null)
     } else {
       setActiveCategory(null)
     }
-    // Reset subcategory when category changes manually
+    // Reset subcategory when category changes
     if (!selectedCategory) {
       setSelectedSubcategory('')
       setActiveSubcategory(null)
@@ -316,19 +306,19 @@ export default function ProductsPage() {
     await fetchProducts(false)
   }, [loadingMore, hasMore, loading, fetchProducts])
 
-  // Auto-fetch products when filters change (but skip if we're fetching from URL params)
+  // Auto-fetch products when filters change (skip initial fetch from URL params)
   useEffect(() => {
-    // Skip if we just fetched from URL params to prevent duplicate fetches
-    if (isFetchingFromUrlRef.current) {
+    // Skip the first fetch since it's handled by the URL params effect
+    if (!initialFetchDone.current) {
       return
     }
     fetchProducts()
   }, [fetchProducts])
 
-  // Update URL when filters change (but skip during initialization from URL params)
+  // Update URL when filters change (skip initial load)
   useEffect(() => {
-    // Skip if we're currently initializing from URL params to prevent overwriting the URL
-    if (isFetchingFromUrlRef.current || isInitializingFromUrlRef.current) {
+    // Skip if initial fetch hasn't completed yet
+    if (!initialFetchDone.current) {
       return
     }
 
@@ -359,7 +349,7 @@ export default function ProductsPage() {
     if (newUrl !== currentUrl) {
       router.replace(newUrl, { scroll: false }) // Use replace instead of push to avoid history entries
     }
-  }, [debouncedSearchQuery, selectedCategory, selectedSubcategory, selectedMaterial, selectedFinish, hasSize, hasDiscount, getSortParams, router])
+  }, [debouncedSearchQuery, selectedCategory, selectedSubcategory, selectedMaterial, selectedFinish, hasSize, hasDiscount, sortOption, getSortParams, router])
 
   // Update active subcategory when selection changes
   useEffect(() => {
@@ -534,7 +524,8 @@ export default function ProductsPage() {
   const getHoverFinishName = (product: MinimalProduct) => {
     if (product.hoverImageFinishId) {
       const finish = finishes.find(f => f._id === product.hoverImageFinishId)
-      return finish?.name || 'Custom Finish'
+      // Only return finish name if found, otherwise return null to hide the caption
+      return finish?.name || null
     }
     return null
   }
@@ -1463,56 +1454,58 @@ export default function ProductsPage() {
                                     className="object-contain p-3"
                                   />
 
-                                  {/* Finish Caption Overlay with Enhanced Animation */}
-                                  <motion.div
-                                    initial={{ opacity: 0, y: 30, scale: 0.9, rotateX: 15 }}
-                                    animate={{
-                                      opacity: 1,
-                                      y: 0,
-                                      scale: 1,
-                                      rotateX: 0
-                                    }}
-                                    exit={{
-                                      opacity: 0,
-                                      y: 20,
-                                      scale: 0.95,
-                                      rotateX: -10
-                                    }}
-                                    transition={{
-                                      duration: 0.6,
-                                      delay: 0.2,
-                                      ease: [0.25, 0.46, 0.45, 0.94]
-                                    }}
-                                    className="absolute bottom-4 left-4 right-4 bg-charcoal/90 backdrop-blur-md text-ivory px-3 py-2 rounded-lg border border-brass/40 shadow-lg"
-                                    style={{ transformStyle: 'preserve-3d' }}
-                                  >
+                                  {/* Finish Caption Overlay with Enhanced Animation - Only show if finish name exists */}
+                                  {getHoverFinishName(product) && (
                                     <motion.div
-                                      className="flex items-center gap-2"
-                                      initial={{ x: -10 }}
-                                      animate={{ x: 0 }}
-                                      transition={{ delay: 0.3, duration: 0.4 }}
+                                      initial={{ opacity: 0, y: 30, scale: 0.9, rotateX: 15 }}
+                                      animate={{
+                                        opacity: 1,
+                                        y: 0,
+                                        scale: 1,
+                                        rotateX: 0
+                                      }}
+                                      exit={{
+                                        opacity: 0,
+                                        y: 20,
+                                        scale: 0.95,
+                                        rotateX: -10
+                                      }}
+                                      transition={{
+                                        duration: 0.6,
+                                        delay: 0.2,
+                                        ease: [0.25, 0.46, 0.45, 0.94]
+                                      }}
+                                      className="absolute bottom-4 left-4 right-4 bg-charcoal/90 backdrop-blur-md text-ivory px-3 py-2 rounded-lg border border-brass/40 shadow-lg"
+                                      style={{ transformStyle: 'preserve-3d' }}
                                     >
                                       <motion.div
-                                        className="w-2 h-2 bg-brass rounded-full"
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        transition={{ delay: 0.4, duration: 0.3 }}
-                                      ></motion.div>
-                                      <motion.span
-                                        className="text-sm font-medium"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: 0.5, duration: 0.3 }}
+                                        className="flex items-center gap-2"
+                                        initial={{ x: -10 }}
+                                        animate={{ x: 0 }}
+                                        transition={{ delay: 0.3, duration: 0.4 }}
                                       >
-                                        <div className="flex items-center gap-2">
-                                          <div className="w-1.5 h-1.5 bg-brass rounded-full"></div>
-                                          <span className="text-xs font-medium">
-                                            {getHoverFinishName(product)}
-                                          </span>
-                                        </div>
-                                      </motion.span>
+                                        <motion.div
+                                          className="w-2 h-2 bg-brass rounded-full"
+                                          initial={{ scale: 0 }}
+                                          animate={{ scale: 1 }}
+                                          transition={{ delay: 0.4, duration: 0.3 }}
+                                        ></motion.div>
+                                        <motion.span
+                                          className="text-sm font-medium"
+                                          initial={{ opacity: 0 }}
+                                          animate={{ opacity: 1 }}
+                                          transition={{ delay: 0.5, duration: 0.3 }}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 bg-brass rounded-full"></div>
+                                            <span className="text-xs font-medium">
+                                              {getHoverFinishName(product)}
+                                            </span>
+                                          </div>
+                                        </motion.span>
+                                      </motion.div>
                                     </motion.div>
-                                  </motion.div>
+                                  )}
                                 </motion.div>
                               )}
                             </AnimatePresence>
@@ -1534,7 +1527,7 @@ export default function ProductsPage() {
                         <h3 className="text-sm sm:text-base lg:text-lg font-serif font-bold text-charcoal mb-1.5 sm:mb-2 group-hover:text-brass transition-colors line-clamp-2">
                           {product.name}
                         </h3>
-                        <p className="text-xs sm:text-sm text-charcoal/60 mb-3 sm:mb-4 line-clamp-2 flex-1">
+                        <p className="text-xs sm:text-sm text-charcoal/60 mb-3 sm:mb-4 line-clamp-2 flex-1 whitespace-pre-wrap">
                           {product.description || 'Premium quality product'}
                         </p>
 

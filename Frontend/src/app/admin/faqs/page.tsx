@@ -490,8 +490,9 @@ export default function AdminFAQsPage() {
               onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
               required
               placeholder="Enter the answer (press Enter for new lines)"
-              className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+              className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass resize-y"
               rows={4}
+              style={{ minHeight: '80px' }}
             />
             <p className="text-[10px] text-charcoal/60 mt-1">
               Press Enter to create line breaks. Text formatting is preserved as entered.

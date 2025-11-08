@@ -401,8 +401,9 @@ export default function AdminAboutUsPage() {
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
               required
               placeholder="Enter content (press Enter for new lines)"
-              className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+              className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass resize-y"
               rows={6}
+              style={{ minHeight: '100px' }}
             />
             <p className="text-[10px] text-charcoal/60 mt-1">
               Press Enter to create line breaks. Text formatting is preserved as entered.

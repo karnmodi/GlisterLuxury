@@ -4,6 +4,7 @@ const { validateCreateFinish } = require('../middleware/validation');
 const { uploadSingle, handleMulterError } = require('../middleware/upload');
 
 router.post('/', validateCreateFinish, ctrl.createFinish);
+router.get('/with-products', ctrl.listFinishesWithProducts);
 router.get('/', ctrl.listFinishes);
 router.get('/:id', ctrl.getFinish);
 router.patch('/:id', ctrl.updateFinish);

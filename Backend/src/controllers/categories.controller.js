@@ -1,4 +1,5 @@
 const Category = require('../models/Category');
+const Product = require('../models/Product');
 
 async function createCategory(req, res) {
 	try {
@@ -130,9 +131,61 @@ async function deleteSubcategory(req, res) {
 	}
 }
 
+// Get only categories and subcategories that have products
+async function listCategoriesWithProducts(req, res) {
+	try {
+		const { q } = req.query;
+		
+		// Find all unique category IDs that have products
+		const productsWithCategories = await Product.find({ isVisible: true })
+			.select('category subcategoryId')
+			.lean();
+		
+		const categoryIds = new Set();
+		const subcategoryIds = new Set();
+		
+		productsWithCategories.forEach(product => {
+			if (product.category) {
+				categoryIds.add(product.category.toString());
+			}
+			if (product.subcategoryId) {
+				subcategoryIds.add(product.subcategoryId.toString());
+			}
+		});
+		
+		// Build filter for categories
+		const filter = { _id: { $in: Array.from(categoryIds) } };
+		if (q) {
+			filter.$or = [
+				{ name: { $regex: q, $options: 'i' } },
+				{ slug: { $regex: q, $options: 'i' } },
+			];
+		}
+		
+		// Get categories that have products
+		const categories = await Category.find(filter).lean();
+		
+		// Filter subcategories to only include those that have products
+		const filteredCategories = categories.map(category => {
+			const filteredSubcategories = category.subcategories.filter(subcat => 
+				subcategoryIds.has(subcat._id.toString())
+			);
+			return {
+				...category,
+				subcategories: filteredSubcategories
+			};
+		});
+		
+		return res.json(filteredCategories);
+	} catch (err) {
+		return res.status(500).json({ message: err.message });
+	}
+}
+
 module.exports = {
 	createCategory,
 	listCategories,
+	listCategoriesWithProducts,
 	getCategory,
 	getCategoryBySlug,
 	updateCategory,

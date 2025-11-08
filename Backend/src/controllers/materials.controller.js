@@ -1,4 +1,5 @@
 const MaterialMaster = require('../models/MaterialMaster');
+const Product = require('../models/Product');
 
 async function createMaterial(req, res) {
 	try {
@@ -58,9 +59,40 @@ async function getMaterialById(req, res) {
 	}
 }
 
+// Get only materials that have products
+async function listMaterialsWithProducts(req, res) {
+	try {
+		// Find all unique material IDs that are used in products
+		const products = await Product.find({ isVisible: true })
+			.select('materials')
+			.lean();
+		
+		const materialIds = new Set();
+		products.forEach(product => {
+			if (product.materials && Array.isArray(product.materials)) {
+				product.materials.forEach(material => {
+					if (material.materialID) {
+						materialIds.add(material.materialID.toString());
+					}
+				});
+			}
+		});
+		
+		// Get only materials that have products
+		const items = await MaterialMaster.find({
+			_id: { $in: Array.from(materialIds) }
+		}).lean();
+		
+		return res.json(items);
+	} catch (err) {
+		return res.status(500).json({ message: err.message });
+	}
+}
+
 module.exports = { 
 	createMaterial, 
-	listMaterials, 
+	listMaterials,
+	listMaterialsWithProducts, 
 	updateMaterial, 
 	deleteMaterial,
 	getMaterialById

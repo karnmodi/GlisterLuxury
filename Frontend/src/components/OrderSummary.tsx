@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { formatCurrency, toNumber } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
 import type { Order, Cart } from '@/types'
@@ -134,7 +135,10 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
         {type === 'order' ? (
           <>
             <div className="flex justify-between text-sm text-ivory/70">
-              <span>Shipping</span>
+              <div className="flex flex-col">
+                <span>Shipping</span>
+                <span className="text-[10px] text-ivory/50 mt-0.5">UK Mainland only (excl. Northern Ireland)</span>
+              </div>
               <span>{formatCurrency((data as Order).pricing.shipping)}</span>
             </div>
             <div className="flex justify-between text-sm text-ivory/70">
@@ -145,7 +149,10 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
         ) : (
           <>
             <div className="flex justify-between text-sm text-ivory/70">
-              <span>Shipping</span>
+              <div className="flex flex-col">
+                <span>Shipping</span>
+                <span className="text-[10px] text-ivory/50 mt-0.5">UK Mainland only (excl. Northern Ireland)</span>
+              </div>
               <span>
                 {estimatedShipping === 0 ? (
                   <span className="text-green-400 font-semibold">FREE</span>
@@ -173,6 +180,12 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
           </span>
         </div>
         <p className="text-xs text-ivory/60 mt-1">All prices include VAT</p>
+        <p className="text-[10px] text-ivory/50 mt-1">
+          Delivery terms apply. See{' '}
+          <Link href="/terms" className="text-brass hover:text-olive underline" target="_blank" rel="noopener noreferrer">
+            Terms & Conditions
+          </Link>
+        </p>
       </div>
     </div>
   )

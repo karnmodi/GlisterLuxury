@@ -247,23 +247,17 @@ export default function ProductDetailPage() {
     return availableFinishes.find(f => f._id === selectedFinish)
   }
 
-  // Build URL with customer selections for breadcrumb navigation
-  const buildProductsUrl = (categorySlug?: string, subcategorySlug?: string) => {
+  // Build URL for breadcrumb navigation (category/subcategory only, no material/finish)
+  const buildProductsUrl = (categoryId?: string, subcategoryId?: string) => {
     const params = new URLSearchParams()
     
-    if (categorySlug) {
-      params.set('category', categorySlug)
+    if (categoryId) {
+      params.set('category', categoryId)
     }
-    if (subcategorySlug) {
-      params.set('subcategory', subcategorySlug)
+    if (subcategoryId) {
+      params.set('subcategory', subcategoryId)
     }
-    // Include customer selections if available
-    if (selectedMaterial?.materialID) {
-      params.set('material', selectedMaterial.materialID)
-    }
-    if (selectedFinish) {
-      params.set('finishId', selectedFinish)
-    }
+    // Don't include material/finish in breadcrumb links - only category/subcategory filter
     
     const queryString = params.toString()
     return queryString ? `/products?${queryString}` : '/products'
@@ -414,7 +408,7 @@ export default function ProductDetailPage() {
               </Link>
               <span>/</span>
               <Link
-                href={buildProductsUrl(product.category.slug)}
+                href={buildProductsUrl(product.category._id)}
                 className="hover:text-brass transition-colors"
               >
                 {product.category.name}
@@ -423,7 +417,7 @@ export default function ProductDetailPage() {
                 <>
                   <span>/</span>
                   <Link
-                    href={buildProductsUrl(product.category.slug, product.subcategory.slug)}
+                    href={buildProductsUrl(product.category._id, product.subcategory._id)}
                     className="hover:text-brass transition-colors"
                   >
                     {product.subcategory.name}
@@ -549,7 +543,7 @@ export default function ProductDetailPage() {
                   </Link>
                   <span>/</span>
                   <Link
-                    href={buildProductsUrl(product.category.slug)}
+                    href={buildProductsUrl(product.category._id)}
                     className="hover:text-brass transition-colors"
                   >
                     {product.category.name}
@@ -558,7 +552,7 @@ export default function ProductDetailPage() {
                     <>
                       <span>/</span>
                       <Link
-                        href={buildProductsUrl(product.category.slug, product.subcategory.slug)}
+                        href={buildProductsUrl(product.category._id, product.subcategory._id)}
                         className="hover:text-brass transition-colors"
                       >
                         {product.subcategory.name}
@@ -580,7 +574,7 @@ export default function ProductDetailPage() {
                 >
                   {product.category && typeof product.category === 'object' && (
                     <Link
-                      href={buildProductsUrl(product.category.slug)}
+                      href={buildProductsUrl(product.category._id)}
                       className="inline-flex items-center px-3 py-1.5 bg-brass/10 text-brass text-xs font-medium rounded-full border border-brass/30 hover:bg-brass/20 hover:shadow-md transition-all duration-300"
                     >
                       <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -591,7 +585,7 @@ export default function ProductDetailPage() {
                   )}
                   {product.subcategory && product.category && typeof product.category === 'object' && (
                     <Link
-                      href={buildProductsUrl(product.category.slug, product.subcategory.slug)}
+                      href={buildProductsUrl(product.category._id, product.subcategory._id)}
                       className="inline-flex items-center px-3 py-1.5 bg-olive/10 text-olive text-xs font-medium rounded-full border border-olive/30 hover:bg-olive/20 hover:shadow-md transition-all duration-300"
                     >
                       <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

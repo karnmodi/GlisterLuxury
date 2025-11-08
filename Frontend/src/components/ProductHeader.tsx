@@ -91,7 +91,7 @@ export default function ProductHeader({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
-        className="text-charcoal/70 leading-relaxed text-sm"
+        className="text-charcoal/70 leading-relaxed text-sm whitespace-pre-wrap"
       >
         {product.description || 'Premium quality product crafted with excellence and attention to detail'}
       </motion.p>

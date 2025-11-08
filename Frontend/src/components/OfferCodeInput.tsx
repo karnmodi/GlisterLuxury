@@ -172,7 +172,7 @@ export default function OfferCodeInput({
                 {cart?.discountCode || 'N/A'}
               </p>
               <p className="text-xs sm:text-sm font-semibold text-green-600 mt-1">
-                💰 You save: {formatCurrency(discountAmount)}
+                  You save: {formatCurrency(discountAmount)}
               </p>
             </div>
             <button

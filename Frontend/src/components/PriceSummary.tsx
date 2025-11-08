@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toNumber, formatCurrency } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
@@ -197,18 +198,27 @@ export default function PriceSummary({
               )}
             </AnimatePresence>
 
-            {/* VAT Information */}
+            {/* VAT Breakdown */}
             {vatEnabled && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 1.0 }}
-                className="text-xs text-ivory/70 bg-brass/5 rounded-lg p-3 space-y-1 mt-3 border border-brass/10"
+                className="text-xs text-ivory/70 bg-brass/5 rounded-lg p-3 space-y-1.5 mt-3 border border-brass/10"
               >
+                <div className="text-sm font-semibold text-brass mb-2 pb-1 border-b border-brass/20">
+                  VAT Breakdown:
+                </div>
                 <div className="flex justify-between items-center">
-                  <span>VAT ({vatRate}%) included:</span>
+                  <span>Price excluding VAT:</span>
                   <span className="font-semibold text-ivory">
-                    {formatCurrency((unitPrice * quantity * (vatRate / 100) / (1 + vatRate / 100)))}
+                    {formatCurrency((unitPrice * quantity) / (1 + vatRate / 100))}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>VAT amount ({vatRate}%):</span>
+                  <span className="font-semibold text-ivory">
+                    {formatCurrency((unitPrice * quantity * (vatRate / 100)) / (1 + vatRate / 100))}
                   </span>
                 </div>
                 <div className="flex justify-between items-center font-bold text-brass border-t border-ivory/10 pt-2 mt-2">
@@ -219,6 +229,12 @@ export default function PriceSummary({
                 </div>
                 <p className="text-[10px] text-ivory/50 mt-1 italic">
                   All prices include {vatRate}% VAT. Delivery charges calculated at checkout.
+                </p>
+                <p className="text-[10px] text-ivory/50 mt-1.5">
+                  Delivery to UK Mainland only (excl. Northern Ireland). See{' '}
+                  <Link href="/terms" className="text-brass hover:text-olive underline" target="_blank" rel="noopener noreferrer">
+                    Terms & Conditions
+                  </Link>
                 </p>
               </motion.div>
             )}

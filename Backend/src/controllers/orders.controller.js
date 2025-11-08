@@ -126,7 +126,7 @@ async function sendOrderEmails(order, user) {
 								${order.discountCode && order.pricing.discount ? `
 								<tr style="background-color: #d4edda;">
 									<td colspan="3" style="padding: 12px; text-align: right;">
-										<span style="color: #155724;">💰 Discount Applied (${order.discountCode}):</span>
+										<span style="color: #155724;">  Discount Applied (${order.discountCode}):</span>
 									</td>
 									<td style="padding: 12px; text-align: right; color: #155724; font-weight: bold;">-${formatPrice(order.pricing.discount)}</td>
 								</tr>
@@ -243,7 +243,7 @@ async function sendOrderEmails(order, user) {
 								<tr style="background-color: #d4edda;">
 									<td colspan="2" style="padding: 12px; text-align: right;">
 										<div>
-											<span style="color: #155724; font-weight: bold;">💰 Discount Applied</span><br>
+											<span style="color: #155724; font-weight: bold;">  Discount Applied</span><br>
 											<span style="color: #666; font-size: 12px; font-family: monospace;">${order.discountCode}</span>
 										</div>
 									</td>

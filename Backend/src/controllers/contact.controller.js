@@ -1,5 +1,6 @@
 const ContactInfo = require('../models/ContactInfo');
 const ContactInquiry = require('../models/ContactInquiry');
+const nodemailer = require('nodemailer');
 
 // Helper function to validate URL format
 function isValidUrl(url) {
@@ -174,6 +175,108 @@ async function deleteContactInfo(req, res) {
 	}
 }
 
+/**
+ * Helper function to send admin notification email for contact inquiries
+ */
+async function sendContactInquiryEmail(inquiry) {
+	try {
+		// Configure email transporter
+		const transporter = nodemailer.createTransport({
+			service: process.env.EMAIL_SERVICE || 'gmail',
+			auth: {
+				user: process.env.EMAIL_USERNAME,
+				pass: process.env.EMAIL_PASSWORD
+			}
+		});
+
+		// Admin notification email
+		const adminEmailHTML = `
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<style>
+					body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+					.container { max-width: 600px; margin: 0 auto; padding: 20px; }
+					.header { background-color: #2C2C2C; color: #D4AF37; padding: 20px; text-align: center; }
+					.content { background-color: #f9f9f9; padding: 20px; }
+					.inquiry-details { background-color: white; padding: 20px; margin: 20px 0; border-radius: 8px; }
+					.alert-box { background-color: #fff3cd; border-left: 4px solid #D4AF37; padding: 15px; margin: 20px 0; }
+					.message-box { background-color: #f5f5f5; padding: 15px; border-radius: 4px; border-left: 3px solid #2C2C2C; margin: 15px 0; }
+					.footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+				</style>
+			</head>
+			<body>
+				<div class="container">
+					<div class="header">
+						<h1>📧 NEW CONTACT REQUEST</h1>
+						<p>Contact Inquiry Received</p>
+					</div>
+					<div class="content">
+						<div class="alert-box">
+							<strong>⚡ Action Required:</strong> A new contact request has been submitted and requires your attention.
+						</div>
+						
+						<div class="inquiry-details">
+							<h2>Inquiry Information</h2>
+							<p><strong>Submitted Date:</strong> ${new Date(inquiry.createdAt).toLocaleString('en-GB', { 
+								day: 'numeric', 
+								month: 'long', 
+								year: 'numeric',
+								hour: '2-digit',
+								minute: '2-digit'
+							})}</p>
+							<p><strong>Status:</strong> <span style="background-color: #fff3cd; padding: 4px 8px; border-radius: 4px;">NEW</span></p>
+							<p><strong>Inquiry ID:</strong> ${inquiry._id}</p>
+						</div>
+
+						<div class="inquiry-details">
+							<h2>Contact Details</h2>
+							<p><strong>Name:</strong> ${inquiry.name}</p>
+							<p><strong>Email:</strong> <a href="mailto:${inquiry.email}">${inquiry.email}</a></p>
+							${inquiry.phone ? `<p><strong>Phone:</strong> <a href="tel:${inquiry.phone}">${inquiry.phone}</a></p>` : '<p><strong>Phone:</strong> Not provided</p>'}
+						</div>
+
+						<div class="inquiry-details">
+							<h2>Subject</h2>
+							<p style="font-size: 16px; font-weight: bold; color: #2C2C2C;">${inquiry.subject}</p>
+						</div>
+
+						<div class="inquiry-details">
+							<h2>Message</h2>
+							<div class="message-box">
+								<p style="white-space: pre-wrap; margin: 0;">${inquiry.message}</p>
+							</div>
+						</div>
+
+						<div class="alert-box">
+							<strong>💡 Next Steps:</strong> Please review this inquiry and respond to the customer at your earliest convenience.
+						</div>
+					</div>
+					<div class="footer">
+						<p>This is an automated notification email from Glister London.</p>
+						<p>&copy; ${new Date().getFullYear()} Glister London. All rights reserved.</p>
+					</div>
+				</div>
+			</body>
+			</html>
+		`;
+
+		// Send admin notification
+		const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USERNAME;
+		await transporter.sendMail({
+			from: `Glister London <${process.env.EMAIL_FROM || process.env.EMAIL_USERNAME}>`,
+			to: adminEmail,
+			subject: `📧 New Contact Request - ${inquiry.subject} - ${inquiry.name}`,
+			html: adminEmailHTML
+		});
+
+		console.log('[Contact Inquiry] Admin notification email sent successfully');
+	} catch (emailError) {
+		console.error('[Contact Inquiry] Email sending failed:', emailError);
+		// Don't throw error - we don't want to fail the inquiry submission if email fails
+	}
+}
+
 // Contact Inquiry operations
 async function submitInquiry(req, res) {
 	try {
@@ -199,6 +302,14 @@ async function submitInquiry(req, res) {
 			message: message.trim(),
 			status: 'new'
 		});
+		
+		// Send email notification to admin
+		try {
+			await sendContactInquiryEmail(inquiry);
+		} catch (emailError) {
+			console.error('[Contact Inquiry] Email sending failed:', emailError);
+			// Don't fail the inquiry submission if email fails
+		}
 		
 		return res.status(201).json({ 
 			message: 'Inquiry submitted successfully',

@@ -446,7 +446,7 @@ export default function AdminProductsPage() {
                   </div>
                   {selectedProduct.description && (
                     <div className="mt-2 pt-2 border-t border-brass/20">
-                      <p className="text-[10px] text-charcoal/80 leading-relaxed">{selectedProduct.description}</p>
+                      <p className="text-[10px] text-charcoal/80 leading-relaxed whitespace-pre-wrap">{selectedProduct.description}</p>
                     </div>
                   )}
                 </div>

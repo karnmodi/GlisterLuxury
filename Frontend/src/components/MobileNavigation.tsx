@@ -4,33 +4,40 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { categoriesApi, productsApi } from '@/lib/api'
-import type { Category, Product } from '@/types'
+import { categoriesApi, productsApi, collectionsApi } from '@/lib/api'
+import type { Category, Product, Collection } from '@/types'
 
 export default function MobileNavigation() {
+  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
+  const [collections, setCollections] = useState<Collection[]>([])
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  const [expandedCollection, setExpandedCollection] = useState<string | null>(null)
   const [categoriesWithProducts, setCategoriesWithProducts] = useState<Set<string>>(new Set())
   const [subcategoriesWithProducts, setSubcategoriesWithProducts] = useState<Set<string>>(new Set())
+  const [collectionsWithProducts, setCollectionsWithProducts] = useState<Set<string>>(new Set())
   const { user, isAuthenticated } = useAuth()
 
   const closeMenu = () => setIsOpen(false)
 
-  // Fetch categories and products to determine which categories/subcategories have products
+  // Fetch categories, collections and products to determine which have products
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch categories and products
-        const [categoriesData, allProducts] = await Promise.all([
+        // Fetch categories, collections and products
+        const [categoriesData, collectionsData, allProducts] = await Promise.all([
           categoriesApi.getAll(),
+          collectionsApi.getAll({ isActive: true, includeProductCount: true }),
           productsApi.getAll(),
         ])
         
         // Create sets to track categories and subcategories with products
         const categorySet = new Set<string>()
         const subcategorySet = new Set<string>()
+        const collectionSet = new Set<string>()
         
         allProducts.forEach((product: Product) => {
           // Track categories with products
@@ -47,11 +54,20 @@ export default function MobileNavigation() {
           }
         })
         
+        // Track collections with products
+        collectionsData.forEach((collection: Collection) => {
+          if (collection.productCount && collection.productCount > 0) {
+            collectionSet.add(collection._id)
+          }
+        })
+        
         setCategories(categoriesData)
+        setCollections(collectionsData.sort((a, b) => a.displayOrder - b.displayOrder))
         setCategoriesWithProducts(categorySet)
         setSubcategoriesWithProducts(subcategorySet)
+        setCollectionsWithProducts(collectionSet)
       } catch (error) {
-        console.error('Failed to fetch categories or products:', error)
+        console.error('Failed to fetch categories, collections or products:', error)
       }
     }
     fetchData()
@@ -60,6 +76,15 @@ export default function MobileNavigation() {
   const toggleCategory = (categoryId: string) => {
     setExpandedCategory(expandedCategory === categoryId ? null : categoryId)
   }
+
+  const toggleCollection = (collectionId: string) => {
+    setExpandedCollection(expandedCollection === collectionId ? null : collectionId)
+  }
+
+  // Filter collections to only show those with products
+  const filteredCollections = collections.filter(collection => 
+    collectionsWithProducts.has(collection._id)
+  )
 
   return (
     <div className="lg:hidden">
@@ -165,50 +190,17 @@ export default function MobileNavigation() {
                     >
                       About
                     </Link>
-                    
-                    {/* Collections Section */}
-                    <div className="border-b border-brass/10">
-                      <div className="text-base font-semibold text-ivory py-3 px-4">
-                        Collections
-                      </div>
-                      <div className="space-y-1 pb-2">
-                        <Link 
-                          href="/collections/luxury" 
-                          className="block text-sm text-ivory/80 hover:text-brass hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-4 rounded-sm" 
-                          onClick={closeMenu}
-                        >
-                          Luxury Collection
-                        </Link>
-                        <Link 
-                          href="/collections/classic" 
-                          className="block text-sm text-ivory/80 hover:text-brass hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-4 rounded-sm" 
-                          onClick={closeMenu}
-                        >
-                          Classic Collection
-                        </Link>
-                        <Link 
-                          href="/collections/modern" 
-                          className="block text-sm text-ivory/80 hover:text-brass hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-4 rounded-sm" 
-                          onClick={closeMenu}
-                        >
-                          Modern Collection
-                        </Link>
-                        <Link 
-                          href="/collections/heritage" 
-                          className="block text-sm text-ivory/80 hover:text-brass hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-4 rounded-sm" 
-                          onClick={closeMenu}
-                        >
-                          Heritage Collection
-                        </Link>
-                      </div>
-                    </div>
 
                     {/* Products Section - Dynamic Categories */}
                     <div className="border-b border-brass/10">
                       <Link
                         href="/products"
                         className="block text-base font-semibold text-ivory py-3 px-4 hover:text-brass hover:bg-brass/5 transition-all duration-300"
-                        onClick={closeMenu}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          router.push('/products')
+                          closeMenu()
+                        }}
                       >
                         Products
                       </Link>
@@ -321,15 +313,73 @@ export default function MobileNavigation() {
                     </Link>
                   </nav>
 
-                  {/* CTA Button at Bottom */}
+                  {/* Explore Collections Section at Bottom */}
                   <div className="mt-auto pt-6 border-t border-brass/20">
-                    <Link 
-                      href="/explore"
-                      className="block w-full px-6 py-4 bg-brass text-charcoal text-center font-semibold tracking-wide rounded-sm hover:bg-olive transition-all duration-300 shadow-lg hover:shadow-brass/50"
-                      onClick={closeMenu}
-                    >
-                      Explore Collections
-                    </Link>
+                    {filteredCollections.length > 0 ? (
+                      <div className="space-y-2">
+                        {/* Explore Collections Toggle Button */}
+                        <button
+                          onClick={() => toggleCollection('explore-collections')}
+                          className="w-full px-6 py-4 bg-brass text-charcoal text-center font-semibold tracking-wide rounded-sm hover:bg-olive transition-all duration-300 shadow-lg hover:shadow-brass/50 flex items-center justify-center gap-2"
+                        >
+                          Explore Collections
+                          <svg
+                            className={`w-5 h-5 transition-transform duration-300 ${
+                              expandedCollection === 'explore-collections' ? 'rotate-180' : ''
+                            }`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+
+                        {/* Expandable Collections List */}
+                        <AnimatePresence>
+                          {expandedCollection === 'explore-collections' && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className="overflow-hidden bg-charcoal/50 rounded-sm border border-brass/20"
+                            >
+                              <div className="py-2">
+                                {filteredCollections.slice(0, 4).map((collection) => (
+                                  <Link
+                                    key={collection._id}
+                                    href={`/collections/${collection.slug}`}
+                                    className="block px-6 py-3 text-sm text-brass font-medium hover:bg-brass/10 transition-all duration-300"
+                                    onClick={closeMenu}
+                                  >
+                                    {collection.name}
+                                    {collection.productCount !== undefined && (
+                                      <span className="ml-2 text-xs text-ivory/60">({collection.productCount})</span>
+                                    )}
+                                  </Link>
+                                ))}
+                                <Link
+                                  href="/collections"
+                                  className="block px-6 py-3 text-sm text-olive font-semibold hover:bg-brass/10 transition-all duration-300 border-t border-brass/20"
+                                  onClick={closeMenu}
+                                >
+                                  View All Collections →
+                                </Link>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    ) : (
+                      <Link 
+                        href="/collections"
+                        className="block w-full px-6 py-4 bg-brass text-charcoal text-center font-semibold tracking-wide rounded-sm hover:bg-olive transition-all duration-300 shadow-lg hover:shadow-brass/50"
+                        onClick={closeMenu}
+                      >
+                        Explore Collections
+                      </Link>
+                    )}
                     
                     {/* Decorative Element */}
                     <div className="mt-6 text-center">

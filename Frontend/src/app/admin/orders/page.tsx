@@ -298,7 +298,7 @@ export default function AdminOrdersPage() {
                         </span>
                         {order.discountCode && order.pricing.discount && (
                           <div className="text-xs text-green-600 font-medium mt-0.5">
-                            💰 -{formatCurrency(order.pricing.discount)}
+                              -{formatCurrency(order.pricing.discount)}
                           </div>
                         )}
                       </div>

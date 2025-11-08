@@ -63,6 +63,19 @@ export interface Category {
   updatedAt?: string
 }
 
+export interface Collection {
+  _id: string
+  name: string
+  slug: string
+  description?: string
+  products: string[] | Product[] // Array of Product IDs or populated Product objects
+  isActive: boolean
+  displayOrder: number
+  productCount?: number // Optional, for listing
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface ProductImage {
   url: string
   mappedFinishID?: string

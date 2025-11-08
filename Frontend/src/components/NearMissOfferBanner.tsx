@@ -97,7 +97,7 @@ export default function NearMissOfferBanner({
                 {topOffer.offer.displayName || topOffer.offer.description}
               </p>
               <p className="text-xs text-green-600 font-semibold mt-1">
-                💰 Potential savings: {formatCurrency(potentialSavings)}
+                  Potential savings: {formatCurrency(potentialSavings)}
               </p>
             </div>
 

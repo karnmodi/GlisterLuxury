@@ -91,10 +91,14 @@ export default function BasicInfoTab({ data, onChange, categories }: BasicInfoTa
             <textarea
               value={data.description}
               onChange={(e) => handleChange('description', e.target.value)}
-              className="w-full px-3 py-1.5 text-sm bg-white border border-brass/30 rounded-md focus:outline-none focus:ring-1 focus:ring-brass focus:border-transparent transition-all"
-              rows={3}
-              placeholder="Describe your product features and specifications..."
+              className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-md focus:outline-none focus:ring-1 focus:ring-brass focus:border-transparent transition-all resize-y"
+              rows={6}
+              placeholder="Describe your product features and specifications...&#10;&#10;You can add line breaks by pressing Enter.&#10;Empty lines will be preserved in the display."
+              style={{ minHeight: '120px' }}
             />
+            <p className="text-[10px] text-charcoal/60 mt-1">
+              Line breaks and paragraph formatting will be preserved. Press Enter to create new lines.
+            </p>
           </div>
         </div>
       </div>

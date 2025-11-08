@@ -155,7 +155,7 @@ export default function OrdersPage() {
                       </p>
                       {order.discountCode && order.pricing.discount && parseFloat(order.pricing.discount.toString()) > 0 && (
                         <p className="text-green-400 text-xs sm:text-sm font-medium">
-                          💰 Saved {formatCurrency(order.pricing.discount)}
+                            Saved {formatCurrency(order.pricing.discount)}
                         </p>
                       )}
                       <p className="text-ivory/60 text-xs sm:text-sm">

@@ -4,14 +4,16 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 import MobileNavigation from './MobileNavigation'
 import { useCart } from '@/contexts/CartContext'
 import { useWishlist } from '@/contexts/WishlistContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { categoriesApi, productsApi } from '@/lib/api'
-import type { Category, Product } from '@/types'
+import { categoriesApi, productsApi, collectionsApi } from '@/lib/api'
+import type { Category, Product, Collection } from '@/types'
 
 export default function LuxuryNavigation() {
+  const router = useRouter()
   const [scrolled, setScrolled] = useState(false)
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
@@ -22,6 +24,8 @@ export default function LuxuryNavigation() {
   const [menuMaxHeight, setMenuMaxHeight] = useState(600)
   const [categoriesWithProducts, setCategoriesWithProducts] = useState<Set<string>>(new Set())
   const [subcategoriesWithProducts, setSubcategoriesWithProducts] = useState<Set<string>>(new Set())
+  const [collections, setCollections] = useState<Collection[]>([])
+  const [collectionsWithProducts, setCollectionsWithProducts] = useState<Set<string>>(new Set())
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { itemCount } = useCart()
   const { itemCount: wishlistCount } = useWishlist()
@@ -57,13 +61,17 @@ export default function LuxuryNavigation() {
     }
   }, [])
 
-  // Fetch categories and products to determine which categories/subcategories have products
+  // Fetch categories, collections and products to determine which have products
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch categories
-        const categoriesData = await categoriesApi.getAll()
+        // Fetch categories and collections
+        const [categoriesData, collectionsData] = await Promise.all([
+          categoriesApi.getAll(),
+          collectionsApi.getAll({ isActive: true, includeProductCount: true })
+        ])
         setCategories(categoriesData)
+        setCollections(collectionsData.sort((a, b) => a.displayOrder - b.displayOrder))
         
         // Fetch all products to check which categories/subcategories have products
         const allProducts = await productsApi.getAll()
@@ -71,6 +79,7 @@ export default function LuxuryNavigation() {
         // Create sets to track categories and subcategories with products
         const categorySet = new Set<string>()
         const subcategorySet = new Set<string>()
+        const collectionSet = new Set<string>()
         
         allProducts.forEach((product: Product) => {
           // Check if product has a category
@@ -88,10 +97,18 @@ export default function LuxuryNavigation() {
           }
         })
         
+        // Track collections with products
+        collectionsData.forEach((collection: Collection) => {
+          if (collection.productCount && collection.productCount > 0) {
+            collectionSet.add(collection._id)
+          }
+        })
+        
         setCategoriesWithProducts(categorySet)
         setSubcategoriesWithProducts(subcategorySet)
+        setCollectionsWithProducts(collectionSet)
       } catch (error) {
-        console.error('Failed to fetch categories or products:', error)
+        console.error('Failed to fetch categories, collections or products:', error)
       }
     }
     fetchData()
@@ -219,12 +236,10 @@ export default function LuxuryNavigation() {
     return 5
   }, [filteredCategories.length])
 
-  const collectionsSubmenu = [
-    { name: 'Luxury Collection', href: '/collections/luxury' },
-    { name: 'Classic Collection', href: '/collections/classic' },
-    { name: 'Modern Collection', href: '/collections/modern' },
-    { name: 'Heritage Collection', href: '/collections/heritage' },
-  ]
+  // Filter collections to only show those with products
+  const filteredCollections = collections.filter(collection => 
+    collectionsWithProducts.has(collection._id)
+  )
 
   return (
     <motion.nav
@@ -265,65 +280,6 @@ export default function LuxuryNavigation() {
             >
               About
             </Link>
-            
-            {/* Collections with Submenu */}
-            <div 
-              className="relative inline-flex"
-              onMouseEnter={() => {
-                if (closeTimeoutRef.current) {
-                  clearTimeout(closeTimeoutRef.current)
-                  closeTimeoutRef.current = null
-                }
-                setActiveMenu('collections')
-              }}
-              onMouseLeave={() => {
-                closeTimeoutRef.current = setTimeout(() => {
-                  setActiveMenu(null)
-                }, 200)
-              }}
-            >
-              <Link 
-                href="/collections" 
-                className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline-with-submenu whitespace-nowrap relative inline-flex items-center gap-3 group"
-              >
-                Collections &nbsp;
-                <span className="submenu-indicator" aria-label="More options available"></span>
-              </Link>
-              
-              <AnimatePresence>
-                {activeMenu === 'collections' && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute top-full left-0 pt-2 w-56 bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg shadow-2xl overflow-hidden"
-                    onMouseEnter={() => {
-                      if (closeTimeoutRef.current) {
-                        clearTimeout(closeTimeoutRef.current)
-                        closeTimeoutRef.current = null
-                      }
-                      setActiveMenu('collections')
-                    }}
-                    onMouseLeave={() => {
-                      closeTimeoutRef.current = setTimeout(() => {
-                        setActiveMenu(null)
-                      }, 200)
-                    }}
-                  >
-                    {collectionsSubmenu.map((item, index) => (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        className="block px-6 py-3 text-sm text-ivory hover:text-brass hover:bg-brass/10 transition-all duration-300 border-b border-brass/10 last:border-b-0"
-                      >
-                        {item.name}
-                      </Link>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
 
             {/* Products with Submenu - Dynamic Categories */}
             <div
@@ -350,6 +306,10 @@ export default function LuxuryNavigation() {
             >
               <Link
                 href="/products"
+                onClick={(e) => {
+                  e.preventDefault()
+                  router.push('/products')
+                }}
                 className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline-with-submenu whitespace-nowrap relative inline-flex items-center gap-3 group"
               >
                 Products &nbsp;
@@ -725,13 +685,82 @@ export default function LuxuryNavigation() {
             {/* Divider */}
             <div className="w-px h-6 bg-brass/30" />
 
-            {/* CTA Button */}
-            <Link 
-              href="/explore"
-              className="px-6 py-2.5 bg-brass text-charcoal text-sm font-medium tracking-wide rounded-sm hover:bg-olive transition-all duration-300 hover:shadow-lg hover:shadow-brass/50"
-            >
-              Explore Collections
-            </Link>
+            {/* Explore Collections Button with Submenu */}
+            {filteredCollections.length > 0 ? (
+              <div 
+                className="relative inline-flex"
+                onMouseEnter={() => {
+                  if (closeTimeoutRef.current) {
+                    clearTimeout(closeTimeoutRef.current)
+                    closeTimeoutRef.current = null
+                  }
+                  setActiveMenu('explore')
+                }}
+                onMouseLeave={() => {
+                  closeTimeoutRef.current = setTimeout(() => {
+                    setActiveMenu(null)
+                  }, 200)
+                }}
+              >
+                <Link 
+                  href="/collections"
+                  className="px-6 py-2.5 bg-brass text-charcoal text-sm font-medium tracking-wide rounded-sm hover:bg-olive transition-all duration-300 hover:shadow-lg hover:shadow-brass/50"
+                >
+                  Explore Collections
+                </Link>
+                
+                <AnimatePresence>
+                  {activeMenu === 'explore' && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute top-full right-0 pt-2 w-64 bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg shadow-2xl overflow-hidden max-h-[600px] overflow-y-auto z-50"
+                      onMouseEnter={() => {
+                        if (closeTimeoutRef.current) {
+                          clearTimeout(closeTimeoutRef.current)
+                          closeTimeoutRef.current = null
+                        }
+                        setActiveMenu('explore')
+                      }}
+                      onMouseLeave={() => {
+                        closeTimeoutRef.current = setTimeout(() => {
+                          setActiveMenu(null)
+                        }, 200)
+                      }}
+                    >
+                      {filteredCollections.slice(0, 4).map((collection, index) => (
+                        <div key={collection._id} className="border-b border-brass/10 last:border-b-0">
+                          <Link
+                            href={`/collections/${collection.slug}`}
+                            className="block px-6 py-3 text-sm font-semibold text-brass hover:text-olive hover:bg-brass/10 transition-all duration-300"
+                          >
+                            {collection.name}
+                            {collection.productCount !== undefined && (
+                              <span className="ml-2 text-xs text-ivory/60">({collection.productCount})</span>
+                            )}
+                          </Link>
+                        </div>
+                      ))}
+                      <Link
+                        href="/collections"
+                        className="block px-6 py-3 text-sm font-medium text-brass hover:text-olive hover:bg-brass/10 transition-all duration-300 border-t border-brass/20"
+                      >
+                        View All Collections →
+                      </Link>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <Link 
+                href="/collections"
+                className="px-6 py-2.5 bg-brass text-charcoal text-sm font-medium tracking-wide rounded-sm hover:bg-olive transition-all duration-300 hover:shadow-lg hover:shadow-brass/50"
+              >
+                Explore Collections
+              </Link>
+            )}
           </div>
 
           {/* Mobile Icons & Menu */}

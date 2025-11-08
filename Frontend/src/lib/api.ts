@@ -1,4 +1,4 @@
-import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, Announcement, AboutUs, ContactInfo, ContactInquiry, CartItem, Order, OrderStats, Wishlist, DashboardSummary, WebsiteVisitAnalytics, RevenueAnalytics, ProductAnalytics, UserAnalytics, OrderAnalytics, ConversionAnalytics, NearMissOffer, Settings } from '@/types'
+import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, Announcement, AboutUs, ContactInfo, ContactInquiry, CartItem, Order, OrderStats, Wishlist, DashboardSummary, WebsiteVisitAnalytics, RevenueAnalytics, ProductAnalytics, UserAnalytics, OrderAnalytics, ConversionAnalytics, NearMissOffer, Settings, Collection } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api'
 
@@ -197,6 +197,12 @@ export const categoriesApi = {
     return apiCall<Category[]>(`/categories${query}`)
   },
 
+  // Get only categories and subcategories that have products
+  getAllWithProducts: (q?: string) => {
+    const query = q ? `?q=${encodeURIComponent(q)}` : ''
+    return apiCall<Category[]>(`/categories/with-products${query}`)
+  },
+
   getById: (id: string) => apiCall<Category>(`/categories/${id}`),
 
   getBySlug: (slug: string) => apiCall<Category>(`/categories/slug/${slug}`),
@@ -246,6 +252,11 @@ export const finishesApi = {
     return apiCall<Finish[]>(`/finishes${query ? `?${query}` : ''}`)
   },
 
+  // Get only finishes that have products
+  getAllWithProducts: () => {
+    return apiCall<Finish[]>('/finishes/with-products')
+  },
+
   getById: (id: string) => apiCall<Finish>(`/finishes/${id}`),
 
   create: (data: Partial<Finish>) =>
@@ -291,6 +302,9 @@ export const finishesApi = {
 // Materials API
 export const materialsApi = {
   getAll: () => apiCall<MaterialMaster[]>('/materials'),
+
+  // Get only materials that have products
+  getAllWithProducts: () => apiCall<MaterialMaster[]>('/materials/with-products'),
 
   getById: (id: string) => apiCall<MaterialMaster>(`/materials/${id}`),
 
@@ -1127,5 +1141,105 @@ export const settingsApi = {
         Authorization: `Bearer ${token}`
       },
     }),
+}
+
+// Collections API
+export const collectionsApi = {
+  // Get all collections (public)
+  getAll: (params?: { isActive?: boolean; includeProductCount?: boolean; q?: string }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString())
+    if (params?.includeProductCount !== undefined) queryParams.append('includeProductCount', params.includeProductCount.toString())
+    if (params?.q) queryParams.append('q', params.q)
+
+    const query = queryParams.toString()
+    return apiCall<Collection[]>(`/collections${query ? `?${query}` : ''}`)
+  },
+
+  // Get collection by ID
+  getById: (id: string) => apiCall<Collection>(`/collections/${id}`),
+
+  // Get collection by slug
+  getBySlug: (slug: string) => apiCall<Collection>(`/collections/${slug}`),
+
+  // Create collection (admin)
+  create: (data: Partial<Collection>, token: string) =>
+    apiCall<Collection>('/collections', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  // Update collection (admin)
+  update: (id: string, data: Partial<Collection>, token: string) =>
+    apiCall<Collection>(`/collections/${id}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(data),
+    }),
+
+  // Delete collection (admin)
+  delete: (id: string, token: string) =>
+    apiCall<{ message: string }>(`/collections/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+    }),
+
+  // Add products to collection (admin)
+  addProducts: (id: string, productIds: string[], token: string) =>
+    apiCall<{ message: string; collection: Collection }>(`/collections/${id}/products`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ productIds }),
+    }),
+
+  // Remove products from collection (admin)
+  removeProducts: (id: string, productIds: string[], token: string) =>
+    apiCall<{ message: string; collection: Collection }>(`/collections/${id}/products`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ productIds }),
+    }),
+
+  // Get products in a collection with filters and sorting
+  getProducts: (id: string, params?: {
+    q?: string
+    material?: string
+    category?: string
+    subcategory?: string
+    finishId?: string
+    hasSize?: boolean
+    hasDiscount?: boolean
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+    limit?: number
+    skip?: number
+  }) => {
+    const queryParams = new URLSearchParams()
+    if (params?.q) queryParams.append('q', params.q)
+    if (params?.material) queryParams.append('material', params.material)
+    if (params?.category) queryParams.append('category', params.category)
+    if (params?.subcategory) queryParams.append('subcategory', params.subcategory)
+    if (params?.finishId) queryParams.append('finishId', params.finishId)
+    if (params?.hasSize !== undefined) queryParams.append('hasSize', params.hasSize.toString())
+    if (params?.hasDiscount !== undefined) queryParams.append('hasDiscount', params.hasDiscount.toString())
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder)
+    if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString())
+    if (params?.skip !== undefined) queryParams.append('skip', params.skip.toString())
+
+    const query = queryParams.toString()
+    return apiCall<Product[]>(`/collections/${id}/products${query ? `?${query}` : ''}`)
+  },
 }
 

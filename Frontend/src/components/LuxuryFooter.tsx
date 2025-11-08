@@ -137,16 +137,22 @@ export default function LuxuryFooter() {
           <div>
             <h4 className="text-ivory font-semibold mb-6 tracking-wide">Company</h4>
             <ul className="space-y-3">
-              {['About Us', 'Our Story', 'Sustainability', 'Craftsmanship', 'Trade Program'].map((item) => (
-                <li key={item}>
-                  <Link 
-                    href={`/${item.toLowerCase().replace(/\s+/g, '-')}`}
-                    className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
-                  >
-                    {item}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <Link 
+                  href="/about"
+                  className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
+                >
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link 
+                  href="/collections"
+                  className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
+                >
+                  Collections
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -154,16 +160,30 @@ export default function LuxuryFooter() {
           <div>
             <h4 className="text-ivory font-semibold mb-6 tracking-wide">Support</h4>
             <ul className="space-y-3">
-              {['Contact Us', 'FAQs', 'Finishes & Samples', 'Delivery', 'Returns', 'Care Guide'].map((item) => (
-                <li key={item}>
-                  <Link 
-                    href={item === 'FAQs' ? '/faqs' : `/${item.toLowerCase().replace(/\s+/g, '-')}`}
-                    className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
-                  >
-                    {item}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <Link 
+                  href="/contact"
+                  className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
+                >
+                  Contact Us
+                </Link>
+              </li>
+              <li>
+                <Link 
+                  href="/faqs"
+                  className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
+                >
+                  FAQs
+                </Link>
+              </li>
+              <li>
+                <Link 
+                  href="/finishes"
+                  className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
+                >
+                  Finishes
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

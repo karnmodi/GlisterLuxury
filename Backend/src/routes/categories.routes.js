@@ -3,6 +3,7 @@ const router = express.Router();
 const {
 	createCategory,
 	listCategories,
+	listCategoriesWithProducts,
 	getCategory,
 	getCategoryBySlug,
 	updateCategory,
@@ -14,6 +15,7 @@ const {
 
 // Category routes
 router.post('/', createCategory);
+router.get('/with-products', listCategoriesWithProducts);
 router.get('/', listCategories);
 router.get('/slug/:slug', getCategoryBySlug);
 router.get('/:id', getCategory);

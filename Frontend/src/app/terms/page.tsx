@@ -69,9 +69,14 @@ export default function TermsConditionsPage() {
                 <h2 className="text-lg sm:text-xl font-serif font-bold text-charcoal mb-4 pb-2 border-b-2 border-brass/30">
                   3. DELIVERY
                 </h2>
-                <p className="text-sm sm:text-base leading-relaxed">
-                  The Company will endeavour to deliver goods by the date quoted; however, all delivery dates are estimates and are not guaranteed. Delivery dates may be extended by a reasonable period where delays occur due to circumstances beyond the Company's reasonable control.
-                </p>
+                <div className="space-y-3">
+                  <p className="text-sm sm:text-base leading-relaxed">
+                    The Company will endeavour to deliver goods by the date quoted; however, all delivery dates are estimates and are not guaranteed. Delivery dates may be extended by a reasonable period where delays occur due to circumstances beyond the Company's reasonable control.
+                  </p>
+                  <p className="text-sm sm:text-base leading-relaxed">
+                    <strong>Delivery Coverage:</strong> Standard delivery fees apply to UK Mainland only. UK Mainland includes England, Scotland, and Wales, but excludes Northern Ireland, the Channel Islands, and the Isle of Man. For delivery to Northern Ireland or other locations, please contact us for a custom shipping quote.
+                  </p>
+                </div>
               </div>
 
               <div className="border-t border-charcoal/10 my-10"></div>
