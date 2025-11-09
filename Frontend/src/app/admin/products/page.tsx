@@ -75,7 +75,7 @@ export default function AdminProductsPage() {
   }, [])
 
   const getBasePrice = (product: Product) => {
-    if (product.materials && product.materials.length > 0) {
+    if (product.materials && Array.isArray(product.materials) && product.materials.length > 0) {
       return product.materials[0].basePrice || 0
     }
     return product.packagingPrice || 0
@@ -307,9 +307,9 @@ export default function AdminProductsPage() {
                     >
                       <td className="hidden sm:table-cell px-2 py-1.5">
                         <div className="w-8 h-8 bg-cream/30 rounded overflow-hidden">
-                          {product.imageURLs && Object.keys(product.imageURLs).length > 0 ? (
+                          {product.imageURLs && Object.keys(product.imageURLs || {}).length > 0 && Object.values(product.imageURLs || {})[0]?.url ? (
                             <img
-                              src={Object.values(product.imageURLs)[0].url}
+                              src={Object.values(product.imageURLs || {})[0]?.url || ''}
                               alt={product.name}
                               className="w-full h-full object-cover"
                             />
@@ -426,9 +426,9 @@ export default function AdminProductsPage() {
             ) : (
               <div className="space-y-3">
                 {/* Product Images */}
-                {selectedProduct.imageURLs && Object.keys(selectedProduct.imageURLs).length > 0 ? (
+                {selectedProduct.imageURLs && Object.keys(selectedProduct.imageURLs || {}).length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {Object.values(selectedProduct.imageURLs).slice(0, 6).map((image, index) => (
+                    {Object.values(selectedProduct.imageURLs || {}).slice(0, 6).map((image, index) => (
                       <div key={index} className="aspect-square bg-cream/30 rounded overflow-hidden">
                         <img
                           src={image.url}
@@ -487,7 +487,7 @@ export default function AdminProductsPage() {
                     </svg>
                     Materials ({selectedProduct.materials?.length || 0})
                   </h4>
-                  {selectedProduct.materials && selectedProduct.materials.length > 0 ? (
+                  {selectedProduct.materials && Array.isArray(selectedProduct.materials) && selectedProduct.materials.length > 0 ? (
                     <div className="space-y-1">
                       {selectedProduct.materials.map((material, index) => (
                         <div key={index} className="bg-brass/5 border border-brass/10 rounded p-2">

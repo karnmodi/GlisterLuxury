@@ -42,7 +42,7 @@ export default function FavoritesPage() {
   }
 
   const handleAddToCart = async (product: Product) => {
-    if (!product.materials || product.materials.length === 0) {
+    if (!product.materials || !Array.isArray(product.materials) || product.materials.length === 0) {
       toast.warning('This product has no available materials')
       return
     }
@@ -68,11 +68,11 @@ export default function FavoritesPage() {
 
   // Get the default image (mappedFinishID: null or undefined)
   const getDefaultImage = (product: Product) => {
-    if (!product.imageURLs || Object.keys(product.imageURLs).length === 0) {
+    if (!product.imageURLs || Object.keys(product.imageURLs || {}).length === 0) {
       return null
     }
-    
-    const images = Object.values(product.imageURLs)
+
+    const images = Object.values(product.imageURLs || {})
     // First try to find image with no mappedFinishID (default image)
     const defaultImage = images.find(img => !img.mappedFinishID || img.mappedFinishID === null)
     if (defaultImage) {
@@ -358,7 +358,7 @@ export default function FavoritesPage() {
                                   {product.name}
                                 </h3>
 
-                                {product.materials && product.materials.length > 0 && (
+                                {product.materials && Array.isArray(product.materials) && product.materials.length > 0 && (
                                   <p className="text-ivory/80 text-lg font-semibold mb-6">
                                     {formatCurrency(toNumber(product.materials[0].basePrice))}
                                   </p>
@@ -419,7 +419,7 @@ export default function FavoritesPage() {
                                   >
                                     {product.name}
                                   </h3>
-                                  {product.materials && product.materials.length > 0 && (
+                                  {product.materials && Array.isArray(product.materials) && product.materials.length > 0 && (
                                     <p className="text-ivory/80 text-lg font-semibold">
                                       {formatCurrency(toNumber(product.materials[0].basePrice))}
                                     </p>

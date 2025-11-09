@@ -151,7 +151,7 @@ export default function LuxuryNavigation() {
           return {
             ...category,
             subcategories: categoryMatches
-              ? category.subcategories
+              ? (category.subcategories || [])
               : matchingSubcategories,
           }
         }

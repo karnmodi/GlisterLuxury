@@ -57,9 +57,9 @@ export default function ProductDetailPage() {
       ])
       setProduct(productData)
       setFinishes(finishesData)
-      
+
       // Auto-select first material if available
-      if (productData.materials && productData.materials.length > 0) {
+      if (productData.materials && Array.isArray(productData.materials) && productData.materials.length > 0) {
         setSelectedMaterial(productData.materials[0])
       }
     } catch (error) {
@@ -113,8 +113,8 @@ export default function ProductDetailPage() {
   useEffect(() => {
     if (manualImageSelected) return // Don't auto-update if user manually selected
     if (!product?.imageURLs) return
-    
-    const images = Object.values(product.imageURLs)
+
+    const images = Object.values(product.imageURLs || {})
     if (images.length === 0) return
     
     // Sort images: default image (mappedFinishID: null) first, then others
@@ -196,7 +196,7 @@ export default function ProductDetailPage() {
   )
 
   // Smart material display logic
-  const hasMultipleMaterials = product.materials && product.materials.length > 1
+  const hasMultipleMaterials = product.materials && Array.isArray(product.materials) && product.materials.length > 1
   const showMaterialInHeader = !hasMultipleMaterials && !!selectedMaterial
 
   // Get sorted images with default image first
@@ -316,7 +316,7 @@ export default function ProductDetailPage() {
                     className="relative w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-white via-cream/20 to-white flex-shrink-0 cursor-pointer hover:shadow-md transition-shadow duration-200"
                   >
                     <AnimatePresence mode="wait">
-                      {product?.imageURLs && Object.keys(product.imageURLs).length > 0 ? (
+                      {product?.imageURLs && Object.keys(product.imageURLs || {}).length > 0 ? (
                         <motion.div
                           key={getCurrentImage()}
                           initial={{ opacity: 0, scale: 0.95 }}
@@ -453,7 +453,7 @@ export default function ProductDetailPage() {
                 >
                   <div className="relative h-[300px] bg-gradient-to-br from-white via-cream/20 to-white">
                     <AnimatePresence mode="wait">
-                      {product.imageURLs && Object.keys(product.imageURLs).length > 0 ? (
+                      {product.imageURLs && Object.keys(product.imageURLs || {}).length > 0 ? (
                         <motion.div
                           key={getCurrentImage()}
                           initial={{ opacity: 0, scale: 0.95 }}
@@ -486,9 +486,9 @@ export default function ProductDetailPage() {
                     </AnimatePresence>
                   </div>
                   </div>
-                  
+
                 {/* Image Thumbnails - Below main image */}
-                  {product.imageURLs && Object.keys(product.imageURLs).length > 1 && (
+                  {product.imageURLs && Object.keys(product.imageURLs || {}).length > 1 && (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}

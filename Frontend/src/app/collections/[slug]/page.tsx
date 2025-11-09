@@ -214,8 +214,10 @@ export default function CollectionDetailPage() {
   }
 
   const getProductImage = (product: Product) => {
-    if (!product.imageURLs || Object.keys(product.imageURLs).length === 0) return null
-    const firstImage = Object.values(product.imageURLs)[0]
+    if (!product.imageURLs || Object.keys(product.imageURLs || {}).length === 0) return null
+    const imageValues = Object.values(product.imageURLs || {})
+    if (imageValues.length === 0) return null
+    const firstImage = imageValues[0]
     return typeof firstImage === 'string' ? firstImage : firstImage?.url || null
   }
 
@@ -519,7 +521,7 @@ export default function CollectionDetailPage() {
                         <select
                           value={selectedSubcategory}
                           onChange={(e) => setSelectedSubcategory(e.target.value)}
-                          disabled={!selectedCategory || availableSubcategories.length === 0}
+                          disabled={!selectedCategory || !availableSubcategories || availableSubcategories.length === 0}
                           className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <option value="">All Subcategories</option>

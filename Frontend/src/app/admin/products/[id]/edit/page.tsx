@@ -119,8 +119,8 @@ export default function EditProductPage() {
       console.log('Materials data:', productData.materials)
       console.log('Finishes data:', finishesData)
       console.log('Categories data:', categoriesData)
-      
-      if (productData.materials && productData.materials.length > 0) {
+
+      if (productData.materials && Array.isArray(productData.materials) && productData.materials.length > 0) {
         console.log('First material:', productData.materials[0])
         console.log('Base price type:', typeof productData.materials[0].basePrice)
         console.log('Base price value:', productData.materials[0].basePrice)
