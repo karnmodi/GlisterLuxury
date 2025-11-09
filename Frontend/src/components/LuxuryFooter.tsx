@@ -17,14 +17,15 @@ export default function LuxuryFooter() {
       try {
         // Fetch categories (already filtered to only those with products)
         const categoriesData = await categoriesApi.getAllWithProducts()
-        setCategoriesWithProducts(categoriesData)
+        // Ensure we always set an array, never null or undefined
+        setCategoriesWithProducts(Array.isArray(categoriesData) ? categoriesData : [])
       } catch (error) {
         console.error('Failed to fetch categories for footer:', error)
         // Fallback to empty array on error
         setCategoriesWithProducts([])
       }
     }
-    
+
     fetchData()
   }, [])
 
@@ -89,7 +90,7 @@ export default function LuxuryFooter() {
           <div>
             <h4 className="text-ivory font-semibold mb-6 tracking-wide">Products</h4>
             <ul className="space-y-3">
-              {categoriesWithProducts.length > 0 ? (
+              {categoriesWithProducts && Array.isArray(categoriesWithProducts) && categoriesWithProducts.length > 0 ? (
                 categoriesWithProducts.map((category) => (
                   <li key={category._id}>
                     <Link 

@@ -70,8 +70,10 @@ export default function LuxuryNavigation() {
         ])
         
         // Ensure data is not null before processing
-        if (categoriesData) {
-        setCategories(categoriesData)
+        if (categoriesData && Array.isArray(categoriesData)) {
+          setCategories(categoriesData)
+        } else {
+          setCategories([])
         }
         
         if (collectionsData && Array.isArray(collectionsData)) {

@@ -32,8 +32,10 @@ export default function MobileNavigation() {
         ])
         
         // Ensure data is not null before processing
-        if (categoriesData) {
+        if (categoriesData && Array.isArray(categoriesData)) {
           setCategories(categoriesData)
+        } else {
+          setCategories([])
         }
         
         if (collectionsData && Array.isArray(collectionsData)) {
