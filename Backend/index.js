@@ -5,6 +5,7 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const connectToDatabase = require('./src/config/database');
 const visitTracker = require('./src/middleware/visitTracker');
+const ensureDbConnection = require('./src/middleware/ensureDbConnection');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -66,24 +67,6 @@ app.use((req, res, next) => {
 
 app.use(cookieParser());
 
-// Middleware to check database connection status (non-blocking)
-app.use(async (req, res, next) => {
-  // Check if database is connected
-  const dbState = mongoose.connection.readyState;
-  // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
-  
-  if (dbState === 0) {
-    // Database is disconnected, try to reconnect in background (non-blocking)
-    connectToDatabase().catch(err => {
-      console.error('Background reconnection attempt failed:', err.message);
-    });
-  }
-  
-  // Always proceed - don't block requests
-  // Routes will handle their own database errors gracefully
-  next();
-});
-
 // Basic route
 app.get('/', (req, res) => {
   res.json({ message: 'Glister Backend API is configured and running!' });
@@ -94,6 +77,11 @@ app.use(visitTracker);
 
 // API routes - support both with and without /api prefix (Vercel sends /api/*)
 const apiRouter = express.Router();
+
+// Ensure database connection before processing API requests
+// This prevents "Cannot call X before initial connection" errors with bufferCommands: false
+apiRouter.use(ensureDbConnection);
+
 apiRouter.use('/auth', require('./src/routes/auth.routes'));
 apiRouter.use('/categories', require('./src/routes/categories.routes'));
 apiRouter.use('/products', require('./src/routes/products.routes'));

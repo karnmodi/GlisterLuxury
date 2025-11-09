@@ -33,19 +33,22 @@ function getCacheKey(endpoint: string, options?: RequestInit): string {
   return `${method}:${endpoint}:${body}`
 }
 
-// Helper function for API calls with caching, deduplication, timeout, and abort support
+// Helper function for API calls with caching, deduplication, timeout, abort support, and retry logic
 async function apiCall<T>(
-  endpoint: string, 
-  options?: RequestInit & { 
+  endpoint: string,
+  options?: RequestInit & {
     timeout?: number
     cache?: boolean
     signal?: AbortSignal
+    retryCount?: number
   }
 ): Promise<T> {
   const method = options?.method || 'GET'
   const shouldCache = method === 'GET' && (options?.cache !== false)
   const cacheKey = shouldCache ? getCacheKey(endpoint, options) : null
   const timeout = options?.timeout || REQUEST_TIMEOUT
+  const maxRetries = 3
+  const retryCount = options?.retryCount || 0
 
   // Check cache first for GET requests
   if (shouldCache && cacheKey) {
@@ -95,7 +98,24 @@ async function apiCall<T>(
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({ message: 'Request failed' }))
-        throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`)
+        const errorMessage = error.error || error.message || `HTTP error! status: ${response.status}`
+
+        // Handle 503 Service Unavailable (database connection issues)
+        if (response.status === 503 && retryCount < maxRetries) {
+          // Remove from pending requests before retry
+          pendingRequests.delete(endpoint)
+
+          // Exponential backoff: 500ms, 1000ms, 2000ms
+          const backoffDelay = Math.min(500 * Math.pow(2, retryCount), 2000)
+          console.warn(`Database connection unavailable. Retrying in ${backoffDelay}ms... (Attempt ${retryCount + 1}/${maxRetries})`)
+
+          await new Promise(resolve => setTimeout(resolve, backoffDelay))
+
+          // Retry the request
+          return apiCall<T>(endpoint, { ...options, retryCount: retryCount + 1 })
+        }
+
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()
@@ -111,10 +131,10 @@ async function apiCall<T>(
       return data
     } catch (error: any) {
       clearTimeout(timeoutId)
-      
+
       // Remove from pending requests
       pendingRequests.delete(endpoint)
-      
+
       // Remove from cache if it was a timeout
       if (error.name === 'AbortError' && abortController.signal.aborted) {
         if (shouldCache && cacheKey) {
@@ -122,7 +142,7 @@ async function apiCall<T>(
         }
         throw new Error(`Request timeout after ${timeout}ms`)
       }
-      
+
       throw error
     } finally {
       // Remove from pending requests after completion
