@@ -139,9 +139,10 @@ export default function ProductsPage() {
         if (hasDiscountParam) params.hasDiscount = true
 
         const results = await productsApi.getListing(params)
-        setProducts(results)
-        productsLengthRef.current = results.length
-        setHasMore(results.length === 20)
+        const safeResults = Array.isArray(results) ? results : []
+        setProducts(safeResults)
+        productsLengthRef.current = safeResults.length
+        setHasMore(safeResults.length === 20)
         initialFetchDone.current = true
       } catch (error) {
         console.error('Failed to fetch products from URL params:', error)
@@ -163,9 +164,9 @@ export default function ProductsPage() {
           finishesApi.getAllWithProducts(),
           materialsApi.getAllWithProducts(),
         ])
-        setCategories(categoriesData)
-        setFinishes(finishesData)
-        setMaterials(materialsData)
+        setCategories(Array.isArray(categoriesData) ? categoriesData : [])
+        setFinishes(Array.isArray(finishesData) ? finishesData : [])
+        setMaterials(Array.isArray(materialsData) ? materialsData : [])
         
         // Initialize filter option sets - will be populated from actual product results
         // This avoids fetching all products just for filter analysis
@@ -204,13 +205,13 @@ export default function ProductsPage() {
   const availableSubcategories = activeCategory?.subcategories || []
   
   // Show all categories (no filtering)
-  const filteredCategories = categories
+  const filteredCategories = Array.isArray(categories) ? categories : []
   
   // Show all materials (no filtering)
-  const filteredMaterials = materials
+  const filteredMaterials = Array.isArray(materials) ? materials : []
   
   // Show all finishes (no filtering)
-  const filteredFinishes = finishes
+  const filteredFinishes = Array.isArray(finishes) ? finishes : []
 
   // Parse sort option to backend params
   const getSortParams = useCallback(() => {
@@ -264,34 +265,36 @@ export default function ProductsPage() {
       if (hasDiscount) params.hasDiscount = true
       
       const results = await productsApi.getListing(params)
-      
+      const safeResults = Array.isArray(results) ? results : []
+
       // Update filter option sets based on fetched products
       if (reset) {
         const categorySet = new Set<string>()
         const subcategorySet = new Set<string>()
         const materialSet = new Set<string>()
         const finishSet = new Set<string>()
-        
-        results.forEach((product: MinimalProduct) => {
+
+        safeResults.forEach((product: MinimalProduct) => {
           // Note: MinimalProduct doesn't have full category/subcategory info
           // We'll need to track these from the actual product data if needed
           // For now, we'll rely on the categories/materials/finishes APIs
         })
       }
-      
+
       if (reset) {
-        setProducts(results)
-        productsLengthRef.current = results.length
+        setProducts(safeResults)
+        productsLengthRef.current = safeResults.length
       } else {
         setProducts(prev => {
-          const newProducts = [...prev, ...results]
+          const prevProducts = Array.isArray(prev) ? prev : []
+          const newProducts = [...prevProducts, ...safeResults]
           productsLengthRef.current = newProducts.length
           return newProducts
         })
       }
-      
+
       // Check if there are more products to load
-      setHasMore(results.length === 20)
+      setHasMore(safeResults.length === 20)
     } catch (error) {
       console.error('Failed to fetch products:', error)
     } finally {
@@ -700,7 +703,7 @@ export default function ProductsPage() {
               )}
             </Button>
             <div className="text-xs sm:text-sm text-charcoal/60">
-              {loading ? 'Loading...' : `${products.length} ${products.length === 1 ? 'product' : 'products'}`}
+              {loading ? 'Loading...' : `${products?.length || 0} ${(products?.length || 0) === 1 ? 'product' : 'products'}`}
             </div>
           </div>
 
@@ -1357,7 +1360,7 @@ export default function ProductsPage() {
                     <span>Loading...</span>
                   ) : (
                     <span className="font-medium">
-                      {products.length} {products.length === 1 ? 'product' : 'products'} found
+                      {products?.length || 0} {(products?.length || 0) === 1 ? 'product' : 'products'} found
                     </span>
                   )}
                 </div>
@@ -1368,7 +1371,7 @@ export default function ProductsPage() {
                 <div className="flex items-center justify-center h-64">
                   <div className="text-charcoal/60 text-base sm:text-lg">Loading products...</div>
                 </div>
-              ) : products.length === 0 ? (
+              ) : (products?.length || 0) === 0 ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="text-center px-4">
                     <p className="text-charcoal/60 text-base sm:text-lg mb-4">No products found</p>

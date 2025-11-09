@@ -16,23 +16,27 @@ export default function AnnouncementBanner() {
     const fetchAnnouncements = async () => {
       try {
         const data = await announcementsApi.getPublic()
+        // Ensure data is an array
+        const safeData = Array.isArray(data) ? data : []
+
         // Filter by date range if specified
         const now = new Date()
-        const activeAnnouncements = data.filter(announcement => {
+        const activeAnnouncements = safeData.filter(announcement => {
           if (!announcement.isActive) return false
-          
+
           const startDate = announcement.startDate ? new Date(announcement.startDate) : null
           const endDate = announcement.endDate ? new Date(announcement.endDate) : null
-          
+
           if (startDate && now < startDate) return false
           if (endDate && now > endDate) return false
-          
+
           return true
         })
-        
+
         setAnnouncements(activeAnnouncements)
       } catch (error) {
         console.error('Failed to fetch announcements:', error)
+        setAnnouncements([])
       } finally {
         setLoading(false)
       }

@@ -25,10 +25,11 @@ export default function FinishesPage() {
       setLoading(true)
       setError(null)
       const data = await finishesApi.getAll({ includeUsage: true })
-      setFinishes(data)
+      setFinishes(Array.isArray(data) ? data : [])
     } catch (err) {
       console.error('Failed to fetch finishes:', err)
       setError('Failed to load finishes. Please try again later.')
+      setFinishes([])
     } finally {
       setLoading(false)
     }
