@@ -1,23 +1,166 @@
 import type { Product, Category, Finish, MaterialMaster, Cart, FAQ, Announcement, AboutUs, Blog, ContactInfo, ContactInquiry, CartItem, Order, OrderStats, Wishlist, DashboardSummary, WebsiteVisitAnalytics, RevenueAnalytics, ProductAnalytics, UserAnalytics, OrderAnalytics, ConversionAnalytics, NearMissOffer, Settings, Collection } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api'
+const REQUEST_TIMEOUT = 30000 // 30 seconds
+const CACHE_TTL = 60000 // 1 minute for GET requests
 
-// Helper function for API calls
-async function apiCall<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-  })
+// Request cache
+interface CacheEntry<T> {
+  data: T
+  timestamp: number
+  promise?: Promise<T>
+}
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }))
-    throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`)
+const requestCache = new Map<string, CacheEntry<any>>()
+const pendingRequests = new Map<string, Promise<any>>()
+
+// Clean up old cache entries periodically
+if (typeof window !== 'undefined') {
+  setInterval(() => {
+    const now = Date.now()
+    for (const [key, entry] of requestCache.entries()) {
+      if (now - entry.timestamp > CACHE_TTL) {
+        requestCache.delete(key)
+      }
+    }
+  }, CACHE_TTL)
+}
+
+// Helper function to create cache key
+function getCacheKey(endpoint: string, options?: RequestInit): string {
+  const method = options?.method || 'GET'
+  const body = options?.body ? JSON.stringify(options.body) : ''
+  return `${method}:${endpoint}:${body}`
+}
+
+// Helper function for API calls with caching, deduplication, timeout, and abort support
+async function apiCall<T>(
+  endpoint: string, 
+  options?: RequestInit & { 
+    timeout?: number
+    cache?: boolean
+    signal?: AbortSignal
+  }
+): Promise<T> {
+  const method = options?.method || 'GET'
+  const shouldCache = method === 'GET' && (options?.cache !== false)
+  const cacheKey = shouldCache ? getCacheKey(endpoint, options) : null
+  const timeout = options?.timeout || REQUEST_TIMEOUT
+
+  // Check cache first for GET requests
+  if (shouldCache && cacheKey) {
+    const cached = requestCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return Promise.resolve(cached.data)
+    }
+    // If there's a pending request for the same endpoint, return that promise
+    if (cached?.promise) {
+      return cached.promise
+    }
   }
 
-  return response.json()
+  // Check if there's already a pending request for this endpoint (deduplication)
+  if (pendingRequests.has(endpoint)) {
+    return pendingRequests.get(endpoint)!
+  }
+
+  // Create abort controller for timeout
+  const abortController = new AbortController()
+  const timeoutId = setTimeout(() => {
+    abortController.abort()
+  }, timeout)
+
+  // Combine abort signals if both provided
+  let signal = abortController.signal
+  if (options?.signal) {
+    const combinedController = new AbortController()
+    abortController.signal.addEventListener('abort', () => combinedController.abort())
+    options.signal.addEventListener('abort', () => combinedController.abort())
+    signal = combinedController.signal
+  }
+
+  // Create the request promise
+  const requestPromise = (async (): Promise<T> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Request failed' }))
+        throw new Error(error.error || error.message || `HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      // Cache GET requests
+      if (shouldCache && cacheKey) {
+        requestCache.set(cacheKey, {
+          data,
+          timestamp: Date.now(),
+        })
+      }
+
+      return data
+    } catch (error: any) {
+      clearTimeout(timeoutId)
+      
+      // Remove from pending requests
+      pendingRequests.delete(endpoint)
+      
+      // Remove from cache if it was a timeout
+      if (error.name === 'AbortError' && abortController.signal.aborted) {
+        if (shouldCache && cacheKey) {
+          requestCache.delete(cacheKey)
+        }
+        throw new Error(`Request timeout after ${timeout}ms`)
+      }
+      
+      throw error
+    } finally {
+      // Remove from pending requests after completion
+      pendingRequests.delete(endpoint)
+    }
+  })()
+
+  // Store pending request for deduplication
+  pendingRequests.set(endpoint, requestPromise)
+
+  // Store promise in cache for GET requests
+  if (shouldCache && cacheKey) {
+    const cached = requestCache.get(cacheKey)
+    if (cached) {
+      cached.promise = requestPromise
+    } else {
+      requestCache.set(cacheKey, {
+        data: null as any,
+        timestamp: Date.now(),
+        promise: requestPromise,
+      })
+    }
+  }
+
+  return requestPromise
+}
+
+// Helper to clear cache for specific endpoint pattern
+export function clearApiCache(pattern?: string) {
+  if (!pattern) {
+    requestCache.clear()
+    return
+  }
+  for (const key of requestCache.keys()) {
+    if (key.includes(pattern)) {
+      requestCache.delete(key)
+    }
+  }
 }
 
 // Products API

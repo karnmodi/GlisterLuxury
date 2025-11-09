@@ -49,8 +49,7 @@ export default function ImageFinishMapper({
     console.log(`[ImageFinishMapper] Processing ${files.length} file(s) from ${source}`)
     const maxFiles = 10
     const remainingSlots = maxFiles - images.length
-    const maxFileSize = 10 * 1024 * 1024 // 10MB limit (original file size limit)
-    const targetCompressedSize = 2 * 1024 * 1024 // 2MB target for compressed files
+    const targetCompressedSize = 2 * 1024 * 1024 // 2MB target for compressed files (images above 2MB will be compressed)
 
     // Validate files first
     const validFiles: File[] = []
@@ -81,7 +80,7 @@ export default function ImageFinishMapper({
         continue
       }
 
-      // Validate file size (10MB limit for original)
+      // Validate file size (only check if file is empty)
       if (file.size === 0) {
         const errorMsg = `${file.name} is empty (0 bytes)`
         console.error(`[ImageFinishMapper] ${errorMsg}`)
@@ -89,12 +88,7 @@ export default function ImageFinishMapper({
         continue
       }
       
-      if (file.size > maxFileSize) {
-        const errorMsg = `${file.name} is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 10MB`
-        console.error(`[ImageFinishMapper] ${errorMsg}`)
-        toast.error(errorMsg)
-        continue
-      }
+      // No size restriction - images above 2MB will be automatically compressed
 
       validFiles.push(file)
       console.log(`[ImageFinishMapper] File validated: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB, ${file.type})`)
@@ -103,7 +97,7 @@ export default function ImageFinishMapper({
     if (validFiles.length === 0) {
       const errorMsg = 'No valid images were added after validation'
       console.warn(`[ImageFinishMapper] ${errorMsg}`)
-      toast.error('No valid images selected. Please ensure files are images and under 10MB.')
+      toast.error('No valid images selected. Please ensure files are image files.')
       // Reset input value to ensure onChange fires next time (only for file input)
       if (source === 'input' && fileInputRef.current) {
         fileInputRef.current.value = ''
@@ -589,7 +583,7 @@ export default function ImageFinishMapper({
               disabled={uploading}
               className="flex-1 sm:flex-none px-2 py-1 text-xs bg-olive text-white hover:bg-olive/90 disabled:opacity-50 rounded"
             >
-              {uploading ? 'Uploading...' : (productId ? 'Upload' : 'Prepare')}
+              {uploading ? 'Uploading...' : 'Upload'}
             </button>
           )}
         </div>

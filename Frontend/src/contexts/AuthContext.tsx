@@ -70,14 +70,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Check authentication on mount
   const checkAuth = useCallback(async () => {
     try {
-      setLoading(true)
       const token = await getAuthCookie()
       
       if (!token) {
         setUser(null)
+        setLoading(false)
         return
       }
 
+      // Don't block UI - set loading to false quickly if token exists
+      // The actual auth check can happen in background
+      setLoading(false)
+      
       const response = await authApi.getMe(token)
       if (response.success) {
         setUser(response.user)
@@ -110,21 +114,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(response.user)
         setToken(response.token)
         
-        // Link cart to user account
+        // Parallelize cart linking and wishlist sync for faster login
         const sessionID = getSessionID()
         if (sessionID) {
-          try {
-            await cartApi.linkToUser(sessionID, response.token)
-          } catch (error) {
-            console.error('Failed to link cart:', error)
-          }
-
-          // Sync wishlist
-          try {
-            await wishlistApi.sync(sessionID, response.token)
-          } catch (error) {
-            console.error('Failed to sync wishlist:', error)
-          }
+          // Run cart linking and wishlist sync in parallel
+          await Promise.allSettled([
+            cartApi.linkToUser(sessionID, response.token).catch(error => {
+              console.error('Failed to link cart:', error)
+            }),
+            wishlistApi.sync(sessionID, response.token).catch(error => {
+              console.error('Failed to sync wishlist:', error)
+            })
+          ])
         }
         
         // Role-based routing
@@ -157,21 +158,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(response.user)
         setToken(response.token)
         
-        // Link cart to user account after registration
+        // Parallelize cart linking and wishlist sync for faster registration
         const sessionID = getSessionID()
         if (sessionID) {
-          try {
-            await cartApi.linkToUser(sessionID, response.token)
-          } catch (error) {
-            console.error('Failed to link cart after registration:', error)
-          }
-
-          // Sync wishlist
-          try {
-            await wishlistApi.sync(sessionID, response.token)
-          } catch (error) {
-            console.error('Failed to sync wishlist after registration:', error)
-          }
+          // Run cart linking and wishlist sync in parallel
+          await Promise.allSettled([
+            cartApi.linkToUser(sessionID, response.token).catch(error => {
+              console.error('Failed to link cart after registration:', error)
+            }),
+            wishlistApi.sync(sessionID, response.token).catch(error => {
+              console.error('Failed to sync wishlist after registration:', error)
+            })
+          ])
         }
         
         router.push('/profile')

@@ -1,9 +1,25 @@
 import type { User, AuthResponse } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api'
+const REQUEST_TIMEOUT = 30000 // 30 seconds
 
-// Helper function for API calls
-async function apiCall<T>(endpoint: string, options?: RequestInit, token?: string): Promise<T> {
+// Request deduplication for auth endpoints
+const pendingAuthRequests = new Map<string, Promise<any>>()
+
+// Helper function for API calls with timeout and deduplication
+async function apiCall<T>(
+  endpoint: string, 
+  options?: RequestInit & { timeout?: number; signal?: AbortSignal }, 
+  token?: string
+): Promise<T> {
+  const timeout = options?.timeout || REQUEST_TIMEOUT
+  const requestKey = `${options?.method || 'GET'}:${endpoint}:${token ? 'auth' : ''}`
+
+  // Check for pending request (deduplication)
+  if (pendingAuthRequests.has(requestKey)) {
+    return pendingAuthRequests.get(requestKey)!
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
@@ -12,20 +28,57 @@ async function apiCall<T>(endpoint: string, options?: RequestInit, token?: strin
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      ...headers,
-      ...options?.headers,
-    },
-  })
+  // Create abort controller for timeout
+  const abortController = new AbortController()
+  const timeoutId = setTimeout(() => {
+    abortController.abort()
+  }, timeout)
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }))
-    throw new Error(error.message || `HTTP error! status: ${response.status}`)
+  // Combine abort signals if both provided
+  let signal = abortController.signal
+  if (options?.signal) {
+    const combinedController = new AbortController()
+    abortController.signal.addEventListener('abort', () => combinedController.abort())
+    options.signal.addEventListener('abort', () => combinedController.abort())
+    signal = combinedController.signal
   }
 
-  return response.json()
+  const requestPromise = (async (): Promise<T> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        signal,
+        headers: {
+          ...headers,
+          ...options?.headers,
+        },
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Request failed' }))
+        throw new Error(error.message || `HTTP error! status: ${response.status}`)
+      }
+
+      return response.json()
+    } catch (error: any) {
+      clearTimeout(timeoutId)
+      
+      if (error.name === 'AbortError' && abortController.signal.aborted) {
+        throw new Error(`Request timeout after ${timeout}ms`)
+      }
+      
+      throw error
+    } finally {
+      pendingAuthRequests.delete(requestKey)
+    }
+  })()
+
+  // Store pending request
+  pendingAuthRequests.set(requestKey, requestPromise)
+
+  return requestPromise
 }
 
 // Auth API

@@ -24,7 +24,64 @@ export default function AdminProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
   useEffect(() => {
+    const abortController = new AbortController()
+    
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        // Use Promise.allSettled to handle partial failures gracefully
+        const [productsResult, categoriesResult, finishesResult] = await Promise.allSettled([
+          productsApi.getAll(),
+          categoriesApi.getAll(),
+          finishesApi.getAll(),
+        ])
+        
+        // Handle products
+        if (productsResult.status === 'fulfilled') {
+          setProducts(productsResult.value)
+        } else {
+          console.error('Failed to fetch products:', productsResult.reason)
+        }
+        
+        // Handle categories
+        if (categoriesResult.status === 'fulfilled') {
+          setCategories(categoriesResult.value)
+        } else {
+          console.error('Failed to fetch categories:', categoriesResult.reason)
+        }
+        
+        // Handle finishes
+        if (finishesResult.status === 'fulfilled') {
+          setFinishes(finishesResult.value)
+        } else {
+          console.error('Failed to fetch finishes:', finishesResult.reason)
+        }
+        
+        // Show error only if all requests failed
+        if (
+          productsResult.status === 'rejected' &&
+          categoriesResult.status === 'rejected' &&
+          finishesResult.status === 'rejected'
+        ) {
+          alert('Failed to load data. Please refresh the page.')
+        }
+      } catch (error) {
+        if (!abortController.signal.aborted) {
+          console.error('Failed to fetch data:', error)
+          alert('Failed to load data')
+        }
+      } finally {
+        if (!abortController.signal.aborted) {
+          setLoading(false)
+        }
+      }
+    }
+    
     fetchData()
+    
+    return () => {
+      abortController.abort()
+    }
   }, [])
 
   const getBasePrice = (product: Product) => {
@@ -37,25 +94,6 @@ export default function AdminProductsPage() {
   const getFinishName = (finishId: string) => {
     const finish = finishes.find(f => f._id === finishId)
     return finish?.name || finishId
-  }
-
-  const fetchData = async () => {
-    try {
-      setLoading(true)
-      const [productsData, categoriesData, finishesData] = await Promise.all([
-        productsApi.getAll(),
-        categoriesApi.getAll(),
-        finishesApi.getAll(),
-      ])
-      setProducts(productsData)
-      setCategories(categoriesData)
-      setFinishes(finishesData)
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-      alert('Failed to load data')
-    } finally {
-      setLoading(false)
-    }
   }
 
   // Filtered and sorted products
