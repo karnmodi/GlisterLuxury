@@ -458,7 +458,7 @@ export default function LuxuryNavigation() {
                                     {/* Show subcategories count if not expanded and search is active */}
                                     {!isExpanded && hasSubcategories && searchQuery && (
                                       <p className="text-xs text-ivory/50 italic px-2 py-1.5">
-                                        {category.subcategories.length} subcategories
+                                        {category.subcategories?.length || 0} subcategories
                                       </p>
                                     )}
 
