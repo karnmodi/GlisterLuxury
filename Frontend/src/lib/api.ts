@@ -18,7 +18,7 @@ const pendingRequests = new Map<string, Promise<any>>()
 if (typeof window !== 'undefined') {
   setInterval(() => {
     const now = Date.now()
-    for (const [key, entry] of requestCache.entries()) {
+    for (const [key, entry] of Array.from(requestCache.entries())) {
       if (now - entry.timestamp > CACHE_TTL) {
         requestCache.delete(key)
       }
@@ -176,7 +176,7 @@ export function clearApiCache(pattern?: string) {
     requestCache.clear()
     return
   }
-  for (const key of requestCache.keys()) {
+  for (const key of Array.from(requestCache.keys())) {
     if (key.includes(pattern)) {
       requestCache.delete(key)
     }

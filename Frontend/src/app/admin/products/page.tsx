@@ -23,65 +23,55 @@ export default function AdminProductsPage() {
   // Selected product for detail view
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
-  useEffect(() => {
-    const abortController = new AbortController()
-    
-    const fetchData = async () => {
-      try {
-        setLoading(true)
-        // Use Promise.allSettled to handle partial failures gracefully
-        const [productsResult, categoriesResult, finishesResult] = await Promise.allSettled([
-          productsApi.getAll(),
-          categoriesApi.getAll(),
-          finishesApi.getAll(),
-        ])
-        
-        // Handle products
-        if (productsResult.status === 'fulfilled') {
-          setProducts(productsResult.value)
-        } else {
-          console.error('Failed to fetch products:', productsResult.reason)
-        }
-        
-        // Handle categories
-        if (categoriesResult.status === 'fulfilled') {
-          setCategories(categoriesResult.value)
-        } else {
-          console.error('Failed to fetch categories:', categoriesResult.reason)
-        }
-        
-        // Handle finishes
-        if (finishesResult.status === 'fulfilled') {
-          setFinishes(finishesResult.value)
-        } else {
-          console.error('Failed to fetch finishes:', finishesResult.reason)
-        }
-        
-        // Show error only if all requests failed
-        if (
-          productsResult.status === 'rejected' &&
-          categoriesResult.status === 'rejected' &&
-          finishesResult.status === 'rejected'
-        ) {
-          alert('Failed to load data. Please refresh the page.')
-        }
-      } catch (error) {
-        if (!abortController.signal.aborted) {
-          console.error('Failed to fetch data:', error)
-          alert('Failed to load data')
-        }
-      } finally {
-        if (!abortController.signal.aborted) {
-          setLoading(false)
-        }
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      // Use Promise.allSettled to handle partial failures gracefully
+      const [productsResult, categoriesResult, finishesResult] = await Promise.allSettled([
+        productsApi.getAll(),
+        categoriesApi.getAll(),
+        finishesApi.getAll(),
+      ])
+      
+      // Handle products
+      if (productsResult.status === 'fulfilled') {
+        setProducts(productsResult.value)
+      } else {
+        console.error('Failed to fetch products:', productsResult.reason)
       }
+      
+      // Handle categories
+      if (categoriesResult.status === 'fulfilled') {
+        setCategories(categoriesResult.value)
+      } else {
+        console.error('Failed to fetch categories:', categoriesResult.reason)
+      }
+      
+      // Handle finishes
+      if (finishesResult.status === 'fulfilled') {
+        setFinishes(finishesResult.value)
+      } else {
+        console.error('Failed to fetch finishes:', finishesResult.reason)
+      }
+      
+      // Show error only if all requests failed
+      if (
+        productsResult.status === 'rejected' &&
+        categoriesResult.status === 'rejected' &&
+        finishesResult.status === 'rejected'
+      ) {
+        alert('Failed to load data. Please refresh the page.')
+      }
+    } catch (error) {
+      console.error('Failed to fetch data:', error)
+      alert('Failed to load data')
+    } finally {
+      setLoading(false)
     }
-    
+  }
+
+  useEffect(() => {
     fetchData()
-    
-    return () => {
-      abortController.abort()
-    }
   }, [])
 
   const getBasePrice = (product: Product) => {
