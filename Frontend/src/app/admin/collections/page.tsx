@@ -42,10 +42,15 @@ export default function AdminCollectionsPage() {
     try {
       setLoading(true)
       const data = await collectionsApi.getAll({ includeProductCount: true })
-      setCollections(data.sort((a, b) => a.displayOrder - b.displayOrder))
+      if (data && Array.isArray(data)) {
+        setCollections(data.sort((a, b) => a.displayOrder - b.displayOrder))
+      } else {
+        setCollections([])
+      }
     } catch (error) {
       console.error('Failed to fetch collections:', error)
       alert('Failed to load collections')
+      setCollections([])
     } finally {
       setLoading(false)
     }

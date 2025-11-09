@@ -68,20 +68,34 @@ export default function LuxuryNavigation() {
           categoriesApi.getAllWithProducts(),
           collectionsApi.getAll({ isActive: true, includeProductCount: true })
         ])
-        setCategories(categoriesData)
-        setCollections(collectionsData.sort((a, b) => a.displayOrder - b.displayOrder))
         
-        // Track collections with products
-        const collectionSet = new Set<string>()
-        collectionsData.forEach((collection: Collection) => {
-          if (collection.productCount && collection.productCount > 0) {
-            collectionSet.add(collection._id)
-          }
-        })
+        // Ensure data is not null before processing
+        if (categoriesData) {
+          setCategories(categoriesData)
+        }
         
-        setCollectionsWithProducts(collectionSet)
+        if (collectionsData && Array.isArray(collectionsData)) {
+          const sortedCollections = collectionsData.sort((a, b) => a.displayOrder - b.displayOrder)
+          setCollections(sortedCollections)
+          
+          // Track collections with products
+          const collectionSet = new Set<string>()
+          collectionsData.forEach((collection: Collection) => {
+            if (collection.productCount && collection.productCount > 0) {
+              collectionSet.add(collection._id)
+            }
+          })
+          
+          setCollectionsWithProducts(collectionSet)
+        } else {
+          setCollections([])
+          setCollectionsWithProducts(new Set())
+        }
       } catch (error) {
         console.error('Failed to fetch categories or collections:', error)
+        setCategories([])
+        setCollections([])
+        setCollectionsWithProducts(new Set())
       }
     }
     fetchData()

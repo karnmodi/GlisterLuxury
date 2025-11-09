@@ -26,9 +26,14 @@ export default function CollectionsPage() {
         isActive: true, 
         includeProductCount: true 
       })
-      setCollections(data)
+      if (data && Array.isArray(data)) {
+        setCollections(data)
+      } else {
+        setCollections([])
+      }
     } catch (error) {
       console.error('Failed to fetch collections:', error)
+      setCollections([])
     } finally {
       setLoading(false)
     }
