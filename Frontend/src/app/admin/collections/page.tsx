@@ -43,7 +43,7 @@ export default function AdminCollectionsPage() {
       setLoading(true)
       const data = await collectionsApi.getAll({ includeProductCount: true })
       if (data && Array.isArray(data)) {
-        setCollections(data.sort((a, b) => a.displayOrder - b.displayOrder))
+      setCollections(data.sort((a, b) => a.displayOrder - b.displayOrder))
       } else {
         setCollections([])
       }

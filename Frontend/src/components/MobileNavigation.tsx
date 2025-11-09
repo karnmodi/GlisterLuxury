@@ -40,15 +40,15 @@ export default function MobileNavigation() {
           const sortedCollections = collectionsData.sort((a, b) => a.displayOrder - b.displayOrder)
           setCollections(sortedCollections)
           
-          // Track collections with products
-          const collectionSet = new Set<string>()
-          collectionsData.forEach((collection: Collection) => {
-            if (collection.productCount && collection.productCount > 0) {
-              collectionSet.add(collection._id)
-            }
-          })
-          
-          setCollectionsWithProducts(collectionSet)
+        // Track collections with products
+        const collectionSet = new Set<string>()
+        collectionsData.forEach((collection: Collection) => {
+          if (collection.productCount && collection.productCount > 0) {
+            collectionSet.add(collection._id)
+          }
+        })
+        
+        setCollectionsWithProducts(collectionSet)
         } else {
           setCollections([])
           setCollectionsWithProducts(new Set())

@@ -27,7 +27,7 @@ export default function CollectionsPage() {
         includeProductCount: true 
       })
       if (data && Array.isArray(data)) {
-        setCollections(data)
+      setCollections(data)
       } else {
         setCollections([])
       }

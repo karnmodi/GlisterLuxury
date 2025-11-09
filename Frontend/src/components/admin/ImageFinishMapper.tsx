@@ -39,6 +39,11 @@ export default function ImageFinishMapper({
   const [compressionProgress, setCompressionProgress] = useState<Record<number, number>>({})
   const [isDraggingOver, setIsDraggingOver] = useState(false)
 
+  // Ensure props are always arrays to prevent null/undefined errors
+  const safeImages = Array.isArray(images) ? images : []
+  const safeAvailableFinishes = Array.isArray(availableFinishes) ? availableFinishes : []
+  const safeSelectedFinishes = Array.isArray(selectedFinishes) ? selectedFinishes : []
+
   // Shared function to process files (used by both file input and drag-drop)
   const processFiles = async (files: FileList | null, source: 'input' | 'dragdrop') => {
     if (!files || files.length === 0) {
@@ -48,7 +53,7 @@ export default function ImageFinishMapper({
 
     console.log(`[ImageFinishMapper] Processing ${files.length} file(s) from ${source}`)
     const maxFiles = 10
-    const remainingSlots = maxFiles - images.length
+    const remainingSlots = maxFiles - safeImages.length
     const targetCompressedSize = 2 * 1024 * 1024 // 2MB target for compressed files (images above 2MB will be compressed)
 
     // Validate files first
@@ -58,7 +63,7 @@ export default function ImageFinishMapper({
     console.log(`[ImageFinishMapper] Validating ${fileArray.length} file(s)`, {
       remainingSlots,
       maxFiles,
-      currentImageCount: images.length
+      currentImageCount: safeImages.length
     })
     
     for (let i = 0; i < Math.min(fileArray.length, remainingSlots); i++) {
@@ -223,8 +228,8 @@ export default function ImageFinishMapper({
     // Update state with all processed images
     if (newImages.length > 0) {
       try {
-        const updatedImages = [...images, ...newImages]
-        console.log(`[ImageFinishMapper] Updating images state: ${images.length} → ${updatedImages.length} images`)
+        const updatedImages = [...safeImages, ...newImages]
+        console.log(`[ImageFinishMapper] Updating images state: ${safeImages.length} → ${updatedImages.length} images`)
         onChange(updatedImages)
         
         const totalOriginalSize = validFiles.reduce((sum, f) => sum + f.size, 0)
@@ -340,9 +345,9 @@ export default function ImageFinishMapper({
   }
 
   const handleUpload = async () => {
-    if (images.length === 0) return
+    if (safeImages.length === 0) return
 
-    const filesToUpload = images.filter(img => img.file).map(img => img.file!)
+    const filesToUpload = safeImages.filter(img => img.file).map(img => img.file!)
     if (filesToUpload.length === 0) return
 
     // Check if productId is a valid ObjectId (24 character hex string)
@@ -367,10 +372,10 @@ export default function ImageFinishMapper({
       
       // Update image URLs with the actual uploaded URLs while preserving finish mappings
       // Match uploaded URLs with images by order: find the index of each image with file
-      const uploadedImages = images.map((img) => {
+      const uploadedImages = safeImages.map((img) => {
         if (img.file) {
           // Find the corresponding uploaded URL by matching the order
-          const uploadedImageIndex = images
+          const uploadedImageIndex = safeImages
             .filter(i => i.file)
             .findIndex(i => i === img)
           const uploadedUrl = uploadedImageUrls[uploadedImageIndex] || img.url
@@ -409,7 +414,9 @@ export default function ImageFinishMapper({
   }
 
   const removeImage = async (index: number) => {
-    const imageToRemove = images[index]
+    if (index < 0 || index >= safeImages.length) return
+    
+    const imageToRemove = safeImages[index]
     
     // Check if this is an uploaded image (no file property and has a Cloudinary URL)
     const isUploadedImage = !imageToRemove.file && imageToRemove.url
@@ -427,7 +434,7 @@ export default function ImageFinishMapper({
           await productsApi.deleteImage(productId, imageToRemove.url)
           
           // Remove from local state
-          const newImages = images.filter((_, i) => i !== index)
+          const newImages = safeImages.filter((_, i) => i !== index)
           onChange(newImages)
           
           toast.success('Image deleted successfully')
@@ -439,18 +446,20 @@ export default function ImageFinishMapper({
         }
       } else {
         // Invalid productId, just remove from local state
-        const newImages = images.filter((_, i) => i !== index)
+        const newImages = safeImages.filter((_, i) => i !== index)
         onChange(newImages)
       }
     } else {
       // Local preview image (has file property) or no productId, just remove from local state
-      const newImages = images.filter((_, i) => i !== index)
+      const newImages = safeImages.filter((_, i) => i !== index)
       onChange(newImages)
     }
   }
 
   const updateFinishMapping = async (index: number, finishID: string) => {
-    const newImages = [...images]
+    if (index < 0 || index >= safeImages.length) return
+    
+    const newImages = [...safeImages]
     
     // If selecting a finish, remove it from other images first
     if (finishID) {
@@ -465,9 +474,9 @@ export default function ImageFinishMapper({
     onChange(newImages)
     
     // Update mapping on server if product exists
-    if (productId && images[index].url && !images[index].file) {
+    if (productId && safeImages[index].url && !safeImages[index].file) {
       try {
-        await productsApi.updateImageFinishMapping(productId, images[index].url, finishID)
+        await productsApi.updateImageFinishMapping(productId, safeImages[index].url, finishID)
       } catch (error) {
         console.error('Failed to update image-finish mapping:', error)
         toast.error('Failed to update image-finish mapping')
@@ -476,7 +485,9 @@ export default function ImageFinishMapper({
   }
 
   const moveImage = (fromIndex: number, toIndex: number) => {
-    const newImages = [...images]
+    if (fromIndex < 0 || fromIndex >= safeImages.length || toIndex < 0 || toIndex >= safeImages.length) return
+    
+    const newImages = [...safeImages]
     const [movedImage] = newImages.splice(fromIndex, 1)
     newImages.splice(toIndex, 0, movedImage)
     onChange(newImages)
@@ -508,11 +519,11 @@ export default function ImageFinishMapper({
   }
 
   const getFinishDetails = (finishID: string) => {
-    return availableFinishes.find(f => f._id === finishID)
+    return safeAvailableFinishes.find(f => f._id === finishID)
   }
 
-  const mappedImages = images.filter(img => img.mappedFinishID)
-  const unmappedImages = images.filter(img => !img.mappedFinishID)
+  const mappedImages = safeImages.filter(img => img.mappedFinishID)
+  const unmappedImages = safeImages.filter(img => !img.mappedFinishID)
 
   return (
     <div 
@@ -569,7 +580,7 @@ export default function ImageFinishMapper({
                 toast.error('Failed to open file dialog. Please try again.')
               }
             }}
-            disabled={images.length >= 10 || compressing}
+            disabled={safeImages.length >= 10 || compressing}
             className="flex-1 sm:flex-none px-2 py-1 text-xs bg-brass text-white hover:bg-brass/90 disabled:opacity-50 rounded inline-flex items-center justify-center gap-1"
           >
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -577,7 +588,7 @@ export default function ImageFinishMapper({
             </svg>
             {compressing ? 'Compressing...' : 'Add'}
           </button>
-          {images.some(img => img.file) && (
+          {safeImages.some(img => img.file) && (
             <button
               onClick={handleUpload}
               disabled={uploading}
@@ -642,7 +653,7 @@ export default function ImageFinishMapper({
       )}
 
       {/* Info for new products */}
-      {!productId && images.some(img => img.file) && (
+      {!productId && safeImages.some(img => img.file) && (
         <div className="bg-blue-50 rounded-md p-2 border border-blue-200">
           <div className="flex items-center gap-2">
             <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -654,16 +665,16 @@ export default function ImageFinishMapper({
       )}
 
       {/* Images Grid - Combined */}
-      {images.length > 0 && (
+      {safeImages.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-          {images.map((image, index) => (
+          {safeImages.map((image, index) => (
             <ImageCard
               key={`image-${index}`}
               image={image}
               index={index}
-              images={images}
-              availableFinishes={availableFinishes}
-              selectedFinishes={selectedFinishes}
+              images={safeImages}
+              availableFinishes={safeAvailableFinishes}
+              selectedFinishes={safeSelectedFinishes}
               onRemove={removeImage}
               onFinishChange={updateFinishMapping}
               onDragStart={handleImageDragStart}
@@ -677,7 +688,7 @@ export default function ImageFinishMapper({
       )}
 
       {/* Empty State */}
-      {images.length === 0 && (
+      {safeImages.length === 0 && (
         <div className="text-center py-8 bg-cream/20 rounded-md border border-dashed border-brass/30">
           <svg className="w-10 h-10 mx-auto mb-2 text-brass/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -763,16 +774,21 @@ function ImageCard({
 }: ImageCardProps) {
   const [isHovered, setIsHovered] = useState(false)
 
+  // Ensure props are always arrays to prevent null/undefined errors
+  const safeImages = Array.isArray(images) ? images : []
+  const safeAvailableFinishes = Array.isArray(availableFinishes) ? availableFinishes : []
+  const safeSelectedFinishes = Array.isArray(selectedFinishes) ? selectedFinishes : []
+
   const getFinishDetails = (finishID: string) => {
-    return availableFinishes.find(f => f._id === finishID)
+    return safeAvailableFinishes.find(f => f._id === finishID)
   }
 
   // Only show finishes that are selected for this product and not already mapped to other images
-  const availableFinishesForMapping = availableFinishes.filter(finish => 
-    selectedFinishes.some(sf => sf.finishID === finish._id)
+  const availableFinishesForMapping = safeAvailableFinishes.filter(finish => 
+    safeSelectedFinishes.some(sf => sf.finishID === finish._id)
   ).filter(finish => {
     // Check if this finish is already mapped to another image
-    const isAlreadyMapped = images.some((img, imgIndex) => 
+    const isAlreadyMapped = safeImages.some((img, imgIndex) => 
       imgIndex !== index && img.mappedFinishID === finish._id
     )
     return !isAlreadyMapped
