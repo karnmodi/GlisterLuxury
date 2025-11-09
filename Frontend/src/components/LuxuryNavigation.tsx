@@ -420,7 +420,7 @@ export default function LuxuryNavigation() {
                                             transition={{ duration: 0.2, ease: 'easeOut' }}
                                             className="space-y-1.5 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar mb-2"
                                           >
-                                            {category.subcategories.map((subcategory) => {
+                                            {category.subcategories?.map((subcategory) => {
                                               // Construct URL with proper encoding using URLSearchParams
                                               const categoryParam = category.slug || category._id
                                               const subcategoryParam = subcategory.slug || subcategory._id
