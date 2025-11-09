@@ -50,11 +50,16 @@ export default function ProductFormSummary({
   availableFinishes 
 }: ProductFormSummaryProps) {
   
+  // Ensure arrays are always arrays to prevent null/undefined errors
+  const safeMaterials = Array.isArray(formData.materials) ? formData.materials : []
+  const safeImages = Array.isArray(formData.images) ? formData.images : []
+  const safeFinishes = Array.isArray(formData.finishes) ? formData.finishes : []
+  
   // Validation checks
   const validation = useMemo(() => {
     const basicValid = !!(formData.basicInfo.productID && formData.basicInfo.name)
-    const materialsValid = formData.materials.length > 0 && 
-      formData.materials.every(m => m.basePrice > 0)
+    const materialsValid = safeMaterials.length > 0 && 
+      safeMaterials.every(m => m.basePrice > 0)
     const finishesValid = true // Optional
     const imagesValid = true // Optional
     
@@ -65,14 +70,17 @@ export default function ProductFormSummary({
       images: imagesValid,
       overall: basicValid && materialsValid
     }
-  }, [formData])
+  }, [formData.basicInfo, safeMaterials])
 
   // Statistics
   const stats = useMemo(() => {
-    const totalSizes = formData.materials.reduce((sum, m) => sum + m.sizeOptions.length, 0)
-    const mappedImages = formData.images.filter(img => img.mappedFinishID).length
-    const defaultImages = formData.images.length - mappedImages
-    const priceAdjustmentSum = formData.finishes.reduce((sum, f) => sum + f.priceAdjustment, 0)
+    const totalSizes = safeMaterials.reduce((sum, m) => {
+      const sizeOptions = m.sizeOptions && Array.isArray(m.sizeOptions) ? m.sizeOptions : []
+      return sum + sizeOptions.length
+    }, 0)
+    const mappedImages = safeImages.filter(img => img.mappedFinishID).length
+    const defaultImages = safeImages.length - mappedImages
+    const priceAdjustmentSum = safeFinishes.reduce((sum, f) => sum + f.priceAdjustment, 0)
     
     return {
       totalSizes,
@@ -80,7 +88,7 @@ export default function ProductFormSummary({
       defaultImages,
       priceAdjustmentSum
     }
-  }, [formData])
+  }, [safeMaterials, safeImages, safeFinishes])
 
   return (
     <div className="flex flex-col bg-white">
@@ -141,7 +149,7 @@ export default function ProductFormSummary({
               <div className={`w-2 h-2 rounded-full ${validation.materials ? 'bg-green-500' : 'bg-red-500'}`}></div>
             </div>
             <div className="text-[10px] text-charcoal/60 mt-0.5">
-              {formData.materials.length} materials • {stats.totalSizes} sizes
+              {safeMaterials.length} materials • {stats.totalSizes} sizes
             </div>
           </button>
 
@@ -159,7 +167,7 @@ export default function ProductFormSummary({
               <div className={`w-2 h-2 rounded-full ${validation.finishes ? 'bg-green-500' : 'bg-gray-400'}`}></div>
             </div>
             <div className="text-[10px] text-charcoal/60 mt-0.5">
-              {formData.finishes.length} finishes • 
+              {safeFinishes.length} finishes • 
               {stats.priceAdjustmentSum !== 0 ? (
                 <span className={stats.priceAdjustmentSum > 0 ? 'text-red-600' : 'text-green-600'}>
                   {' '}{stats.priceAdjustmentSum > 0 ? '+' : ''}{stats.priceAdjustmentSum.toFixed(2)}
@@ -182,17 +190,17 @@ export default function ProductFormSummary({
               <div className={`w-2 h-2 rounded-full ${validation.images ? 'bg-green-500' : 'bg-gray-400'}`}></div>
             </div>
             <div className="text-[10px] text-charcoal/60 mt-0.5">
-              {formData.images.length} total • {stats.mappedImages} mapped
+              {safeImages.length} total • {stats.mappedImages} mapped
             </div>
           </button>
         </div>
 
         {/* Selected Finishes Preview */}
-        {formData.finishes.length > 0 && (
+        {safeFinishes.length > 0 && (
           <div className="space-y-2">
             <h4 className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Selected Finishes</h4>
             <div className="space-y-1">
-              {formData.finishes.slice(0, 5).map((finish) => {
+              {safeFinishes.slice(0, 5).map((finish) => {
                 const finishDetails = availableFinishes.find(f => f._id === finish.finishID)
                 return (
                   <div key={finish.finishID} className="flex items-center gap-2 text-xs bg-white border border-brass/20 rounded px-2 py-1">
@@ -222,9 +230,9 @@ export default function ProductFormSummary({
                   </div>
                 )
               })}
-              {formData.finishes.length > 5 && (
+              {safeFinishes.length > 5 && (
                 <div className="text-[10px] text-charcoal/60 text-center py-1">
-                  +{formData.finishes.length - 5} more
+                  +{safeFinishes.length - 5} more
                 </div>
               )}
             </div>
@@ -236,11 +244,11 @@ export default function ProductFormSummary({
           <h4 className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Quick Stats</h4>
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-white border border-brass/20 rounded px-2 py-1.5 text-center">
-              <div className="text-lg font-bold text-brass">{formData.materials.length}</div>
+              <div className="text-lg font-bold text-brass">{safeMaterials.length}</div>
               <div className="text-[9px] text-charcoal/60">Materials</div>
             </div>
             <div className="bg-white border border-brass/20 rounded px-2 py-1.5 text-center">
-              <div className="text-lg font-bold text-olive">{formData.finishes.length}</div>
+              <div className="text-lg font-bold text-olive">{safeFinishes.length}</div>
               <div className="text-[9px] text-charcoal/60">Finishes</div>
             </div>
             <div className="bg-white border border-brass/20 rounded px-2 py-1.5 text-center">
@@ -248,7 +256,7 @@ export default function ProductFormSummary({
               <div className="text-[9px] text-charcoal/60">Size Options</div>
             </div>
             <div className="bg-white border border-brass/20 rounded px-2 py-1.5 text-center">
-              <div className="text-lg font-bold text-brass">{formData.images.length}</div>
+              <div className="text-lg font-bold text-brass">{safeImages.length}</div>
               <div className="text-[9px] text-charcoal/60">Images</div>
             </div>
           </div>

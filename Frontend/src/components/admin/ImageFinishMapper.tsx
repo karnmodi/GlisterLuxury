@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useRef } from 'react'
@@ -367,8 +368,11 @@ export default function ImageFinishMapper({
       setUploading(true)
       const uploadResult = await productsApi.uploadImages(productId, filesToUpload)
       
-      // Get uploaded image URLs
-      const uploadedImageUrls = uploadResult.images || []
+      // Get uploaded image URLs - handle null/undefined uploadResult
+      if (!uploadResult) {
+        throw new Error('Upload failed: No response from server')
+      }
+      const uploadedImageUrls = (uploadResult.images && Array.isArray(uploadResult.images)) ? uploadResult.images : []
       
       // Update image URLs with the actual uploaded URLs while preserving finish mappings
       // Match uploaded URLs with images by order: find the index of each image with file
