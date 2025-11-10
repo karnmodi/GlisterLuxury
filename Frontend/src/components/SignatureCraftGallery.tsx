@@ -17,7 +17,7 @@ export default function SignatureCraftGallery() {
     {
       title: "Brushed Brass",
       subtitle: "Warm & Timeless",
-      image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80",
+      image: "/images/gallery/BrushedBass.png",
       description: "Handcrafted with precision, each piece radiates warmth and sophistication"
     },
     {
