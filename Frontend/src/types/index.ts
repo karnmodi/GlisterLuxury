@@ -411,6 +411,7 @@ export interface Order {
     shipping: number
     tax: number
     total: number
+    vatRate?: number
   }
   status: OrderStatus
   orderStatusHistory: Array<{
