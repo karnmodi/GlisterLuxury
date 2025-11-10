@@ -178,7 +178,14 @@ const startEmailPolling = () => {
 };
 
 // Start polling after server initialization
-startEmailPolling();
+// Only use setInterval in local development
+// In Vercel/serverless, use cron jobs instead
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  startEmailPolling();
+} else {
+  console.log('📧 Email polling will be handled by Vercel cron jobs');
+  console.log('📧 Cron endpoint: /api/incoming-email/cron');
+}
 
 // Start server (for local development)
 if (process.env.NODE_ENV !== 'production') {

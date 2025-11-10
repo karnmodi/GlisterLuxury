@@ -18,5 +18,11 @@
   "regions": ["lhr1"],
   "env": {
     "NODE_ENV": "production"
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/incoming-email/cron",
+      "schedule": "* * * * *"
+    }
+  ]
 }
