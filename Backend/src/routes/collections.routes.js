@@ -19,3 +19,4 @@ router.delete('/:id/products', ctrl.removeProductsFromCollection);
 
 module.exports = router;
 
+

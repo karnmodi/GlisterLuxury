@@ -24,3 +24,4 @@ BlogSchema.index({ title: 'text', content: 'text', shortDescription: 'text' });
 
 module.exports = mongoose.model('Blog', BlogSchema);
 
+

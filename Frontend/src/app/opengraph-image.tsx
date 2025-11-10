@@ -101,7 +101,7 @@ export default async function Image() {
               marginTop: '8px',
             }}
           >
-            glister-londonn.vercel.app
+            www.glisterlondon.com
           </div>
         </div>
       </div>

@@ -16,9 +16,14 @@ const normalizeOrigin = (value) => (typeof value === 'string' ? value.replace(/\
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.FRONTEND_URL_2,
+  // Custom domains
+  'https://www.glisterlondon.com',
+  'https://glisterlondon.com',
+  'https://www.glisterlondon.co.uk',
+  'https://glisterlondon.co.uk',
+  // Vercel domain (fallback)
   'https://glister-londonn.vercel.app',
-  'https://glister-london.vercel.app',
-  'https://glister-london-l2w3.vercel.app',
+  // Local development
   'http://localhost:3000'
 ]
   .filter(Boolean)

@@ -32,6 +32,21 @@ const sendTokenResponse = (user, statusCode, res, message) => {
   });
 };
 
+// Determine frontend URL based on request origin
+// Uses FRONTEND_URL_2 for .co.uk domains, FRONTEND_URL for others
+const getFrontendUrl = (req) => {
+  // Get origin from request headers (origin or referer)
+  const origin = req.headers.origin || req.headers.referer || '';
+  
+  // Check if origin contains .co.uk domain
+  if (origin.includes('.co.uk')) {
+    return process.env.FRONTEND_URL_2 || process.env.FRONTEND_URL || 'http://localhost:3000';
+  }
+  
+  // Default to FRONTEND_URL
+  return process.env.FRONTEND_URL || 'http://localhost:3000';
+};
+
 // @desc    Register a new user
 // @route   POST /api/auth/register
 // @access  Public
@@ -467,8 +482,11 @@ exports.forgotPassword = async (req, res, next) => {
     const resetToken = user.generatePasswordResetToken();
     await user.save({ validateBeforeSave: false });
     
+    // Determine frontend URL based on request origin
+    const frontendUrl = getFrontendUrl(req);
+    
     // Create reset URL
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+    const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
     
     // Email message
     const message = `
