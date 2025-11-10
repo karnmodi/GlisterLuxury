@@ -490,30 +490,75 @@ exports.forgotPassword = async (req, res, next) => {
     
     // Email message
     const message = `
-      <h1>Password Reset Request</h1>
-      <p>You have requested to reset your password for Glister.</p>
-      <p>Please click on the link below to reset your password:</p>
-      <a href="${resetUrl}" style="display: inline-block; padding: 10px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px;">Reset Password</a>
-      <p>This link will expire in 10 minutes.</p>
-      <p>If you did not request this, please ignore this email and your password will remain unchanged.</p>
-      <br>
-      <p>Best regards,</p>
-      <p>Glister Team</p>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 10px; }
+          .header { background-color: #2C2C2C; color: #D4AF37; padding: 20px; text-align: center; }
+          .content { background-color: #f9f9f9; padding: 15px; }
+          .info-box { background-color: white; padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #D4AF37; }
+          .button { display: inline-block; padding: 12px 24px; background-color: #2C2C2C; color: #D4AF37; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 15px 0; }
+          .footer { text-align: center; padding: 15px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>GLISTER LONDON</h1>
+            <h2 style="margin-top: 10px;">The Soul of Interior</h2>
+            <p style="margin-top: 15px; font-size: 16px;">Password Reset Request</p>
+          </div>
+          <div class="content">
+            <p>Dear User,</p>
+            
+            <p>You have requested to reset your password for your Glister London account.</p>
+            
+            <div class="info-box">
+              <p>Please click the button below to reset your password:</p>
+              <a href="${resetUrl}" class="button">Reset Password</a>
+              <p style="margin-top: 15px; font-size: 14px; color: #666;">This link will expire in 10 minutes.</p>
+            </div>
+            
+            <p>If you did not request this password reset, please ignore this email and your password will remain unchanged.</p>
+            
+            <p style="margin-top: 30px;">
+              Best regards,<br>
+              <strong>The Glister London Team</strong><br>
+              <em>The Soul of Interior</em>
+            </p>
+          </div>
+          <div class="footer">
+            <p>This is an automated email. Please do not reply to this email.</p>
+            <p>If you have any questions, feel free to reach out:</p>
+            <p><a href="mailto:enquiries@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">enquiries@glisterlondon.com</a> (All purposes) | <a href="mailto:sales@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">sales@glisterlondon.com</a> (Business purposes)</p>
+            <p>&copy; ${new Date().getFullYear()} Glister London. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
     `;
     
     try {
-      // Configure email transporter
+      // Configure email transporter for FastHost SMTP - authenticate with noreply@glisterlondon.com
+      const noreplyEmail = process.env.EMAIL_FROM_NOREPLY || 'noreply@glisterlondon.com';
       const transporter = nodemailer.createTransport({
-        service: process.env.EMAIL_SERVICE || 'gmail',
+        host: process.env.EMAIL_HOST || 'smtp.livemail.co.uk',
+        port: parseInt(process.env.EMAIL_PORT) || 587,
+        secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for 587
         auth: {
-          user: process.env.EMAIL_USERNAME,
+          user: noreplyEmail, // Authenticate with noreply email address
           pass: process.env.EMAIL_PASSWORD
+        },
+        tls: {
+          rejectUnauthorized: false // Set to true in production if you have valid SSL
         }
       });
       
-      // Send email
+      // Send email from noreply@glisterlondon.com (matches authentication)
       await transporter.sendMail({
-        from: `Glister <${process.env.EMAIL_FROM || process.env.EMAIL_USERNAME}>`,
+        from: `Glister London <${noreplyEmail}>`,
         to: email,
         subject: 'Password Reset Request - Glister',
         html: message

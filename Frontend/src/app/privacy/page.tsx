@@ -13,7 +13,7 @@ export default function PrivacyPolicyPage() {
     {
       id: 'who-we-are',
       title: '2. Who We Are',
-      content: 'Glister London Limited\n\nRegistered in: United Kingdom\n\nIf you have any questions about this Privacy Policy or your data, please contact us at:\n\nEmail: enquiries@glisterlondon.co.uk'
+      content: 'Glister London Limited\n\nRegistered in: United Kingdom\n\nIf you have any questions about this Privacy Policy or your data, please contact us at:\n\nEmail: enquiries@glisterlondon.com'
     },
     {
       id: 'data-collection',
@@ -63,7 +63,7 @@ export default function PrivacyPolicyPage() {
     {
       id: 'contact',
       title: '12. Contact Us',
-      content: 'If you have any questions, requests, or complaints regarding this Privacy Policy, please contact us at:\n\nEmail: enquiries@glisterlondon.co.uk\n\nAddress: Glister London Limited, 16 Northfield Park, Hayes, England, UB3 4NU'
+      content: 'If you have any questions, requests, or complaints regarding this Privacy Policy, please contact us at:\n\nEmail: enquiries@glisterlondon.com\n\nAddress: Glister London Limited, 16 Northfield Park, Hayes, England, UB3 4NU'
     }
   ]
 

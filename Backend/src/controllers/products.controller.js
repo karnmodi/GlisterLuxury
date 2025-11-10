@@ -1,6 +1,7 @@
 const Product = require('../models/Product');
 const Finish = require('../models/Finish');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
+const { setCorsHeaders } = require('../utils/corsHelper');
 
 /**
  * Sanitize productID for use in Cloudinary public_id
@@ -665,6 +666,9 @@ async function deleteProduct(req, res) {
  * POST /api/products/:id/images
  */
 async function uploadProductImages(req, res) {
+	// Set CORS headers explicitly for this route
+	setCorsHeaders(req, res);
+	
 	try {
 		// Log request details for debugging
 		const contentType = req.headers['content-type'] || 'unknown';
@@ -746,6 +750,9 @@ async function uploadProductImages(req, res) {
 			product: transformedProduct,
 		});
 	} catch (err) {
+		// Ensure CORS headers are set even on error
+		setCorsHeaders(req, res);
+		
 		console.error(`[uploadProductImages] Error during upload:`, {
 			message: err.message,
 			stack: err.stack,
@@ -753,6 +760,15 @@ async function uploadProductImages(req, res) {
 			filesCount: req.files ? req.files.length : 0,
 			contentType: req.headers['content-type']
 		});
+		
+		// Handle 413 Payload Too Large errors specifically
+		if (err.status === 413 || (err.message && err.message.includes('413')) || err.message?.includes('Content Too Large')) {
+			return res.status(413).json({ 
+				message: 'File size too large. Maximum size is 3MB per file. Please upload one image at a time.',
+				error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+			});
+		}
+		
 		return res.status(500).json({ 
 			message: err.message || 'Failed to upload images',
 			error: process.env.NODE_ENV === 'development' ? err.stack : undefined

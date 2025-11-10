@@ -441,10 +441,10 @@ export default function FAQsPage() {
               <motion.a
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                href="tel:+44123456789"
+                href="tel:+447767198433"
                 className="px-6 sm:px-8 py-3 border border-brass text-brass font-medium rounded-sm hover:bg-brass hover:text-charcoal transition-all duration-300 text-sm sm:text-base"
               >
-                Call +44 123 456 789
+                Call +44 7767 198433
               </motion.a>
             </div>
           </motion.div>

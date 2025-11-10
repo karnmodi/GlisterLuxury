@@ -69,7 +69,7 @@ export default function CookiePolicyPage() {
     {
       id: 'contact',
       title: '10. Contact Us',
-      content: 'If you have any questions, concerns, or requests regarding our use of cookies, please contact us at:\n\nEmail: enquiries@glisterlondon.co.uk\n\nAddress: Glister London Limited, 16 Northfield Park, Hayes, England, UB3 4NU'
+      content: 'If you have any questions, concerns, or requests regarding our use of cookies, please contact us at:\n\nEmail: enquiries@glisterlondon.com\n\nAddress: Glister London Limited, 16 Northfield Park, Hayes, England, UB3 4NU'
     }
   ]
 

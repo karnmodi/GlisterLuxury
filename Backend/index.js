@@ -50,6 +50,27 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// Middleware to check content-length for large uploads
+// Vercel has a 4.5MB request body limit, so we reject early if content is too large
+app.use((req, res, next) => {
+	const contentLength = req.headers['content-length'];
+	if (contentLength) {
+		const sizeInMB = parseInt(contentLength) / (1024 * 1024);
+		// Reject if larger than 4MB to account for multipart encoding overhead
+		if (sizeInMB > 4) {
+			const origin = req.headers.origin;
+			if (origin && allowedOrigins.includes(normalizeOrigin(origin))) {
+				res.setHeader('Access-Control-Allow-Origin', origin);
+				res.setHeader('Access-Control-Allow-Credentials', 'true');
+			}
+			return res.status(413).json({ 
+				message: 'Request payload too large. Maximum size is 3MB per file. Please upload one image at a time.' 
+			});
+		}
+	}
+	next();
+});
+
 // Conditional body parsers - skip multipart/form-data (needed for multer)
 // Multer needs access to the raw request stream for file uploads
 // On Vercel serverless, body parsers may interfere with multer, so we skip them for multipart

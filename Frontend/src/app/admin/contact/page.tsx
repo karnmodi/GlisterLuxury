@@ -55,10 +55,11 @@ export default function AdminContactPage() {
     try {
       setLoading(true)
       const data = await contactApi.getInfo({}, token)
-      setContactInfo(data)
+      setContactInfo(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Failed to fetch contact info:', error)
       alert('Failed to load contact information')
+      setContactInfo([])
     } finally {
       setLoading(false)
     }
@@ -233,7 +234,7 @@ export default function AdminContactPage() {
     }
   }
 
-  const filteredInfo = contactInfo.sort((a, b) => a.displayOrder - b.displayOrder)
+  const filteredInfo = (contactInfo || []).sort((a, b) => a.displayOrder - b.displayOrder)
 
   if (loading && (activeTab === 'info' ? contactInfo.length === 0 : inquiries.length === 0)) {
     return (

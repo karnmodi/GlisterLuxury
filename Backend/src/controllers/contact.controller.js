@@ -180,12 +180,18 @@ async function deleteContactInfo(req, res) {
  */
 async function sendContactInquiryEmail(inquiry) {
 	try {
-		// Configure email transporter
+		// Configure email transporter for FastHost SMTP - authenticate with enquiries@glisterlondon.com
+		const enquiriesEmail = process.env.EMAIL_FROM_ENQUIRIES || 'enquiries@glisterlondon.com';
 		const transporter = nodemailer.createTransport({
-			service: process.env.EMAIL_SERVICE || 'gmail',
+			host: process.env.EMAIL_HOST || 'smtp.livemail.co.uk',
+			port: parseInt(process.env.EMAIL_PORT) || 587,
+			secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for 587
 			auth: {
-				user: process.env.EMAIL_USERNAME,
+				user: enquiriesEmail, // Authenticate with enquiries email address
 				pass: process.env.EMAIL_PASSWORD
+			},
+			tls: {
+				rejectUnauthorized: false // Set to true in production if you have valid SSL
 			}
 		});
 
@@ -261,10 +267,10 @@ async function sendContactInquiryEmail(inquiry) {
 			</html>
 		`;
 
-		// Send admin notification
+		// Send admin notification from enquiries@glisterlondon.com (matches authentication)
 		const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USERNAME;
 		await transporter.sendMail({
-			from: `Glister London <${process.env.EMAIL_FROM || process.env.EMAIL_USERNAME}>`,
+			from: `Glister London <${enquiriesEmail}>`,
 			to: adminEmail,
 			subject: `📧 New Contact Request - ${inquiry.subject} - ${inquiry.name}`,
 			html: adminEmailHTML
@@ -273,6 +279,114 @@ async function sendContactInquiryEmail(inquiry) {
 		console.log('[Contact Inquiry] Admin notification email sent successfully');
 	} catch (emailError) {
 		console.error('[Contact Inquiry] Email sending failed:', emailError);
+		// Don't throw error - we don't want to fail the inquiry submission if email fails
+	}
+}
+
+/**
+ * Helper function to send customer confirmation email for contact inquiries
+ */
+async function sendContactInquiryConfirmationEmail(inquiry) {
+	try {
+		// Configure email transporter for FastHost SMTP - authenticate with enquiries@glisterlondon.com
+		const enquiriesEmail = process.env.EMAIL_FROM_ENQUIRIES || 'enquiries@glisterlondon.com';
+		const transporter = nodemailer.createTransport({
+			host: process.env.EMAIL_HOST || 'smtp.livemail.co.uk',
+			port: parseInt(process.env.EMAIL_PORT) || 587,
+			secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for 587
+			auth: {
+				user: enquiriesEmail, // Authenticate with enquiries email address
+				pass: process.env.EMAIL_PASSWORD
+			},
+			tls: {
+				rejectUnauthorized: false // Set to true in production if you have valid SSL
+			}
+		});
+
+		// Customer confirmation email
+		const customerEmailHTML = `
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<style>
+					body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+					.container { max-width: 600px; margin: 0 auto; padding: 10px; }
+					.header { background-color: #2C2C2C; color: #D4AF37; padding: 20px; text-align: center; }
+					.content { background-color: #f9f9f9; padding: 15px; }
+					.confirmation-box { background-color: white; padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #D4AF37; }
+					.inquiry-summary { background-color: #f5f5f5; padding: 15px; border-radius: 4px; margin: 15px 0; }
+					.info-box { background-color: #e7f3ff; border-left: 4px solid #2196F3; padding: 15px; margin: 15px 0; }
+					.footer { text-align: center; padding: 15px; color: #666; font-size: 12px; }
+				</style>
+			</head>
+			<body>
+				<div class="container">
+					<div class="header">
+						<h1>GLISTER LONDON</h1>
+						<h2 style="margin-top: 10px;">The Soul of Interior</h2>
+						<p style="margin-top: 15px; font-size: 16px;">Thank You for Contacting Us</p>
+					</div>
+					<div class="content">
+						<p>Dear ${inquiry.name},</p>
+						
+						<div class="confirmation-box">
+							<h2 style="margin-top: 0; color: #2C2C2C;">Your Request Has Been Received</h2>
+							<p>Thank you for contacting Glister London. We have successfully received your inquiry and our team will review it shortly.</p>
+						</div>
+
+						<div class="inquiry-summary">
+							<h3 style="margin-top: 0; color: #2C2C2C;">Your Inquiry Summary</h3>
+							<p><strong>Inquiry ID:</strong> ${inquiry._id}</p>
+							<p><strong>Subject:</strong> ${inquiry.subject}</p>
+							<p><strong>Submitted Date:</strong> ${new Date(inquiry.createdAt).toLocaleString('en-GB', { 
+								day: 'numeric', 
+								month: 'long', 
+								year: 'numeric',
+								hour: '2-digit',
+								minute: '2-digit'
+							})}</p>
+							<p><strong>Status:</strong> <span style="background-color: #fff3cd; padding: 4px 8px; border-radius: 4px; font-weight: bold;">NEW</span></p>
+						</div>
+
+						<div class="info-box">
+							<h3 style="margin-top: 0;">What Happens Next?</h3>
+							<ol style="margin: 10px 0; padding-left: 20px;">
+								<li>Our team will review your inquiry</li>
+								<li>We'll respond to you at <strong>${inquiry.email}</strong> as soon as possible</li>
+								<li>Typically, we respond within 24-48 hours during business days</li>
+							</ol>
+						</div>
+
+						<p>If you have any urgent questions or need immediate assistance, please don't hesitate to contact us directly.</p>
+
+						<p style="margin-top: 30px;">
+							Best regards,<br>
+							<strong>The Glister London Team</strong><br>
+							<em>The Soul of Interior</em>
+						</p>
+					</div>
+					<div class="footer">
+						<p>This is an automated confirmation email. Please do not reply to this email.</p>
+						<p>If you have any questions, feel free to reach out:</p>
+						<p><a href="mailto:enquiries@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">enquiries@glisterlondon.com</a> (All purposes) | <a href="mailto:sales@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">sales@glisterlondon.com</a> (Business purposes)</p>
+						<p>&copy; ${new Date().getFullYear()} Glister London. All rights reserved.</p>
+					</div>
+				</div>
+			</body>
+			</html>
+		`;
+
+		// Send customer confirmation from enquiries@glisterlondon.com (matches authentication)
+		await transporter.sendMail({
+			from: `Glister London <${enquiriesEmail}>`,
+			to: inquiry.email,
+			subject: `Thank You for Your Inquiry - Glister London`,
+			html: customerEmailHTML
+		});
+
+		console.log('[Contact Inquiry] Customer confirmation email sent successfully');
+	} catch (emailError) {
+		console.error('[Contact Inquiry] Customer confirmation email sending failed:', emailError);
 		// Don't throw error - we don't want to fail the inquiry submission if email fails
 	}
 }
@@ -303,11 +417,20 @@ async function submitInquiry(req, res) {
 			status: 'new'
 		});
 		
-		// Send email notification to admin
+		// Send email notifications (admin and customer)
 		try {
+			// Send admin notification
 			await sendContactInquiryEmail(inquiry);
 		} catch (emailError) {
-			console.error('[Contact Inquiry] Email sending failed:', emailError);
+			console.error('[Contact Inquiry] Admin email sending failed:', emailError);
+			// Don't fail the inquiry submission if email fails
+		}
+
+		try {
+			// Send customer confirmation
+			await sendContactInquiryConfirmationEmail(inquiry);
+		} catch (emailError) {
+			console.error('[Contact Inquiry] Customer confirmation email sending failed:', emailError);
 			// Don't fail the inquiry submission if email fails
 		}
 		

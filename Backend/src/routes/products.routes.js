@@ -2,6 +2,7 @@ const router = require('express').Router();
 const ctrl = require('../controllers/products.controller');
 const { validateCreateProduct } = require('../middleware/validation');
 const { uploadMultiple, handleMulterError } = require('../middleware/upload');
+const { handleOptionsRequest } = require('../utils/corsHelper');
 
 router.post('/', validateCreateProduct, ctrl.createProduct);
 router.get('/listing', ctrl.listProductsMinimal); // Optimized endpoint for product listing
@@ -13,6 +14,8 @@ router.patch('/:id', ctrl.updateProduct);
 router.delete('/:id', ctrl.deleteProduct);
 
 // Image upload routes
+// Handle OPTIONS preflight requests for CORS
+router.options('/:id/images', handleOptionsRequest);
 router.post('/:id/images', uploadMultiple, handleMulterError, ctrl.uploadProductImages);
 router.delete('/:id/images', ctrl.deleteProductImage);
 router.put('/:id/images/mapping', ctrl.updateImageFinishMapping);

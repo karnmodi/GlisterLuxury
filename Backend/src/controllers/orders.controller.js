@@ -7,15 +7,6 @@ const nodemailer = require('nodemailer');
  * Helper function to send order confirmation emails
  */
 async function sendOrderEmails(order, user) {
-	// Configure email transporter
-	const transporter = nodemailer.createTransport({
-		service: process.env.EMAIL_SERVICE || 'gmail',
-		auth: {
-			user: process.env.EMAIL_USERNAME,
-			pass: process.env.EMAIL_PASSWORD
-		}
-	});
-
 	const formatPrice = (price) => {
 		const amount = typeof price === 'object' && price.$numberDecimal 
 			? parseFloat(price.$numberDecimal) 
@@ -46,25 +37,25 @@ async function sendOrderEmails(order, user) {
 		<head>
 			<style>
 				body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-				.container { max-width: 600px; margin: 0 auto; padding: 20px; }
+				.container { max-width: 600px; margin: 0 auto; padding: 10px; }
 				.header { background-color: #2C2C2C; color: #D4AF37; padding: 20px; text-align: center; }
-				.content { background-color: #f9f9f9; padding: 20px; }
-				.order-details { background-color: white; padding: 20px; margin: 20px 0; border-radius: 8px; }
+				.content { background-color: #f9f9f9; padding: 15px; }
+				.order-details { background-color: white; padding: 15px; margin: 15px 0; border-radius: 8px; }
 				table { width: 100%; border-collapse: collapse; }
 				th { background-color: #2C2C2C; color: #D4AF37; padding: 12px; text-align: left; }
 				.total-row { font-size: 18px; font-weight: bold; }
-				.alert-box { background-color: #fff3cd; border-left: 4px solid #D4AF37; padding: 15px; margin: 20px 0; }
+				.alert-box { background-color: #fff3cd; border-left: 4px solid #D4AF37; padding: 15px; margin: 15px 0; }
 			</style>
 		</head>
 		<body>
 			<div class="container">
 				<div class="header">
-					<h1>🎉 NEW ORDER RECEIVED</h1>
+					<h1>NEW ORDER RECEIVED</h1>
 					<p>Order #${order.orderNumber}</p>
 				</div>
 				<div class="content">
 					<div class="alert-box">
-						<strong>⚡ Action Required:</strong> A new order has been placed and requires your attention.
+						<strong>Action Required:</strong> A new order has been placed and requires your attention.
 					</div>
 					
 					<div class="order-details">
@@ -126,7 +117,7 @@ async function sendOrderEmails(order, user) {
 								${order.discountCode && order.pricing.discount ? `
 								<tr style="background-color: #d4edda;">
 									<td colspan="3" style="padding: 12px; text-align: right;">
-										<span style="color: #155724;">  Discount Applied (${order.discountCode}):</span>
+										<span style="color: #155724;">Discount Applied (${order.discountCode}):</span>
 									</td>
 									<td style="padding: 12px; text-align: right; color: #155724; font-weight: bold;">-${formatPrice(order.pricing.discount)}</td>
 								</tr>
@@ -157,7 +148,7 @@ async function sendOrderEmails(order, user) {
 					</div>
 
 					<div class="alert-box">
-						<strong>💳 Payment Status:</strong> Awaiting Payment - Send payment instructions to customer.
+						<strong>Payment Status:</strong> Awaiting Payment - Send payment instructions to customer.
 					</div>
 				</div>
 			</div>
@@ -172,23 +163,23 @@ async function sendOrderEmails(order, user) {
 		<head>
 			<style>
 				body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-				.container { max-width: 600px; margin: 0 auto; padding: 20px; }
-				.header { background-color: #2C2C2C; color: #D4AF37; padding: 30px; text-align: center; }
-				.content { background-color: #f9f9f9; padding: 20px; }
-				.order-details { background-color: white; padding: 20px; margin: 20px 0; border-radius: 8px; }
+				.container { max-width: 600px; margin: 0 auto; padding: 10px; }
+				.header { background-color: #2C2C2C; color: #D4AF37; padding: 20px; text-align: center; }
+				.content { background-color: #f9f9f9; padding: 15px; }
+				.order-details { background-color: white; padding: 15px; margin: 15px 0; border-radius: 8px; }
 				table { width: 100%; border-collapse: collapse; }
 				th { background-color: #2C2C2C; color: #D4AF37; padding: 12px; text-align: left; }
 				.total-row { font-size: 18px; font-weight: bold; }
-				.info-box { background-color: #e7f3ff; border-left: 4px solid #2196F3; padding: 15px; margin: 20px 0; }
-				.footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+				.info-box { background-color: #e7f3ff; border-left: 4px solid #2196F3; padding: 15px; margin: 15px 0; }
+				.footer { text-align: center; padding: 15px; color: #666; font-size: 12px; }
 			</style>
 		</head>
 		<body>
 			<div class="container">
 				<div class="header">
-					<h1>✨ GLISTER LONDON</h1>
+					<h1>GLISTER LONDON</h1>
 					<h2 style="margin-top: 10px;">The Soul of Interior</h2>
-					<p style="margin-top: 20px; font-size: 16px;">Thank You for Your Order!</p>
+					<p style="margin-top: 15px; font-size: 16px;">Thank You for Your Order!</p>
 				</div>
 				<div class="content">
 					<p>Dear ${order.customerInfo.name},</p>
@@ -214,7 +205,8 @@ async function sendOrderEmails(order, user) {
 								<tr>
 									<th>Product</th>
 									<th style="text-align: center;">Qty</th>
-									<th style="text-align: right;">Price</th>
+									<th style="text-align: right;">Unit Price</th>
+									<th style="text-align: right;">Total</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -222,16 +214,20 @@ async function sendOrderEmails(order, user) {
 									<tr>
 										<td style="padding: 12px; border-bottom: 1px solid #e5e5e5;">
 											<strong>${item.productName}</strong><br>
-											<small style="color: #666;">${item.productCode}</small>
+											<small style="color: #666;">Product Code: ${item.productCode}</small><br>
+											<small style="color: #666;">Material: ${item.selectedMaterial.name}</small>
+											${item.selectedSizeName ? `<br><small style="color: #666;">Size: ${item.selectedSizeName}</small>` : item.selectedSize ? `<br><small style="color: #666;">Size: ${item.selectedSize}mm</small>` : ''}
+											${item.selectedFinish && item.selectedFinish.name ? `<br><small style="color: #666;">Finish: ${item.selectedFinish.name}</small>` : ''}
 										</td>
 										<td style="padding: 12px; border-bottom: 1px solid #e5e5e5; text-align: center;">${item.quantity}</td>
-										<td style="padding: 12px; border-bottom: 1px solid #e5e5e5; text-align: right;">${formatPrice(item.totalPrice)}</td>
+										<td style="padding: 12px; border-bottom: 1px solid #e5e5e5; text-align: right;">${formatPrice(item.unitPrice)}</td>
+										<td style="padding: 12px; border-bottom: 1px solid #e5e5e5; text-align: right;"><strong>${formatPrice(item.totalPrice)}</strong></td>
 									</tr>
 								`).join('')}
 
 								<!-- Pricing Summary -->
 								<tr>
-									<td colspan="2" style="padding: 12px; text-align: right; border-top: 2px solid #e5e5e5;">
+									<td colspan="3" style="padding: 12px; text-align: right; border-top: 2px solid #e5e5e5;">
 										<span style="color: #666;">Subtotal:</span>
 									</td>
 									<td style="padding: 12px; text-align: right; border-top: 2px solid #e5e5e5;">
@@ -241,9 +237,9 @@ async function sendOrderEmails(order, user) {
 
 								${order.discountCode && order.pricing.discount ? `
 								<tr style="background-color: #d4edda;">
-									<td colspan="2" style="padding: 12px; text-align: right;">
+									<td colspan="3" style="padding: 12px; text-align: right;">
 										<div>
-											<span style="color: #155724; font-weight: bold;">  Discount Applied</span><br>
+											<span style="color: #155724; font-weight: bold;">Discount Applied</span><br>
 											<span style="color: #666; font-size: 12px; font-family: monospace;">${order.discountCode}</span>
 										</div>
 									</td>
@@ -254,7 +250,7 @@ async function sendOrderEmails(order, user) {
 								` : ''}
 
 								<tr>
-									<td colspan="2" style="padding: 12px; text-align: right;">
+									<td colspan="3" style="padding: 12px; text-align: right;">
 										<span style="color: #666;">Shipping:</span>
 									</td>
 									<td style="padding: 12px; text-align: right;">
@@ -263,7 +259,7 @@ async function sendOrderEmails(order, user) {
 								</tr>
 
 								<tr>
-									<td colspan="2" style="padding: 12px; text-align: right;">
+									<td colspan="3" style="padding: 12px; text-align: right;">
 										<span style="color: #666; font-size: 12px;">VAT (20%) included:</span>
 									</td>
 									<td style="padding: 12px; text-align: right; color: #666; font-size: 12px;">
@@ -272,7 +268,7 @@ async function sendOrderEmails(order, user) {
 								</tr>
 
 								<tr class="total-row">
-									<td colspan="2" style="padding: 20px 12px; text-align: right; border-top: 2px solid #2c3e50; font-size: 18px;">
+									<td colspan="3" style="padding: 20px 12px; text-align: right; border-top: 2px solid #2c3e50; font-size: 18px;">
 										<strong>Total (inc. VAT):</strong>
 									</td>
 									<td style="padding: 20px 12px; text-align: right; border-top: 2px solid #2c3e50; font-size: 18px;">
@@ -280,7 +276,7 @@ async function sendOrderEmails(order, user) {
 									</td>
 								</tr>
 								<tr>
-									<td colspan="3" style="padding: 8px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #e5e5e5;">
+									<td colspan="4" style="padding: 8px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #e5e5e5;">
 										All prices include 20% UK VAT
 									</td>
 								</tr>
@@ -299,13 +295,13 @@ async function sendOrderEmails(order, user) {
 					</div>
 
 					<div class="info-box">
-						<h3 style="margin-top: 0;">💳 Payment Information</h3>
+						<h3 style="margin-top: 0;">Payment Information</h3>
 						<p>We will send you payment instructions shortly via email. Payment will be collected after we confirm your order details.</p>
 						<p><strong>Payment Status:</strong> Awaiting Confirmation</p>
 					</div>
 
 					<div class="info-box">
-						<h3 style="margin-top: 0;">📦 What's Next?</h3>
+						<h3 style="margin-top: 0;">What's Next?</h3>
 						<ol style="margin: 10px 0; padding-left: 20px;">
 							<li>We'll review your order details</li>
 							<li>You'll receive payment instructions via email</li>
@@ -324,6 +320,8 @@ async function sendOrderEmails(order, user) {
 				</div>
 				<div class="footer">
 					<p>This is an automated confirmation email. Please do not reply to this email.</p>
+					<p>If you have any questions, feel free to reach out:</p>
+					<p><a href="mailto:enquiries@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">enquiries@glisterlondon.com</a> (All purposes) | <a href="mailto:sales@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">sales@glisterlondon.com</a> (Business purposes)</p>
 					<p>&copy; ${new Date().getFullYear()} Glister London. All rights reserved.</p>
 				</div>
 			</div>
@@ -331,18 +329,48 @@ async function sendOrderEmails(order, user) {
 		</html>
 	`;
 
-	// Send admin notification
+	// Create transporter for admin emails - authenticate with enquiries@glisterlondon.com
+	const enquiriesEmail = process.env.EMAIL_FROM_ENQUIRIES || 'enquiries@glisterlondon.com';
+	const adminTransporter = nodemailer.createTransport({
+		host: process.env.EMAIL_HOST || 'smtp.livemail.co.uk',
+		port: parseInt(process.env.EMAIL_PORT) || 587,
+		secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for 587
+		auth: {
+			user: enquiriesEmail, // Authenticate with enquiries email address
+			pass: process.env.EMAIL_PASSWORD
+		},
+		tls: {
+			rejectUnauthorized: false // Set to true in production if you have valid SSL
+		}
+	});
+
+	// Create transporter for customer emails - authenticate with orders@glisterlondon.com
+	const ordersEmail = process.env.EMAIL_FROM_ORDERS || 'orders@glisterlondon.com';
+	const customerTransporter = nodemailer.createTransport({
+		host: process.env.EMAIL_HOST || 'smtp.livemail.co.uk',
+		port: parseInt(process.env.EMAIL_PORT) || 587,
+		secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for 587
+		auth: {
+			user: ordersEmail, // Authenticate with orders email address
+			pass: process.env.EMAIL_PASSWORD
+		},
+		tls: {
+			rejectUnauthorized: false // Set to true in production if you have valid SSL
+		}
+	});
+
+	// Send admin notification from enquiries@glisterlondon.com (matches authentication)
 	const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USERNAME;
-	await transporter.sendMail({
-		from: `Glister London <${process.env.EMAIL_FROM || process.env.EMAIL_USERNAME}>`,
+	await adminTransporter.sendMail({
+		from: `Glister London <${enquiriesEmail}>`,
 		to: adminEmail,
-		subject: `🎉 New Order #${order.orderNumber} - ${order.customerInfo.name}`,
+		subject: `New Order #${order.orderNumber} - ${order.customerInfo.name}`,
 		html: adminEmailHTML
 	});
 
-	// Send customer confirmation
-	await transporter.sendMail({
-		from: `Glister London <${process.env.EMAIL_FROM || process.env.EMAIL_USERNAME}>`,
+	// Send customer confirmation from orders@glisterlondon.com (matches authentication)
+	await customerTransporter.sendMail({
+		from: `Glister London <${ordersEmail}>`,
 		to: order.customerInfo.email,
 		subject: `Order Confirmation #${order.orderNumber} - Glister London`,
 		html: customerEmailHTML
@@ -975,11 +1003,18 @@ exports.addAdminMessage = async (req, res, next) => {
 
 		// Send email notification to customer
 		try {
+			// Create transporter for customer emails - authenticate with orders@glisterlondon.com
+			const ordersEmail = process.env.EMAIL_FROM_ORDERS || 'orders@glisterlondon.com';
 			const transporter = nodemailer.createTransport({
-				service: process.env.EMAIL_SERVICE || 'gmail',
+				host: process.env.EMAIL_HOST || 'smtp.livemail.co.uk',
+				port: parseInt(process.env.EMAIL_PORT) || 587,
+				secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for 587
 				auth: {
-					user: process.env.EMAIL_USERNAME,
+					user: ordersEmail, // Authenticate with orders email address
 					pass: process.env.EMAIL_PASSWORD
+				},
+				tls: {
+					rejectUnauthorized: false // Set to true in production if you have valid SSL
 				}
 			});
 
@@ -1008,21 +1043,21 @@ exports.addAdminMessage = async (req, res, next) => {
 				<head>
 					<style>
 						body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-						.container { max-width: 600px; margin: 0 auto; padding: 20px; }
-						.header { background-color: #2C2C2C; color: #D4AF37; padding: 30px; text-align: center; }
-						.content { background-color: #f9f9f9; padding: 20px; }
-						.message-box { background-color: white; border-left: 4px solid #D4AF37; padding: 20px; margin: 20px 0; border-radius: 4px; }
-						.order-details { background-color: white; padding: 20px; margin: 20px 0; border-radius: 8px; }
+						.container { max-width: 600px; margin: 0 auto; padding: 10px; }
+						.header { background-color: #2C2C2C; color: #D4AF37; padding: 20px; text-align: center; }
+						.content { background-color: #f9f9f9; padding: 15px; }
+						.message-box { background-color: white; border-left: 4px solid #D4AF37; padding: 15px; margin: 15px 0; border-radius: 4px; }
+						.order-details { background-color: white; padding: 15px; margin: 15px 0; border-radius: 8px; }
 						.status-badge { display: inline-block; padding: 6px 12px; border-radius: 4px; background-color: #D4AF37; color: #2C2C2C; font-weight: bold; }
-						.footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+						.footer { text-align: center; padding: 15px; color: #666; font-size: 12px; }
 					</style>
 				</head>
 				<body>
 					<div class="container">
 						<div class="header">
-							<h1>✨ GLISTER LONDON</h1>
+							<h1>GLISTER LONDON</h1>
 							<h2 style="margin-top: 10px;">The Soul of Interior</h2>
-							<p style="margin-top: 20px; font-size: 16px;">Order Update</p>
+							<p style="margin-top: 15px; font-size: 16px;">Order Update</p>
 						</div>
 						<div class="content">
 							<p>Dear ${order.customerInfo.name},</p>
@@ -1037,7 +1072,7 @@ exports.addAdminMessage = async (req, res, next) => {
 							</div>
 
 							<div class="message-box">
-								<h3 style="margin-top: 0; color: #D4AF37;">📩 Message from Glister London</h3>
+								<h3 style="margin-top: 0; color: #D4AF37;">Message from Glister London</h3>
 								<p style="font-size: 16px; line-height: 1.8;">${message.replace(/\n/g, '<br>')}</p>
 								<p style="font-size: 12px; color: #666; margin-top: 15px;">
 									Sent on ${new Date().toLocaleString('en-GB', { 
@@ -1059,7 +1094,9 @@ exports.addAdminMessage = async (req, res, next) => {
 							</p>
 						</div>
 						<div class="footer">
-							<p>This is an automated notification email.</p>
+							<p>This is an automated notification email. Please do not reply to this email.</p>
+							<p>If you have any questions, feel free to reach out:</p>
+							<p><a href="mailto:enquiries@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">enquiries@glisterlondon.com</a> (All purposes) | <a href="mailto:sales@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">sales@glisterlondon.com</a> (Business purposes)</p>
 							<p>&copy; ${new Date().getFullYear()} Glister London. All rights reserved.</p>
 						</div>
 					</div>
@@ -1068,7 +1105,7 @@ exports.addAdminMessage = async (req, res, next) => {
 			`;
 
 			await transporter.sendMail({
-				from: `Glister London <${process.env.EMAIL_FROM || process.env.EMAIL_USERNAME}>`,
+				from: `Glister London <${ordersEmail}>`, // Matches authentication
 				to: order.customerInfo.email,
 				subject: `Order Update #${order.orderNumber} - Glister London`,
 				html: customerEmailHTML

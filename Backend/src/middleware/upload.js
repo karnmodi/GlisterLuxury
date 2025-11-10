@@ -27,28 +27,37 @@ const fileFilter = (req, file, cb) => {
 };
 
 // Multer configuration
+// Note: Vercel has a 4.5MB request body limit for serverless functions
+// We set 3MB per file to allow some overhead for multipart encoding
 const upload = multer({
 	storage: storage,
 	fileFilter: fileFilter,
 	limits: {
-		fileSize: 10 * 1024 * 1024, // 10MB file size limit
+		fileSize: 3 * 1024 * 1024, // 3MB file size limit (reduced from 10MB for Vercel compatibility)
 	},
 });
 
 // Middleware for single image upload
 const uploadSingle = upload.single('image');
 
-// Middleware for multiple images upload (max 10)
-const uploadMultiple = upload.array('images', 10);
+// Middleware for multiple images upload (max 1 to stay within Vercel's 4.5MB limit)
+// Users can upload multiple images by making multiple requests
+const uploadMultiple = upload.array('images', 1);
 
 // Error handling middleware for multer
+// This middleware also sets CORS headers to ensure errors are properly handled
+const { setCorsHeaders } = require('../utils/corsHelper');
+
 const handleMulterError = (err, req, res, next) => {
+	// Set CORS headers before sending error response
+	setCorsHeaders(req, res);
+	
 	if (err instanceof multer.MulterError) {
 		if (err.code === 'LIMIT_FILE_SIZE') {
-			return res.status(400).json({ message: 'File size too large. Maximum size is 10MB.' });
+			return res.status(400).json({ message: 'File size too large. Maximum size is 3MB per file.' });
 		}
 		if (err.code === 'LIMIT_FILE_COUNT') {
-			return res.status(400).json({ message: 'Too many files. Maximum is 10 images.' });
+			return res.status(400).json({ message: 'Too many files. Please upload one image at a time.' });
 		}
 		return res.status(400).json({ message: err.message });
 	} else if (err) {
