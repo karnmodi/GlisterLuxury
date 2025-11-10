@@ -1,5 +1,6 @@
 const Settings = require('../models/Settings');
 const ProcessedEmail = require('../models/ProcessedEmail');
+const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
 const emailLogger = require('../utils/emailLogger');
 
@@ -57,8 +58,8 @@ function isBusinessEmail(email) {
  */
 async function checkIfAlreadyReplied(emailAddress, senderEmail, messageId, subject, date) {
   try {
-    // Check if mongoose is connected
-    if (!ProcessedEmail.db || ProcessedEmail.db.readyState !== 1) {
+    // Check if mongoose is connected using mongoose.connection
+    if (mongoose.connection.readyState !== 1) {
       // Database not connected, return false to allow processing
       return false;
     }
@@ -86,8 +87,8 @@ async function checkIfAlreadyReplied(emailAddress, senderEmail, messageId, subje
  */
 async function markAsReplied(emailAddress, senderEmail, messageId, subject, date) {
   try {
-    // Check if mongoose is connected
-    if (!ProcessedEmail.db || ProcessedEmail.db.readyState !== 1) {
+    // Check if mongoose is connected using mongoose.connection
+    if (mongoose.connection.readyState !== 1) {
       // Database not connected, return false to prevent marking
       emailLogger.warn('Database not connected, cannot mark email as replied', {
         emailAddress,

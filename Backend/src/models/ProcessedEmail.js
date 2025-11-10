@@ -49,8 +49,8 @@ processedEmailSchema.index({ emailAddress: 1, uniqueIdentifier: 1 });
 // Static method to check if email was already replied to
 processedEmailSchema.statics.checkIfReplied = async function(emailAddress, senderEmail, messageId, subject, date) {
   try {
-    // Check if database is connected
-    if (!this.db || this.db.readyState !== 1) {
+    // Check if database is connected using mongoose.connection
+    if (mongoose.connection.readyState !== 1) {
       return false; // Database not connected, assume not replied
     }
     
@@ -76,8 +76,8 @@ processedEmailSchema.statics.checkIfReplied = async function(emailAddress, sende
 // Static method to mark email as replied
 processedEmailSchema.statics.markAsReplied = async function(emailAddress, senderEmail, messageId, subject, date) {
   try {
-    // Check if database is connected
-    if (!this.db || this.db.readyState !== 1) {
+    // Check if database is connected using mongoose.connection
+    if (mongoose.connection.readyState !== 1) {
       console.warn('[ProcessedEmail] Database not connected, cannot mark email as replied');
       return null; // Database not connected
     }
