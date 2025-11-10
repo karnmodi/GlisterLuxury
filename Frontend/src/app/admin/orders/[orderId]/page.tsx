@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { ordersApi } from '@/lib/api'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, toNumber } from '@/lib/utils'
 import type { Order } from '@/types'
 
 export default function AdminOrderDetailPage() {
@@ -34,6 +34,7 @@ export default function AdminOrderDetailPage() {
   const [showDeliveryAddress, setShowDeliveryAddress] = useState(false)
   const [showOrderStatusHistory, setShowOrderStatusHistory] = useState(false)
   const [showPaymentStatusHistory, setShowPaymentStatusHistory] = useState(false)
+  const [showVATBreakdown, setShowVATBreakdown] = useState(false)
 
   useEffect(() => {
     if (token && user?.role === 'admin') {
@@ -387,37 +388,129 @@ export default function AdminOrderDetailPage() {
             <div className="mt-5 pt-5 border-t-2 border-brass/20">
               <div className="space-y-2 bg-gradient-to-br from-brass/5 to-brass/10 rounded-lg p-4">
                 <div className="flex justify-between text-charcoal text-sm">
-                  <span className="font-medium">Subtotal:</span>
+                  <span className="font-medium">Item Total:</span>
                   <span className="font-semibold">{formatCurrency(order.pricing.subtotal)}</span>
                 </div>
-                {order.discountCode && order.pricing.discount && parseFloat(order.pricing.discount.toString()) > 0 && (
-                  <div className="flex justify-between items-center bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2 -mx-2">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z" clipRule="evenodd" />
-                      </svg>
-                      <div>
-                        <span className="font-medium text-green-600">Discount Applied</span>
-                        <p className="text-xs text-charcoal/60 font-mono">{order.discountCode}</p>
-                      </div>
+                {(() => {
+                  const subtotalNum = toNumber(order.pricing.subtotal)
+                  const discountNum = toNumber(order.pricing.discount)
+                  const discountPercentage = subtotalNum > 0 ? (discountNum / subtotalNum) * 100 : 0
+                  
+                  if (order.discountCode && discountNum > 0) {
+                    return (
+                      <motion.div
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="flex justify-between items-center bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2 -mx-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z" clipRule="evenodd" />
+                          </svg>
+                          <div>
+                            <span className="font-medium text-green-600">Discount Applied</span>
+                            <p className="text-xs text-charcoal/60 font-mono">{order.discountCode}</p>
+                            <p className="text-xs text-green-600 font-semibold mt-0.5">
+                              {discountPercentage.toFixed(1)}% off
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-bold text-green-600 text-base">-{formatCurrency(discountNum)}</span>
+                        </div>
+                      </motion.div>
+                    )
+                  }
+                  return null
+                })()}
+                {/* Total After Discount */}
+                {(() => {
+                  const subtotalNum = toNumber(order.pricing.subtotal)
+                  const discountNum = toNumber(order.pricing.discount)
+                  const totalAfterDiscount = Math.max(0, subtotalNum - discountNum)
+                  return (
+                    <div className="flex justify-between text-charcoal text-sm font-medium border-t border-brass/10 pt-2 mt-2">
+                      <span>Total After Discount:</span>
+                      <span>{formatCurrency(totalAfterDiscount)}</span>
                     </div>
-                    <span className="font-bold text-green-600">-{formatCurrency(order.pricing.discount)}</span>
-                  </div>
-                )}
-                {order.pricing.shipping && parseFloat(order.pricing.shipping.toString()) > 0 && (
-                  <div className="flex justify-between text-charcoal text-sm">
-                    <span className="font-medium">Shipping:</span>
-                    <span className="font-semibold">{formatCurrency(order.pricing.shipping)}</span>
-                  </div>
-                )}
-                {order.pricing.tax && parseFloat(order.pricing.tax.toString()) > 0 && (
-                  <div className="flex justify-between text-charcoal text-sm">
-                    <span className="font-medium">VAT (included in prices):</span>
-                    <span className="font-semibold">{formatCurrency(order.pricing.tax)}</span>
-                  </div>
-                )}
+                  )
+                })()}
+                {(() => {
+                  const shippingNum = toNumber(order.pricing.shipping)
+                  return (
+                    <div className="flex justify-between text-charcoal text-sm">
+                      <span className="font-medium">Shipping:</span>
+                      <span className="font-semibold">{formatCurrency(shippingNum)}</span>
+                    </div>
+                  )
+                })()}
+                {/* VAT Breakdown - Toggleable */}
+                {(() => {
+                  const subtotalNum = toNumber(order.pricing.subtotal)
+                  const discountNum = toNumber(order.pricing.discount)
+                  const shippingNum = toNumber(order.pricing.shipping)
+                  const totalAfterDiscount = Math.max(0, subtotalNum - discountNum)
+                  const taxableAmount = totalAfterDiscount + shippingNum
+                  const vatRate = order.pricing.vatRate || 20
+                  const itemTotalBeforeVAT = taxableAmount / (1 + vatRate / 100)
+                  const vatAmount = toNumber(order.pricing.tax)
+                  
+                  // Show VAT breakdown if VAT is enabled (vatRate > 0) or if tax amount exists
+                  if (vatRate > 0 || vatAmount > 0) {
+                    return (
+                      <div className="mt-3">
+                        <button
+                          onClick={() => setShowVATBreakdown(!showVATBreakdown)}
+                          className="w-full flex items-center justify-between bg-brass/10 border border-brass/30 rounded-lg px-3 py-2 hover:bg-brass/20 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4 text-brass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span className="text-xs font-semibold text-brass">VAT Breakdown</span>
+                          </div>
+                          <svg
+                            className={`w-4 h-4 text-brass transition-transform ${showVATBreakdown ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        <AnimatePresence>
+                          {showVATBreakdown && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="bg-brass/5 border border-brass/20 rounded-lg p-3 mt-2 space-y-2">
+                                <div className="flex justify-between text-charcoal text-xs">
+                                  <span>Item Total Before VAT:</span>
+                                  <span className="font-semibold">{formatCurrency(itemTotalBeforeVAT)}</span>
+                                </div>
+                                <div className="flex justify-between text-charcoal text-xs">
+                                  <span>VAT Added ({vatRate}%):</span>
+                                  <span className="font-semibold">{formatCurrency(vatAmount)}</span>
+                                </div>
+                                <div className="flex justify-between text-charcoal text-xs font-bold border-t border-brass/20 pt-2 mt-2">
+                                  <span>Total (inc. VAT):</span>
+                                  <span className="text-brass">{formatCurrency(taxableAmount)}</span>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
                 <div className="flex justify-between text-lg font-bold text-white bg-brass rounded-lg px-4 py-3 mt-3">
-                  <span>Total:</span>
+                  <span>Final Amount (inc. VAT):</span>
                   <span>{formatCurrency(order.pricing.total)}</span>
                 </div>
               </div>

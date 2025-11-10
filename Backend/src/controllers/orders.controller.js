@@ -110,9 +110,9 @@ async function sendOrderEmails(order, user) {
 							</thead>
 							<tbody>
 								${orderItemsHTML}
-								<tr class="total-row">
-									<td colspan="3" style="padding: 20px 12px; text-align: right;">Subtotal:</td>
-									<td style="padding: 20px 12px; text-align: right;">${formatPrice(order.pricing.subtotal)}</td>
+								<tr>
+									<td colspan="3" style="padding: 12px; text-align: right; border-top: 2px solid #e5e5e5;">Item Total:</td>
+									<td style="padding: 12px; text-align: right; border-top: 2px solid #e5e5e5;">${formatPrice(order.pricing.subtotal)}</td>
 								</tr>
 								${order.discountCode && order.pricing.discount ? `
 								<tr style="background-color: #d4edda;">
@@ -122,25 +122,65 @@ async function sendOrderEmails(order, user) {
 									<td style="padding: 12px; text-align: right; color: #155724; font-weight: bold;">-${formatPrice(order.pricing.discount)}</td>
 								</tr>
 								` : ''}
+								${(() => {
+									const subtotal = typeof order.pricing.subtotal === 'object' && order.pricing.subtotal.$numberDecimal 
+										? parseFloat(order.pricing.subtotal.$numberDecimal) 
+										: parseFloat(order.pricing.subtotal);
+									const discount = typeof order.pricing.discount === 'object' && order.pricing.discount.$numberDecimal
+										? parseFloat(order.pricing.discount.$numberDecimal)
+										: parseFloat(order.pricing.discount || 0);
+									const totalAfterDiscount = Math.max(0, subtotal - discount);
+									return `
+									<tr>
+										<td colspan="3" style="padding: 12px; text-align: right; border-top: 1px solid #e5e5e5; font-weight: bold;">Total After Discount:</td>
+										<td style="padding: 12px; text-align: right; border-top: 1px solid #e5e5e5; font-weight: bold;">${formatPrice(totalAfterDiscount)}</td>
+									</tr>
+									`;
+								})()}
 								<tr>
 									<td colspan="3" style="padding: 12px; text-align: right;">Shipping:</td>
 									<td style="padding: 12px; text-align: right;">${formatPrice(order.pricing.shipping)}</td>
 								</tr>
-								<tr>
-									<td colspan="3" style="padding: 12px; text-align: right; color: #666;">
-										<small>VAT (20%) included in prices:</small>
-									</td>
-									<td style="padding: 12px; text-align: right; color: #666;">
-										<small>${formatPrice(order.pricing.tax)}</small>
-									</td>
-								</tr>
+								${(() => {
+									const subtotal = typeof order.pricing.subtotal === 'object' && order.pricing.subtotal.$numberDecimal 
+										? parseFloat(order.pricing.subtotal.$numberDecimal) 
+										: parseFloat(order.pricing.subtotal);
+									const discount = typeof order.pricing.discount === 'object' && order.pricing.discount.$numberDecimal
+										? parseFloat(order.pricing.discount.$numberDecimal)
+										: parseFloat(order.pricing.discount || 0);
+									const shipping = typeof order.pricing.shipping === 'object' && order.pricing.shipping.$numberDecimal
+										? parseFloat(order.pricing.shipping.$numberDecimal)
+										: parseFloat(order.pricing.shipping || 0);
+									const totalAfterDiscount = Math.max(0, subtotal - discount);
+									const taxableAmount = totalAfterDiscount + shipping;
+									const vatRate = order.pricing.vatRate || 20;
+									const itemTotalBeforeVAT = taxableAmount / (1 + vatRate / 100);
+									const vatAmount = typeof order.pricing.tax === 'object' && order.pricing.tax.$numberDecimal
+										? parseFloat(order.pricing.tax.$numberDecimal)
+										: parseFloat(order.pricing.tax || 0);
+									return `
+									<tr>
+										<td colspan="4" style="padding: 12px; background-color: #f5f5f5; border-top: 1px solid #e5e5e5;">
+											<div style="font-weight: bold; margin-bottom: 8px; color: #D4AF37;">VAT Breakdown:</div>
+											<div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px;">
+												<span>Item Total Before VAT:</span>
+												<span style="font-weight: bold;">${formatPrice(itemTotalBeforeVAT)}</span>
+											</div>
+											<div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px;">
+												<span>VAT Added (${vatRate}%):</span>
+												<span style="font-weight: bold;">${formatPrice(vatAmount)}</span>
+											</div>
+										</td>
+									</tr>
+									`;
+								})()}
 								<tr class="total-row" style="background-color: #D4AF37; color: #2C2C2C;">
-									<td colspan="3" style="padding: 20px 12px; text-align: right;">TOTAL:</td>
+									<td colspan="3" style="padding: 20px 12px; text-align: right;">Final Amount (inc. VAT):</td>
 									<td style="padding: 20px 12px; text-align: right;">${formatPrice(order.pricing.total)}</td>
 								</tr>
 								<tr>
 									<td colspan="4" style="padding: 8px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #e5e5e5;">
-										All prices include 20% UK VAT
+										All prices include ${order.pricing.vatRate || 20}% UK VAT
 									</td>
 								</tr>
 							</tbody>
@@ -228,7 +268,7 @@ async function sendOrderEmails(order, user) {
 								<!-- Pricing Summary -->
 								<tr>
 									<td colspan="3" style="padding: 12px; text-align: right; border-top: 2px solid #e5e5e5;">
-										<span style="color: #666;">Subtotal:</span>
+										<span style="color: #666;">Item Total:</span>
 									</td>
 									<td style="padding: 12px; text-align: right; border-top: 2px solid #e5e5e5;">
 										${formatPrice(order.pricing.subtotal)}
@@ -249,6 +289,22 @@ async function sendOrderEmails(order, user) {
 								</tr>
 								` : ''}
 
+								${(() => {
+									const subtotal = typeof order.pricing.subtotal === 'object' && order.pricing.subtotal.$numberDecimal 
+										? parseFloat(order.pricing.subtotal.$numberDecimal) 
+										: parseFloat(order.pricing.subtotal);
+									const discount = typeof order.pricing.discount === 'object' && order.pricing.discount.$numberDecimal
+										? parseFloat(order.pricing.discount.$numberDecimal)
+										: parseFloat(order.pricing.discount || 0);
+									const totalAfterDiscount = Math.max(0, subtotal - discount);
+									return `
+									<tr>
+										<td colspan="3" style="padding: 12px; text-align: right; border-top: 1px solid #e5e5e5; font-weight: bold;">Total After Discount:</td>
+										<td style="padding: 12px; text-align: right; border-top: 1px solid #e5e5e5; font-weight: bold;">${formatPrice(totalAfterDiscount)}</td>
+									</tr>
+									`;
+								})()}
+
 								<tr>
 									<td colspan="3" style="padding: 12px; text-align: right;">
 										<span style="color: #666;">Shipping:</span>
@@ -258,18 +314,43 @@ async function sendOrderEmails(order, user) {
 									</td>
 								</tr>
 
-								<tr>
-									<td colspan="3" style="padding: 12px; text-align: right;">
-										<span style="color: #666; font-size: 12px;">VAT (20%) included:</span>
-									</td>
-									<td style="padding: 12px; text-align: right; color: #666; font-size: 12px;">
-										${formatPrice(order.pricing.tax)}
-									</td>
-								</tr>
+								${(() => {
+									const subtotal = typeof order.pricing.subtotal === 'object' && order.pricing.subtotal.$numberDecimal 
+										? parseFloat(order.pricing.subtotal.$numberDecimal) 
+										: parseFloat(order.pricing.subtotal);
+									const discount = typeof order.pricing.discount === 'object' && order.pricing.discount.$numberDecimal
+										? parseFloat(order.pricing.discount.$numberDecimal)
+										: parseFloat(order.pricing.discount || 0);
+									const shipping = typeof order.pricing.shipping === 'object' && order.pricing.shipping.$numberDecimal
+										? parseFloat(order.pricing.shipping.$numberDecimal)
+										: parseFloat(order.pricing.shipping || 0);
+									const totalAfterDiscount = Math.max(0, subtotal - discount);
+									const taxableAmount = totalAfterDiscount + shipping;
+									const vatRate = order.pricing.vatRate || 20;
+									const itemTotalBeforeVAT = taxableAmount / (1 + vatRate / 100);
+									const vatAmount = typeof order.pricing.tax === 'object' && order.pricing.tax.$numberDecimal
+										? parseFloat(order.pricing.tax.$numberDecimal)
+										: parseFloat(order.pricing.tax || 0);
+									return `
+									<tr>
+										<td colspan="4" style="padding: 12px; background-color: #f5f5f5; border-top: 1px solid #e5e5e5;">
+											<div style="font-weight: bold; margin-bottom: 8px; color: #D4AF37;">VAT Breakdown:</div>
+											<div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px;">
+												<span>Item Total Before VAT:</span>
+												<span style="font-weight: bold;">${formatPrice(itemTotalBeforeVAT)}</span>
+											</div>
+											<div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px;">
+												<span>VAT Added (${vatRate}%):</span>
+												<span style="font-weight: bold;">${formatPrice(vatAmount)}</span>
+											</div>
+										</td>
+									</tr>
+									`;
+								})()}
 
 								<tr class="total-row">
 									<td colspan="3" style="padding: 20px 12px; text-align: right; border-top: 2px solid #2c3e50; font-size: 18px;">
-										<strong>Total (inc. VAT):</strong>
+										<strong>Final Amount (inc. VAT):</strong>
 									</td>
 									<td style="padding: 20px 12px; text-align: right; border-top: 2px solid #2c3e50; font-size: 18px;">
 										<strong>${formatPrice(order.pricing.total)}</strong>
@@ -277,7 +358,7 @@ async function sendOrderEmails(order, user) {
 								</tr>
 								<tr>
 									<td colspan="4" style="padding: 8px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #e5e5e5;">
-										All prices include 20% UK VAT
+										All prices include ${order.pricing.vatRate || 20}% UK VAT
 									</td>
 								</tr>
 							</tbody>

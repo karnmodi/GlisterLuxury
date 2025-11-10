@@ -96,7 +96,7 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
       {/* Pricing Summary */}
       <div className="space-y-2 border-t border-brass/20 pt-4">
         <div className="flex justify-between text-sm text-ivory/70">
-          <span>Subtotal</span>
+          <span>Item Total</span>
           <span>{formatCurrency(subtotal)}</span>
         </div>
         
@@ -130,46 +130,87 @@ export default function OrderSummary({ data, type }: OrderSummaryProps) {
             </div>
           </motion.div>
         )}
+
+        {/* Total After Discount */}
+        {(() => {
+          const orderSubtotal = type === 'order' ? toNumber((data as Order).pricing.subtotal) : toNumber(subtotal)
+          const orderDiscount = type === 'order' ? toNumber((data as Order).pricing.discount) : toNumber(discountAmount || 0)
+          const totalAfterDiscount = Math.max(0, orderSubtotal - orderDiscount)
+          return (
+            <div className="flex justify-between text-sm font-medium text-ivory border-t border-brass/10 pt-2 mt-2">
+              <span>Total After Discount</span>
+              <span>{formatCurrency(totalAfterDiscount)}</span>
+            </div>
+          )
+        })()}
         
-        {/* Shipping and Tax - Show for both order and cart */}
+        {/* Shipping */}
         {type === 'order' ? (
-          <>
-            <div className="flex justify-between text-sm text-ivory/70">
-              <div className="flex flex-col">
-                <span>Shipping</span>
-                <span className="text-[10px] text-ivory/50 mt-0.5">UK Mainland only (excl. Northern Ireland)</span>
-              </div>
-              <span>{formatCurrency((data as Order).pricing.shipping)}</span>
+          <div className="flex justify-between text-sm text-ivory/70">
+            <div className="flex flex-col">
+              <span>Shipping</span>
+              <span className="text-[10px] text-ivory/50 mt-0.5">UK Mainland only (excl. Northern Ireland)</span>
             </div>
-            <div className="flex justify-between text-sm text-ivory/70">
-              <span>Tax (VAT)</span>
-              <span>{formatCurrency((data as Order).pricing.tax)}</span>
-            </div>
-          </>
+            <span>{formatCurrency((data as Order).pricing.shipping)}</span>
+          </div>
         ) : (
-          <>
-            <div className="flex justify-between text-sm text-ivory/70">
-              <div className="flex flex-col">
-                <span>Shipping</span>
-                <span className="text-[10px] text-ivory/50 mt-0.5">UK Mainland only (excl. Northern Ireland)</span>
-              </div>
-              <span>
-                {estimatedShipping === 0 ? (
-                  <span className="text-green-400 font-semibold">FREE</span>
-                ) : (
-                  formatCurrency(estimatedShipping)
-                )}
-              </span>
+          <div className="flex justify-between text-sm text-ivory/70">
+            <div className="flex flex-col">
+              <span>Shipping</span>
+              <span className="text-[10px] text-ivory/50 mt-0.5">UK Mainland only (excl. Northern Ireland)</span>
             </div>
-            <div className="flex justify-between text-sm text-ivory/70">
-              <span>VAT ({settings?.vatRate || 20}%) included:</span>
-              <span>{formatCurrency(estimatedVAT)}</span>
-            </div>
-          </>
+            <span>
+              {estimatedShipping === 0 ? (
+                <span className="text-green-400 font-semibold">FREE</span>
+              ) : (
+                formatCurrency(estimatedShipping)
+              )}
+            </span>
+          </div>
         )}
 
+        {/* VAT Breakdown */}
+        {(() => {
+          const orderSubtotal = type === 'order' ? toNumber((data as Order).pricing.subtotal) : toNumber(subtotal)
+          const orderDiscount = type === 'order' ? toNumber((data as Order).pricing.discount) : toNumber(discountAmount || 0)
+          const orderShipping = type === 'order' ? toNumber((data as Order).pricing.shipping) : estimatedShipping
+          const totalAfterDiscount = Math.max(0, orderSubtotal - orderDiscount)
+          const taxableAmount = totalAfterDiscount + orderShipping
+          const vatRate = type === 'order' 
+            ? ((data as Order).pricing.vatRate || settings?.vatRate || 20)
+            : (settings?.vatRate || 20)
+          const vatEnabled = type === 'order' 
+            ? (settings?.vatEnabled !== false) // Assume enabled if not specified
+            : (settings?.vatEnabled !== false)
+          
+          if (!vatEnabled || vatRate === 0) return null
+
+          // Calculate item total before VAT
+          const itemTotalBeforeVAT = taxableAmount / (1 + vatRate / 100)
+          const vatAmount = type === 'order'
+            ? toNumber((data as Order).pricing.tax)
+            : estimatedVAT
+
+          return (
+            <div className="bg-brass/5 border border-brass/20 rounded-lg p-3 mt-3 space-y-2">
+              <div className="text-xs font-semibold text-brass mb-2 pb-1 border-b border-brass/20">
+                VAT Breakdown
+              </div>
+              <div className="flex justify-between text-xs text-ivory/70">
+                <span>Item Total Before VAT</span>
+                <span className="font-medium text-ivory">{formatCurrency(itemTotalBeforeVAT)}</span>
+              </div>
+              <div className="flex justify-between text-xs text-ivory/70">
+                <span>VAT Added ({vatRate}%)</span>
+                <span className="font-medium text-ivory">{formatCurrency(vatAmount)}</span>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* Final Amount */}
         <div className="flex justify-between text-lg font-bold text-ivory border-t border-brass/20 pt-3 mt-3">
-          <span>Total (inc. VAT)</span>
+          <span>Final Amount (inc. VAT)</span>
           <span className="text-brass">
             {type === 'order'
               ? formatCurrency((data as Order).pricing.total)

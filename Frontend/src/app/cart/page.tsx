@@ -451,7 +451,7 @@ export default function CartPage() {
 
                   <div className="border-t border-brass/20 pt-3 sm:pt-4 space-y-2">
                     <div className="flex justify-between text-xs sm:text-sm gap-3">
-                      <span className="text-charcoal">Subtotal</span>
+                      <span className="text-charcoal">Item Total</span>
                       <span className="text-charcoal font-medium">{formatCurrency(displayCart.subtotal)}</span>
                     </div>
 
@@ -467,11 +467,24 @@ export default function CartPage() {
                       </motion.div>
                     )}
 
+                    {/* Total After Discount */}
+                    {(() => {
+                      const subtotalNum = toNumber(displayCart.subtotal)
+                      const discountNum = toNumber(displayCart.discountAmount || 0)
+                      const totalAfterDiscount = Math.max(0, subtotalNum - discountNum)
+                      return (
+                        <div className="flex justify-between text-xs sm:text-sm font-medium text-charcoal border-t border-brass/10 pt-2 mt-2 gap-3">
+                          <span>Total After Discount</span>
+                          <span>{formatCurrency(totalAfterDiscount)}</span>
+                        </div>
+                      )
+                    })()}
+
                     {/* Estimated Shipping Display */}
                     {settings && (
                       <div className="flex justify-between text-xs sm:text-sm gap-3">
                         <div className="flex flex-col">
-                          <span className="text-charcoal">Estimated Delivery</span>
+                          <span className="text-charcoal">Shipping</span>
                           <span className="text-[10px] text-charcoal/60 mt-0.5">UK Mainland only (excl. Northern Ireland)</span>
                         </div>
                         <span className="text-charcoal font-medium flex-shrink-0">
@@ -498,20 +511,35 @@ export default function CartPage() {
                       </motion.div>
                     )}
 
-                    {/* VAT Included - Informational */}
-                    {settings && settings.vatEnabled && (
-                      <div className="flex justify-between text-[10px] sm:text-xs bg-brass/5 px-2 py-1.5 rounded gap-2">
-                        <span className="text-charcoal">VAT ({settings.vatRate}%) included:</span>
-                        <span className="text-charcoal font-medium flex-shrink-0">
-                          {formatCurrency(
-                            (toNumber(displayCart.subtotal) - toNumber(displayCart.discountAmount || 0) + estimatedShipping) * (settings.vatRate / 100) / (1 + settings.vatRate / 100)
-                          )}
-                        </span>
-                      </div>
-                    )}
+                    {/* VAT Breakdown */}
+                    {settings && settings.vatEnabled && (() => {
+                      const subtotalNum = toNumber(displayCart.subtotal)
+                      const discountNum = toNumber(displayCart.discountAmount || 0)
+                      const totalAfterDiscount = Math.max(0, subtotalNum - discountNum)
+                      const taxableAmount = totalAfterDiscount + estimatedShipping
+                      const vatRate = settings.vatRate || 20
+                      const itemTotalBeforeVAT = taxableAmount / (1 + vatRate / 100)
+                      const vatAmount = taxableAmount * (vatRate / 100) / (1 + vatRate / 100)
+                      
+                      return (
+                        <div className="bg-brass/5 border border-brass/20 rounded-lg p-3 mt-3 space-y-2">
+                          <div className="text-[10px] sm:text-xs font-semibold text-brass mb-2 pb-1 border-b border-brass/20">
+                            VAT Breakdown
+                          </div>
+                          <div className="flex justify-between text-[10px] sm:text-xs text-charcoal/70 gap-2">
+                            <span>Item Total Before VAT</span>
+                            <span className="font-medium text-charcoal flex-shrink-0">{formatCurrency(itemTotalBeforeVAT)}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] sm:text-xs text-charcoal/70 gap-2">
+                            <span>VAT Added ({vatRate}%)</span>
+                            <span className="font-medium text-charcoal flex-shrink-0">{formatCurrency(vatAmount)}</span>
+                          </div>
+                        </div>
+                      )
+                    })()}
 
                     <div className="flex justify-between text-base sm:text-lg font-bold border-t border-brass/20 pt-2 mt-2 gap-3">
-                      <span className="text-charcoal">Total (inc. VAT)</span>
+                      <span className="text-charcoal">Final Amount (inc. VAT)</span>
                       <span className="text-brass flex-shrink-0">
                         {formatCurrency(
                           toNumber(displayCart.subtotal) - toNumber(displayCart.discountAmount || 0) + estimatedShipping

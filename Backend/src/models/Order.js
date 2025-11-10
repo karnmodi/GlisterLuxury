@@ -189,12 +189,13 @@ OrderSchema.pre('save', async function (next) {
 });
 
 // Calculate total before saving
+// Note: VAT is already included in prices, so total = subtotal - discount + shipping (NOT + tax)
 OrderSchema.pre('save', function (next) {
 	const subtotal = parseFloat(this.pricing.subtotal?.toString() || 0);
 	const discount = parseFloat(this.pricing.discount?.toString() || 0);
 	const shipping = parseFloat(this.pricing.shipping?.toString() || 0);
-	const tax = parseFloat(this.pricing.tax?.toString() || 0);
-	this.pricing.total = Math.max(0, subtotal - discount + shipping + tax);
+	// Total = subtotal - discount + shipping (VAT already included in prices)
+	this.pricing.total = Math.max(0, subtotal - discount + shipping);
 	next();
 });
 
