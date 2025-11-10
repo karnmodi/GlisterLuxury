@@ -53,7 +53,7 @@ export default function ProductsPage() {
   const [selectedFinish, setSelectedFinish] = useState<string>('')
   const [hasSize, setHasSize] = useState<boolean>(false)
   const [hasDiscount, setHasDiscount] = useState<boolean>(false)
-  const [sortOption, setSortOption] = useState<SortOption>('newest')
+  const [sortOption, setSortOption] = useState<SortOption>('productid-asc')
   
   const [activeCategory, setActiveCategory] = useState<Category | null>(null)
   const [activeSubcategory, setActiveSubcategory] = useState<{ _id: string; name: string; slug: string } | null>(null)
@@ -108,8 +108,8 @@ export default function ProductsPage() {
         setSortOption(sortOrder === 'asc' ? 'productid-asc' : 'productid-desc')
       }
     } else {
-      // Reset to default if no sort params
-      setSortOption('newest')
+      // Reset to default if no sort params - use category-based productID sorting
+      setSortOption('productid-asc')
     }
 
     // Fetch products immediately using URL params
@@ -119,8 +119,8 @@ export default function ProductsPage() {
         setProducts([])
         setHasMore(true)
         
-        // Parse sort params
-        let sortParams: { sortBy: string; sortOrder: 'asc' | 'desc' } = { sortBy: 'createdAt', sortOrder: 'desc' }
+        // Parse sort params - default to productID sorting for category-based grouping
+        let sortParams: { sortBy: string; sortOrder: 'asc' | 'desc' } = { sortBy: 'productID', sortOrder: 'asc' }
         if (sortBy && sortOrder) {
           sortParams = { sortBy, sortOrder: sortOrder as 'asc' | 'desc' }
         }
@@ -189,7 +189,9 @@ export default function ProductsPage() {
     }
     
     if (selectedCategory) {
-      const category = categories.find(c => c._id === selectedCategory || c.slug === selectedCategory)
+      // Prioritize ID lookup, fallback to slug for backward compatibility
+      const category = categories.find(c => c._id === selectedCategory) || 
+                       categories.find(c => c.slug === selectedCategory)
       setActiveCategory(category || null)
     } else {
       setActiveCategory(null)
@@ -233,7 +235,8 @@ export default function ProductsPage() {
       case 'price-desc':
         return { sortBy: 'price', sortOrder: 'desc' as const }
       default:
-        return { sortBy: 'createdAt', sortOrder: 'desc' as const }
+        // Default to category-based productID sorting
+        return { sortBy: 'productID', sortOrder: 'asc' as const }
     }
   }, [sortOption])
 
@@ -357,7 +360,9 @@ export default function ProductsPage() {
   // Update active subcategory when selection changes
   useEffect(() => {
     if (selectedSubcategory && activeCategory?.subcategories) {
-      const subcategory = activeCategory.subcategories.find((s: any) => s._id === selectedSubcategory)
+      // Prioritize ID lookup, fallback to slug for backward compatibility
+      const subcategory = activeCategory.subcategories.find((s: any) => s._id === selectedSubcategory) ||
+                          activeCategory.subcategories.find((s: any) => s.slug === selectedSubcategory)
       setActiveSubcategory(subcategory || null)
     } else {
       setActiveSubcategory(null)
@@ -721,7 +726,7 @@ export default function ProductsPage() {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="fixed inset-0 bg-charcoal/50 backdrop-blur-sm z-40 lg:hidden"
+                    className="fixed inset-0 bg-charcoal/50 backdrop-blur-sm z-[9997] lg:hidden"
                     onClick={() => setMobileFiltersOpen(false)}
                   />
                   <motion.aside
@@ -729,7 +734,7 @@ export default function ProductsPage() {
                     animate={{ x: 0 }}
                     exit={{ x: '-100%' }}
                     transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-                    className="fixed left-0 top-0 h-full w-full max-w-[min(380px,90vw)] bg-white shadow-2xl z-50 lg:hidden overflow-y-auto"
+                    className="fixed left-0 top-[80px] h-[calc(100vh-80px)] w-full max-w-[min(380px,90vw)] bg-white shadow-2xl z-[9998] lg:hidden overflow-y-auto"
                     style={{
                       scrollbarWidth: 'thin',
                       scrollbarColor: 'rgba(218, 165, 32, 0.3) transparent',
@@ -753,7 +758,7 @@ export default function ProductsPage() {
                   }
                 `
               }} />
-                    <div className="sticky top-0 bg-white border-b border-brass/20 p-4 sm:p-5 flex items-center justify-between z-10" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>
+                    <div className="sticky top-0 bg-white border-b border-brass/20 p-4 sm:p-5 flex items-center justify-between z-10">
                       <h2 className="text-lg sm:text-xl font-serif font-semibold text-charcoal flex items-center gap-2">
                         <span className="w-1 h-6 bg-brass"></span>
                         Filters
@@ -768,7 +773,7 @@ export default function ProductsPage() {
                         </svg>
                       </button>
                     </div>
-                    <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
+                    <div className="p-4 sm:p-6 pb-24 space-y-5 sm:space-y-6">
                       {activeFilterCount > 0 && (
                         <p className="text-sm text-charcoal/60 mb-2">
                           {activeFilterCount} {activeFilterCount === 1 ? 'filter' : 'filters'} active

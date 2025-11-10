@@ -29,7 +29,7 @@ export default function SignatureCraftGallery() {
     {
       title: "Matte Black",
       subtitle: "Bold & Contemporary",
-      image: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&q=80",
+      image: "/images/gallery/BlackMatt.jpeg",
       description: "Sophisticated darkness that makes a powerful design statement"
     },
     {

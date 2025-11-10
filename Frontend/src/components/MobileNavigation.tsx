@@ -6,13 +6,14 @@ import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { categoriesApi, collectionsApi } from '@/lib/api'
+import { useCategories } from '@/contexts/CategoriesContext'
+import { collectionsApi } from '@/lib/api'
 import type { Category, Collection } from '@/types'
 
 export default function MobileNavigation() {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
-  const [categories, setCategories] = useState<Category[]>([])
+  const { categories, loading: categoriesLoading } = useCategories()
   const [collections, setCollections] = useState<Collection[]>([])
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [expandedCollection, setExpandedCollection] = useState<string | null>(null)
@@ -21,48 +22,36 @@ export default function MobileNavigation() {
 
   const closeMenu = () => setIsOpen(false)
 
-  // Fetch categories and collections - backend already filters categories/subcategories with products
+  // Fetch collections - categories are now provided by CategoriesContext
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchCollections = async () => {
       try {
-        // Fetch categories (already filtered to only those with products) and collections
-        const [categoriesData, collectionsData] = await Promise.all([
-          categoriesApi.getAllWithProducts(),
-          collectionsApi.getAll({ isActive: true, includeProductCount: true }),
-        ])
-        
-        // Ensure data is not null before processing
-        if (categoriesData && Array.isArray(categoriesData)) {
-          setCategories(categoriesData)
-        } else {
-          setCategories([])
-        }
+        const collectionsData = await collectionsApi.getAll({ isActive: true, includeProductCount: true })
         
         if (collectionsData && Array.isArray(collectionsData)) {
           const sortedCollections = collectionsData.sort((a, b) => a.displayOrder - b.displayOrder)
           setCollections(sortedCollections)
           
-        // Track collections with products
-        const collectionSet = new Set<string>()
-        collectionsData.forEach((collection: Collection) => {
-          if (collection.productCount && collection.productCount > 0) {
-            collectionSet.add(collection._id)
-          }
-        })
-        
-        setCollectionsWithProducts(collectionSet)
+          // Track collections with products
+          const collectionSet = new Set<string>()
+          collectionsData.forEach((collection: Collection) => {
+            if (collection.productCount && collection.productCount > 0) {
+              collectionSet.add(collection._id)
+            }
+          })
+          
+          setCollectionsWithProducts(collectionSet)
         } else {
           setCollections([])
           setCollectionsWithProducts(new Set())
         }
       } catch (error) {
-        console.error('Failed to fetch categories or collections:', error)
-        setCategories([])
+        console.error('Failed to fetch collections:', error)
         setCollections([])
         setCollectionsWithProducts(new Set())
       }
     }
-    fetchData()
+    fetchCollections()
   }, [])
 
   const toggleCategory = (categoryId: string) => {
@@ -197,7 +186,11 @@ export default function MobileNavigation() {
                         Products
                       </Link>
                       <div className="space-y-1 pb-2">
-                        {categories.length > 0 ? (
+                        {categoriesLoading ? (
+                          <div className="px-4 py-2 text-sm text-ivory/50 ml-4">
+                            Loading categories...
+                          </div>
+                        ) : categories.length > 0 ? (
                           // Backend already filters to only show categories/subcategories with products
                           categories.map((category) => {
                               // Subcategories are already filtered by backend
@@ -208,15 +201,22 @@ export default function MobileNavigation() {
                                   {/* Category with toggle */}
                                   <div className="flex items-center justify-between">
                                     <Link
-                                      href={`/products?category=${category.slug}`}
+                                      href={`/products?category=${category._id}`}
                                       className="flex-1 block text-sm text-brass font-medium hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-4 rounded-sm"
-                                      onClick={closeMenu}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        closeMenu()
+                                      }}
                                     >
                                       {category.name}
                                     </Link>
                                     {filteredSubcategories.length > 0 && (
                                       <button
-                                        onClick={() => toggleCategory(category._id)}
+                                        onClick={(e) => {
+                                          e.preventDefault()
+                                          e.stopPropagation()
+                                          toggleCategory(category._id)
+                                        }}
                                         className="px-3 py-2 text-ivory hover:text-brass transition-colors duration-300"
                                         aria-label={`Toggle ${category.name} subcategories`}
                                       >
@@ -245,16 +245,25 @@ export default function MobileNavigation() {
                                           transition={{ duration: 0.2 }}
                                           className="overflow-hidden"
                                         >
-                                          {filteredSubcategories.map((subcategory) => (
+                                          {filteredSubcategories.map((subcategory) => {
+                                            const params = new URLSearchParams({
+                                              category: category._id,
+                                              subcategory: subcategory._id
+                                            })
+                                            return (
                                             <Link
                                               key={subcategory._id}
-                                              href={`/products?category=${category.slug}&subcategory=${subcategory.slug}`}
+                                              href={`/products?${params.toString()}`}
                                               className="block text-sm text-ivory/70 hover:text-brass hover:bg-brass/5 transition-all duration-300 py-2 px-4 ml-12 rounded-sm"
-                                              onClick={closeMenu}
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                closeMenu()
+                                              }}
                                             >
                                               {subcategory.name}
                                             </Link>
-                                          ))}
+                                            )
+                                          })}
                                         </motion.div>
                                       )}
                                     </AnimatePresence>

@@ -39,8 +39,9 @@ export default function FAQsPage() {
       try {
         setLoading(true)
         const data = await faqApi.getAll({ isActive: true, sortBy: 'order' })
-        setFaqs(data)
-        setFilteredFaqs(data)
+        const safeData = Array.isArray(data) ? data : []
+        setFaqs(safeData)
+        setFilteredFaqs(safeData)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch FAQs')
       } finally {
@@ -52,10 +53,11 @@ export default function FAQsPage() {
   }, [])
 
   useEffect(() => {
+    const safeFaqs = Array.isArray(faqs) ? faqs : []
     if (!searchQuery.trim()) {
-      setFilteredFaqs(faqs)
+      setFilteredFaqs(safeFaqs)
     } else {
-      const filtered = faqs.filter(faq =>
+      const filtered = safeFaqs.filter(faq =>
         faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
         htmlToPlainText(faq.answer).toLowerCase().includes(searchQuery.toLowerCase())
       )
@@ -260,7 +262,7 @@ export default function FAQsPage() {
         </div>
 
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          {filteredFaqs.length === 0 ? (
+          {(!Array.isArray(filteredFaqs) || filteredFaqs.length === 0) ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -291,7 +293,7 @@ export default function FAQsPage() {
           ) : (
             <div className="space-y-3 sm:space-y-4">
               <AnimatePresence mode="popLayout">
-                {filteredFaqs.map((faq, index) => (
+                {(Array.isArray(filteredFaqs) ? filteredFaqs : []).map((faq, index) => (
                   <motion.div
                     key={faq._id}
                     layout

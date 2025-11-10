@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { formatCurrency, toNumber } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import type { Product, Material } from '@/types'
 
 interface ProductHeaderProps {
@@ -22,18 +23,20 @@ export default function ProductHeader({
   selectedMaterial,
   showMaterialInfo = false
 }: ProductHeaderProps) {
+  const isMobile = useIsMobile()
+  
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={isMobile ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
+      transition={isMobile ? { duration: 0 } : { delay: 0.2, duration: 0.3 }}
       className="bg-white/80 backdrop-blur-xl rounded-xl p-4 shadow-lg border border-brass/20"
     >
       <div className="flex items-center justify-between mb-2">
         <motion.p
-          initial={{ opacity: 0, x: -10 }}
+          initial={isMobile ? { opacity: 1, x: 0 } : { opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={isMobile ? { duration: 0 } : { delay: 0.3, duration: 0.3 }}
           className="text-sm text-brass tracking-luxury font-semibold"
         >
           {product.productID}
@@ -78,9 +81,9 @@ export default function ProductHeader({
       </div>
       
       <motion.h1
-        initial={{ opacity: 0, y: 10 }}
+        initial={isMobile ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
+        transition={isMobile ? { duration: 0 } : { delay: 0.4, duration: 0.3 }}
         className="text-2xl lg:text-3xl font-sans font-semibold text-charcoal mb-3 leading-relaxed tracking-tight"
         style={{ letterSpacing: '-0.02em' }}
       >
@@ -88,9 +91,9 @@ export default function ProductHeader({
       </motion.h1>
       
       <motion.p
-        initial={{ opacity: 0 }}
+        initial={isMobile ? { opacity: 1 } : { opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
+        transition={isMobile ? { duration: 0 } : { delay: 0.5, duration: 0.3 }}
         className="text-charcoal/70 leading-relaxed text-sm whitespace-pre-wrap"
       >
         {product.description || 'Premium quality product crafted with excellence and attention to detail'}
@@ -99,9 +102,9 @@ export default function ProductHeader({
       {/* Material Information - Only show when there's a single material */}
       {showMaterialInfo && selectedMaterial && (
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={isMobile ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
+          transition={isMobile ? { duration: 0 } : { delay: 0.6, duration: 0.3 }}
           className="mt-3 p-2 bg-gradient-to-r from-brass/10 to-olive/10 rounded-lg border border-brass/20"
         >
           <div className="flex items-center justify-between">

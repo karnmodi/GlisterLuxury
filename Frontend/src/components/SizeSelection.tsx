@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { toNumber, formatCurrency } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import type { SizeOption } from '@/types'
 
 interface SizeSelectionProps {
@@ -15,6 +16,8 @@ export default function SizeSelection({
   selectedSize, 
   onSizeSelect 
 }: SizeSelectionProps) {
+  const isMobile = useIsMobile()
+  
   if (!sizeOptions || sizeOptions.length === 0) {
     return null
   }
@@ -22,10 +25,10 @@ export default function SizeSelection({
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: 20, height: 0 }}
+        initial={isMobile ? { opacity: 1, y: 0, height: 'auto' } : { opacity: 0, y: 20, height: 0 }}
         animate={{ opacity: 1, y: 0, height: 'auto' }}
         exit={{ opacity: 0, y: -20, height: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={isMobile ? { duration: 0 } : { duration: 0.3 }}
         className="bg-white/80 backdrop-blur-xl rounded-xl p-3 shadow-lg border border-brass/20"
       >
         <div className="flex items-center gap-2 mb-3">
@@ -44,9 +47,9 @@ export default function SizeSelection({
             return (
             <motion.button
               key={`${size.name}-${size.sizeMM}-${index}`}
-              initial={{ opacity: 0, scale: 0.8 }}
+              initial={isMobile ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.05 }}
+              transition={isMobile ? { duration: 0 } : { delay: index * 0.05, duration: 0.3 }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => onSizeSelect(size)}

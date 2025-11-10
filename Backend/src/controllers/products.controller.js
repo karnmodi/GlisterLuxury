@@ -61,6 +61,125 @@ function transformMongoTypes(obj) {
 	return obj;
 }
 
+/**
+ * Extract prefix and numeric part from productID
+ * Handles any prefix pattern (M-, MP-, H-P-, ABC-, etc.)
+ * @param {string} productID - The product ID (e.g., "M-101", "MP-1001", "H-P-200")
+ * @returns {Object} - Object with prefix and numericPart
+ */
+function parseProductID(productID) {
+	if (!productID || typeof productID !== 'string') {
+		return { prefix: productID || '', numericPart: 0 };
+	}
+
+	const lastDashIndex = productID.lastIndexOf('-');
+	
+	// If no dash found, treat entire string as prefix
+	if (lastDashIndex === -1) {
+		return { prefix: productID, numericPart: 0 };
+	}
+
+	// Extract prefix: all parts before the last "-"
+	const prefix = productID.substring(0, lastDashIndex);
+	
+	// Extract numeric part: last part after the last "-"
+	const numericStr = productID.substring(lastDashIndex + 1);
+	const numericPart = parseInt(numericStr, 10);
+	
+	// If numeric part is not a valid number, treat as 0
+	return {
+		prefix: prefix || productID,
+		numericPart: isNaN(numericPart) ? 0 : numericPart
+	};
+}
+
+/**
+ * Sort products by category/subcategory, then by productID prefix and numeric part
+ * Groups products by category and subcategoryId, then sorts within each group
+ * @param {Array} products - Array of product objects
+ * @returns {Array} - Sorted array of products
+ */
+function sortProductsByCategoryAndID(products) {
+	if (!Array.isArray(products) || products.length === 0) {
+		return products;
+	}
+
+	// Create a copy to avoid mutating the original array
+	const sortedProducts = [...products];
+
+	sortedProducts.sort((a, b) => {
+		// Helper function to get category name
+		const getCategoryName = (category) => {
+			if (!category) return null;
+			if (typeof category === 'string') return null; // If it's just an ID string, we can't get the name
+			return category.name || null;
+		};
+
+		// Helper function to check if category is "Handles"
+		const isHandlesCategory = (category) => {
+			const categoryName = getCategoryName(category);
+			return categoryName && categoryName.toLowerCase() === 'handles';
+		};
+
+		// 1. Compare by category - prioritize "Handles" category first
+		const isHandlesA = isHandlesCategory(a.category);
+		const isHandlesB = isHandlesCategory(b.category);
+		
+		if (isHandlesA !== isHandlesB) {
+			// If one is Handles and the other isn't, Handles comes first
+			return isHandlesA ? -1 : 1;
+		}
+
+		// If both are Handles or both are not Handles, continue with other sorting criteria
+		// Parse productIDs to get prefix and numeric part
+		const parsedA = parseProductID(a.productID);
+		const parsedB = parseProductID(b.productID);
+		
+		// 2. Compare by productID prefix (alphabetically) - SECONDARY SORT
+		// This ensures all products with same prefix (e.g., ARN, AUA, M, MP) are grouped together
+		const prefixCompare = parsedA.prefix.localeCompare(parsedB.prefix);
+		if (prefixCompare !== 0) {
+			return prefixCompare;
+		}
+
+		// 3. Compare by numeric part (numerically) - TERTIARY SORT within same prefix
+		// This ensures products with same prefix are sorted numerically (e.g., M-101, M-102, M-1001, M-1009, M-1010)
+		const numA = Number(parsedA.numericPart) || 0;
+		const numB = Number(parsedB.numericPart) || 0;
+		const numericCompare = numA - numB;
+		if (numericCompare !== 0) {
+			return numericCompare;
+		}
+
+		// 4. Compare by category ID (or null) - QUATERNARY SORT
+		// Only used when prefix and numeric part are the same
+		const categoryA = a.category?._id?.toString() || a.category?.toString() || null;
+		const categoryB = b.category?._id?.toString() || b.category?.toString() || null;
+		
+		if (categoryA !== categoryB) {
+			if (categoryA === null) return 1; // null categories go last
+			if (categoryB === null) return -1;
+			return categoryA.localeCompare(categoryB);
+		}
+
+		// 5. Compare by subcategory ID (or null) - QUINARY SORT
+		// Only used when prefix, numeric part, and category are the same
+		const subcategoryA = a.subcategoryId?.toString() || null;
+		const subcategoryB = b.subcategoryId?.toString() || null;
+		
+		if (subcategoryA !== subcategoryB) {
+			if (subcategoryA === null) return 1; // null subcategories go last
+			if (subcategoryB === null) return -1;
+			return subcategoryA.localeCompare(subcategoryB);
+		}
+
+		// If everything is the same, maintain original order
+		return 0;
+	});
+
+	return sortedProducts;
+}
+
 async function createProduct(req, res) {
 	try {
 		// Validate that sizeOptions have names
@@ -175,8 +294,13 @@ async function listProducts(req, res) {
 		// Size filter
 		if (hasSize === 'true') filter['materials.sizeOptions.0'] = { $exists: true };
 
-		// Finish filter
-		if (finishId) filter.finishes = { $in: [finishId] };
+		// Finish filter - finishes is an array of objects with finishID property
+		if (finishId) {
+			const mongoose = require('mongoose');
+			if (mongoose.Types.ObjectId.isValid(finishId)) {
+				filter['finishes.finishID'] = new mongoose.Types.ObjectId(finishId);
+			}
+		}
 
 		// Discount filter
 		if (hasDiscount === 'true') {
@@ -231,44 +355,61 @@ async function listProducts(req, res) {
 			}
 		}
 
-		// Build sort options
-		const sortOptions = {};
-		const order = sortOrder === 'asc' ? 1 : -1;
-		
-		if (sortBy === 'name') {
-			sortOptions.name = order;
-		} else if (sortBy === 'productID') {
-			sortOptions.productID = order;
-		} else if (sortBy === 'createdAt') {
-			sortOptions.createdAt = order;
-		} else if (sortBy === 'price' || sortBy === 'packagingPrice') {
-			sortOptions.packagingPrice = order;
-		}
-		// Default sorting by createdAt descending if no sortBy specified
-		if (Object.keys(sortOptions).length === 0) {
-			sortOptions.createdAt = -1;
-		}
-
 		// Parse pagination parameters
 		const limitNum = limit ? parseInt(limit, 10) : undefined;
 		const skipNum = skip ? parseInt(skip, 10) : undefined;
 
-		// Build query
+		// Build query - fetch all matching products first (without pagination)
+		// We need to fetch all products to sort them properly by category/subcategory and productID
 		let query = Product.find(filter)
-			.populate('category', 'name slug description subcategories')
-			.sort(sortOptions);
+			.populate('category', 'name slug description subcategories');
 
-		// Apply pagination
+		// Fetch all matching products
+		const allItems = await query.lean();
+
+		// Apply category-based and productID-based sorting
+		const sortedItems = sortProductsByCategoryAndID(allItems);
+
+		// Apply other sorting options if specified (name, price, createdAt)
+		// These will be applied after category/productID sorting
+		if (sortBy && sortBy !== 'productID') {
+			const order = sortOrder === 'asc' ? 1 : -1;
+			sortedItems.sort((a, b) => {
+				let aValue, bValue;
+				
+				if (sortBy === 'name') {
+					aValue = a.name?.toLowerCase() || '';
+					bValue = b.name?.toLowerCase() || '';
+				} else if (sortBy === 'createdAt') {
+					aValue = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+					bValue = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+				} else if (sortBy === 'price' || sortBy === 'packagingPrice') {
+					aValue = a.packagingPrice ? parseFloat(a.packagingPrice.toString()) : 0;
+					bValue = b.packagingPrice ? parseFloat(b.packagingPrice.toString()) : 0;
+				} else {
+					return 0;
+				}
+
+				if (aValue < bValue) return -1 * order;
+				if (aValue > bValue) return 1 * order;
+				return 0;
+			});
+		} else if (sortBy === 'productID' && sortOrder === 'desc') {
+			// If sorting by productID descending, reverse the category-based sort
+			sortedItems.reverse();
+		}
+		// If no sortBy specified or sortBy is 'productID' with 'asc', use category-based sort (already applied)
+
+		// Apply pagination after sorting
+		let paginatedItems = sortedItems;
 		if (skipNum !== undefined && skipNum >= 0) {
-			query = query.skip(skipNum);
+			paginatedItems = paginatedItems.slice(skipNum);
 		}
 		if (limitNum !== undefined && limitNum > 0) {
-			query = query.limit(limitNum);
+			paginatedItems = paginatedItems.slice(0, limitNum);
 		}
 
-		const items = await query.lean();
-
-		const transformedItems = items.map(item => transformMongoTypes(item));
+		const transformedItems = paginatedItems.map(item => transformMongoTypes(item));
 		return res.json(transformedItems);
 	} catch (err) {
 		console.error('List products error:', err);
@@ -732,6 +873,7 @@ async function listProductsMinimal(req, res) {
 	try {
 		const { q, material, hasSize, finishId, category, subcategory, subcategoryId, limit, skip } = req.query;
 		const Category = require('../models/Category');
+		const mongoose = require('mongoose');
 		const filter = {};
 		const andConditions = [];
 
@@ -768,12 +910,15 @@ async function listProductsMinimal(req, res) {
 		// Size filter
 		if (hasSize === 'true') filter['materials.sizeOptions.0'] = { $exists: true };
 
-		// Finish filter
-		if (finishId) filter.finishes = { $in: [finishId] };
+		// Finish filter - finishes is an array of objects with finishID property
+		if (finishId) {
+			if (mongoose.Types.ObjectId.isValid(finishId)) {
+				filter['finishes.finishID'] = new mongoose.Types.ObjectId(finishId);
+			}
+		}
 
 		// Category filter - support both ID and slug
 		if (category) {
-			const mongoose = require('mongoose');
 			if (mongoose.Types.ObjectId.isValid(category) && category.length === 24) {
 				filter.category = category;
 			} else {
@@ -815,22 +960,30 @@ async function listProductsMinimal(req, res) {
 		const limitNum = limit ? parseInt(limit, 10) : undefined;
 		const skipNum = skip ? parseInt(skip, 10) : undefined;
 
-		// Build query with only necessary fields
+		// Build query with necessary fields including category and subcategoryId for sorting
+		// We need to fetch all matching products first to sort them properly
 		let query = Product.find(filter)
-			.select('_id productID name description imageURLs materials finishes');
+			.select('_id productID name description imageURLs materials finishes category subcategoryId')
+			.populate('category', 'name slug description subcategories');
 
-		// Apply pagination
+		// Fetch all matching products
+		const allItems = await query.lean();
+
+		// Apply category-based and productID-based sorting as default
+		// This ensures products are always grouped by category/subcategory and sorted by productID
+		const sortedItems = sortProductsByCategoryAndID(allItems);
+
+		// Apply pagination after sorting
+		let paginatedItems = sortedItems;
 		if (skipNum !== undefined && skipNum >= 0) {
-			query = query.skip(skipNum);
+			paginatedItems = paginatedItems.slice(skipNum);
 		}
 		if (limitNum !== undefined && limitNum > 0) {
-			query = query.limit(limitNum);
+			paginatedItems = paginatedItems.slice(0, limitNum);
 		}
 
-		const items = await query.lean();
-
 		// Transform to minimal format
-		const minimalProducts = items.map(item => {
+		const minimalProducts = paginatedItems.map(item => {
 			// Extract images
 			const imageURLsArray = item.imageURLs ? Object.values(item.imageURLs) : [];
 

@@ -317,8 +317,12 @@ async function getCollectionProducts(req, res) {
 		// Size filter
 		if (hasSize === 'true') filter['materials.sizeOptions.0'] = { $exists: true };
 
-		// Finish filter
-		if (finishId) filter.finishes = { $in: [finishId] };
+		// Finish filter - finishes is an array of objects with finishID property
+		if (finishId) {
+			if (mongoose.Types.ObjectId.isValid(finishId)) {
+				filter['finishes.finishID'] = new mongoose.Types.ObjectId(finishId);
+			}
+		}
 
 		// Discount filter
 		if (hasDiscount === 'true') {

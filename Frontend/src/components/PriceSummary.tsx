@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toNumber, formatCurrency } from '@/lib/utils'
 import { useSettings } from '@/contexts/SettingsContext'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import type { Product, Material, SizeOption, Finish } from '@/types'
 
 interface PriceSummaryProps {
@@ -26,6 +27,7 @@ export default function PriceSummary({
   availableFinishes 
 }: PriceSummaryProps) {
   const { settings } = useSettings()
+  const isMobile = useIsMobile()
   const vatRate = settings?.vatRate || 20
   const vatEnabled = settings?.vatEnabled !== false
 
@@ -53,10 +55,10 @@ export default function PriceSummary({
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: 20, height: 0 }}
+        initial={isMobile ? { opacity: 1, y: 0, height: 'auto' } : { opacity: 0, y: 20, height: 0 }}
         animate={{ opacity: 1, y: 0, height: 'auto' }}
         exit={{ opacity: 0, y: -20, height: 0 }}
-        transition={{ delay: 0.7 }}
+        transition={isMobile ? { duration: 0 } : { delay: 0.7, duration: 0.3 }}
         className="bg-gradient-to-br from-charcoal via-charcoal/95 to-charcoal/90 rounded-xl p-4 border-2 border-brass/40 shadow-xl overflow-hidden relative"
       >
         {/* Animated background pattern */}
@@ -78,9 +80,9 @@ export default function PriceSummary({
           
           <div className="space-y-1.5 mb-3">
             <motion.div
-              initial={{ x: -20, opacity: 0 }}
+              initial={isMobile ? { x: 0, opacity: 1 } : { x: -20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.8 }}
+              transition={isMobile ? { duration: 0 } : { delay: 0.8, duration: 0.3 }}
               className="flex justify-between items-center text-sm"
             >
               <span className="text-ivory/80 flex items-center gap-2">
@@ -171,9 +173,9 @@ export default function PriceSummary({
           
           <div className="border-t-2 border-brass/30 pt-3 space-y-1.5">
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
+              initial={isMobile ? { scale: 1, opacity: 1 } : { scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.9 }}
+              transition={isMobile ? { duration: 0 } : { delay: 0.9, duration: 0.3 }}
               className="flex justify-between items-center"
             >
               <span className="text-base font-bold text-ivory">Unit Price</span>
@@ -201,9 +203,9 @@ export default function PriceSummary({
             {/* VAT Breakdown */}
             {vatEnabled && (
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
+                initial={isMobile ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.0 }}
+                transition={isMobile ? { duration: 0 } : { delay: 1.0, duration: 0.3 }}
                 className="text-xs text-ivory/70 bg-brass/5 rounded-lg p-3 space-y-1.5 mt-3 border border-brass/10"
               >
                 <div className="text-sm font-semibold text-brass mb-2 pb-1 border-b border-brass/20">

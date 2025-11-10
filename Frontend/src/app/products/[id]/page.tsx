@@ -9,6 +9,7 @@ import { useCart } from '@/contexts/CartContext'
 import { useWishlist } from '@/contexts/WishlistContext'
 import { useToast } from '@/contexts/ToastContext'
 import { toNumber, formatCurrency } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import type { Product, Finish, Material, SizeOption } from '@/types'
 import LuxuryNavigation from '@/components/LuxuryNavigation'
 import LuxuryFooter from '@/components/LuxuryFooter'
@@ -30,6 +31,7 @@ export default function ProductDetailPage() {
   const { addToCart, loading: cartLoading } = useCart()
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist()
   const toast = useToast()
+  const isMobile = useIsMobile()
   
   const [product, setProduct] = useState<Product | null>(null)
   const [finishes, setFinishes] = useState<Finish[]>([])
@@ -651,9 +653,9 @@ export default function ProductDetailPage() {
 
               {/* Finishing Color Notice */}
               <motion.p
-                initial={{ opacity: 0 }}
+                initial={isMobile ? { opacity: 1 } : { opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
+                transition={isMobile ? { duration: 0 } : { delay: 0.5, duration: 0.3 }}
                 className="text-xs text-charcoal/60 italic"
               >
                 <span className="text-charcoal/70">Note:</span> Finish colors may differ from product images. Please refer to our{' '}

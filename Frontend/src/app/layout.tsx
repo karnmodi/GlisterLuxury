@@ -7,6 +7,7 @@ import { CartProvider } from '@/contexts/CartContext'
 import { WishlistProvider } from '@/contexts/WishlistContext'
 import { LoadingProvider } from '@/contexts/LoadingContext'
 import { ToastProvider } from '@/contexts/ToastContext'
+import { CategoriesProvider } from '@/contexts/CategoriesContext'
 import VisitTracker from '@/components/VisitTracker'
 import WhatsAppFloatingButton from '@/components/WhatsAppFloatingButton'
 
@@ -70,13 +71,15 @@ export default function RootLayout({
         <LoadingProvider>
           <AuthProvider>
             <SettingsProvider>
-              <CartProvider>
-                <WishlistProvider>
-                  <VisitTracker />
-                  {children}
-                  <WhatsAppFloatingButton />
-                </WishlistProvider>
-              </CartProvider>
+              <CategoriesProvider>
+                <CartProvider>
+                  <WishlistProvider>
+                    <VisitTracker />
+                    {children}
+                    <WhatsAppFloatingButton />
+                  </WishlistProvider>
+                </CartProvider>
+              </CategoriesProvider>
             </SettingsProvider>
           </AuthProvider>
         </LoadingProvider>

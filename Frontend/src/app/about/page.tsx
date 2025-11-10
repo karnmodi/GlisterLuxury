@@ -45,12 +45,13 @@ export default function AboutPage() {
     rootMargin: '50px 0px'
   })
 
-  // Group content by section
-  const aboutSection = aboutContent.filter(item => item.section === 'about')
-  const visionSection = aboutContent.filter(item => item.section === 'vision')
-  const philosophySection = aboutContent.filter(item => item.section === 'philosophy')
-  const promiseSection = aboutContent.filter(item => item.section === 'promise')
-  const coreValues = aboutContent.filter(item => item.section === 'coreValues').sort((a, b) => a.order - b.order)
+  // Group content by section - ensure aboutContent is always an array
+  const safeAboutContent = Array.isArray(aboutContent) ? aboutContent : []
+  const aboutSection = safeAboutContent.filter(item => item.section === 'about')
+  const visionSection = safeAboutContent.filter(item => item.section === 'vision')
+  const philosophySection = safeAboutContent.filter(item => item.section === 'philosophy')
+  const promiseSection = safeAboutContent.filter(item => item.section === 'promise')
+  const coreValues = safeAboutContent.filter(item => item.section === 'coreValues').sort((a, b) => a.order - b.order)
 
   // Fetch data immediately on mount
   useEffect(() => {
@@ -61,9 +62,9 @@ export default function AboutPage() {
           aboutUsApi.getAll({ isActive: true, sortBy: 'order' }),
           blogApi.getAll({ isActive: true, sortBy: 'order' })
         ])
-        // Set data immediately when received
-        setAboutContent(aboutData)
-        setBlogs(blogData)
+        // Set data immediately when received - ensure arrays
+        setAboutContent(Array.isArray(aboutData) ? aboutData : [])
+        setBlogs(Array.isArray(blogData) ? blogData : [])
         setLoading(false)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch content')
@@ -77,7 +78,7 @@ export default function AboutPage() {
 
   // Don't block rendering - show content immediately when available
   // Only show loading spinner if we have no data at all
-  if (loading && aboutContent.length === 0 && blogs.length === 0) {
+  if (loading && (Array.isArray(aboutContent) ? aboutContent.length : 0) === 0 && (Array.isArray(blogs) ? blogs.length : 0) === 0) {
     return (
       <div className="min-h-screen bg-ivory">
         <LuxuryNavigation />
@@ -1049,7 +1050,7 @@ export default function AboutPage() {
       )}
 
       {/* Journal/Blog Section */}
-      {blogs.length > 0 && (
+      {Array.isArray(blogs) && blogs.length > 0 && (
         <section className="py-24 lg:py-32 bg-charcoal relative overflow-hidden">
           {/* Top wave transition */}
           <div className="absolute top-0 left-0 right-0 overflow-hidden">
@@ -1116,7 +1117,7 @@ export default function AboutPage() {
 
             {/* Blog Articles Grid */}
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
-              {blogs.map((blog, index) => (
+              {(Array.isArray(blogs) ? blogs : []).map((blog, index) => (
                 <motion.div
                   key={blog._id}
                   initial={{ opacity: 0, y: 50 }}

@@ -183,17 +183,20 @@ export default function FinishesPage() {
                     </thead>
                     <tbody>
                       <AnimatePresence>
-                        {finishes.map((finish, index) => (
+                        {finishes.map((finish, index) => {
+                          const hasProducts = finish.productCount !== undefined && finish.productCount > 0
+                          return (
                           <motion.tr
                             key={finish._id}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.1, duration: 0.5 }}
-                            whileHover={{ 
-                              backgroundColor: 'rgba(201, 166, 107, 0.05)',
-                              transition: { duration: 0.2 }
+                            onClick={() => {
+                              if (hasProducts) {
+                                router.push(`/products?finishId=${finish._id}`)
+                              }
                             }}
-                            className="border-b border-brass/10 hover:bg-brass/5 transition-colors"
+                            className={`border-b border-brass/10 ${hasProducts ? 'cursor-pointer' : 'cursor-default'}`}
                           >
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-4">
@@ -257,6 +260,12 @@ export default function FinishesPage() {
                                         )}
                                       </div>
                                     )}
+                                    <div className="flex items-center gap-2 mt-3 text-sm text-brass font-medium">
+                                      <span>View Products</span>
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                                      </svg>
+                                    </div>
                                   </>
                                 ) : (
                                   <span className="text-sm text-charcoal/50 italic">
@@ -266,7 +275,8 @@ export default function FinishesPage() {
                               </div>
                             </td>
                           </motion.tr>
-                        ))}
+                          )
+                        })}
                       </AnimatePresence>
                     </tbody>
                   </table>
@@ -276,14 +286,20 @@ export default function FinishesPage() {
               {/* Mobile/Tablet Card View */}
               <div className="lg:hidden space-y-4">
                 <AnimatePresence>
-                  {finishes.map((finish, index) => (
+                  {finishes.map((finish, index) => {
+                    const hasProducts = finish.productCount !== undefined && finish.productCount > 0
+                    return (
                     <motion.div
                       key={finish._id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1, duration: 0.5 }}
-                      whileHover={{ scale: 1.02 }}
-                      className="bg-white/80 backdrop-blur-xl rounded-xl p-6 border border-brass/20 shadow-lg"
+                      onClick={() => {
+                        if (hasProducts) {
+                          router.push(`/products?finishId=${finish._id}`)
+                        }
+                      }}
+                      className={`bg-white/80 backdrop-blur-xl rounded-xl p-6 border border-brass/20 shadow-lg ${hasProducts ? 'cursor-pointer' : 'cursor-default'}`}
                     >
                       <div className="flex items-start gap-4 mb-4">
                         {finish.photoURL ? (
@@ -341,6 +357,12 @@ export default function FinishesPage() {
                                 ))}
                               </div>
                             )}
+                            <div className="flex items-center gap-2 mt-3 text-sm text-brass font-medium">
+                              <span>View Products</span>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                              </svg>
+                            </div>
                           </div>
                         ) : (
                           <span className="text-sm text-charcoal/50 italic">
@@ -349,7 +371,8 @@ export default function FinishesPage() {
                         )}
                       </div>
                     </motion.div>
-                  ))}
+                    )
+                  })}
                 </AnimatePresence>
               </div>
             </>

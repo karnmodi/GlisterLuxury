@@ -22,6 +22,11 @@ export default function AdminProductsPage() {
   
   // Selected product for detail view
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  
+  // Price editing states
+  const [editingPriceProductId, setEditingPriceProductId] = useState<string | null>(null)
+  const [newPriceValue, setNewPriceValue] = useState<string>('')
+  const [updatingPrice, setUpdatingPrice] = useState(false)
 
   const fetchData = async () => {
     try {
@@ -35,23 +40,29 @@ export default function AdminProductsPage() {
       
       // Handle products
       if (productsResult.status === 'fulfilled') {
-        setProducts(productsResult.value)
+        // Ensure we always set an array, even if the API returns null/undefined
+        setProducts(Array.isArray(productsResult.value) ? productsResult.value : [])
       } else {
         console.error('Failed to fetch products:', productsResult.reason)
+        setProducts([]) // Set empty array on error
       }
       
       // Handle categories
       if (categoriesResult.status === 'fulfilled') {
-        setCategories(categoriesResult.value)
+        // Ensure we always set an array, even if the API returns null/undefined
+        setCategories(Array.isArray(categoriesResult.value) ? categoriesResult.value : [])
       } else {
         console.error('Failed to fetch categories:', categoriesResult.reason)
+        setCategories([]) // Set empty array on error
       }
       
       // Handle finishes
       if (finishesResult.status === 'fulfilled') {
-        setFinishes(finishesResult.value)
+        // Ensure we always set an array, even if the API returns null/undefined
+        setFinishes(Array.isArray(finishesResult.value) ? finishesResult.value : [])
       } else {
         console.error('Failed to fetch finishes:', finishesResult.reason)
+        setFinishes([]) // Set empty array on error
       }
       
       // Show error only if all requests failed
@@ -74,6 +85,22 @@ export default function AdminProductsPage() {
     fetchData()
   }, [])
 
+  // Handle Escape key to cancel price editing
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && editingPriceProductId) {
+        cancelPriceEdit()
+      }
+    }
+
+    if (editingPriceProductId) {
+      window.addEventListener('keydown', handleEscape)
+      return () => {
+        window.removeEventListener('keydown', handleEscape)
+      }
+    }
+  }, [editingPriceProductId])
+
   const getBasePrice = (product: Product) => {
     if (product.materials && Array.isArray(product.materials) && product.materials.length > 0) {
       return product.materials[0].basePrice || 0
@@ -82,12 +109,139 @@ export default function AdminProductsPage() {
   }
 
   const getFinishName = (finishId: string) => {
+    if (!Array.isArray(finishes)) {
+      return finishId
+    }
     const finish = finishes.find(f => f._id === finishId)
     return finish?.name || finishId
   }
 
+  /**
+   * Extract prefix and numeric part from productID
+   * Handles any prefix pattern (M-, MP-, H-P-, ABC-, etc.)
+   */
+  const parseProductID = (productID: string): { prefix: string; numericPart: number } => {
+    if (!productID || typeof productID !== 'string') {
+      return { prefix: productID || '', numericPart: 0 }
+    }
+
+    const lastDashIndex = productID.lastIndexOf('-')
+    
+    // If no dash found, treat entire string as prefix
+    if (lastDashIndex === -1) {
+      return { prefix: productID, numericPart: 0 }
+    }
+
+    // Extract prefix: all parts before the last "-"
+    const prefix = productID.substring(0, lastDashIndex)
+    
+    // Extract numeric part: last part after the last "-"
+    const numericStr = productID.substring(lastDashIndex + 1)
+    const numericPart = parseInt(numericStr, 10)
+    
+    // If numeric part is not a valid number, treat as 0
+    return {
+      prefix: prefix || productID,
+      numericPart: isNaN(numericPart) ? 0 : numericPart
+    }
+  }
+
+  /**
+   * Sort products by category/subcategory, then by productID prefix and numeric part
+   * Matches the backend sorting logic
+   */
+  const sortProductsByCategoryAndID = (products: Product[]): Product[] => {
+    if (!Array.isArray(products) || products.length === 0) {
+      return products
+    }
+
+    // Create a copy to avoid mutating the original array
+    const sortedProducts = [...products]
+
+    sortedProducts.sort((a, b) => {
+      // Helper function to get category name
+      const getCategoryName = (category: Product['category']): string | null => {
+        if (!category) return null
+        if (typeof category === 'string') return null // If it's just an ID string, we can't get the name
+        return category.name || null
+      }
+
+      // Helper function to check if category is "Handles"
+      const isHandlesCategory = (category: Product['category']): boolean => {
+        const categoryName = getCategoryName(category)
+        return categoryName !== null && categoryName.toLowerCase() === 'handles'
+      }
+
+      // 1. Compare by category - prioritize "Handles" category first
+      const isHandlesA = isHandlesCategory(a.category)
+      const isHandlesB = isHandlesCategory(b.category)
+      
+      if (isHandlesA !== isHandlesB) {
+        // If one is Handles and the other isn't, Handles comes first
+        return isHandlesA ? -1 : 1
+      }
+
+      // If both are Handles or both are not Handles, continue with other sorting criteria
+      // Parse productIDs to get prefix and numeric part
+      const parsedA = parseProductID(a.productID)
+      const parsedB = parseProductID(b.productID)
+      
+      // 2. Compare by productID prefix (alphabetically) - SECONDARY SORT
+      // This ensures all products with same prefix (e.g., ARN, AUA, M, MP) are grouped together
+      const prefixCompare = parsedA.prefix.localeCompare(parsedB.prefix)
+      if (prefixCompare !== 0) {
+        return prefixCompare
+      }
+
+      // 3. Compare by numeric part (numerically) - TERTIARY SORT within same prefix
+      // This ensures products with same prefix are sorted numerically (e.g., M-101, M-102, M-1001, M-1009, M-1010)
+      const numA = Number(parsedA.numericPart) || 0
+      const numB = Number(parsedB.numericPart) || 0
+      const numericCompare = numA - numB
+      if (numericCompare !== 0) {
+        return numericCompare
+      }
+
+      // 4. Compare by category ID (or null) - QUATERNARY SORT
+      // Only used when prefix and numeric part are the same
+      const categoryA = typeof a.category === 'string' 
+        ? a.category 
+        : a.category?._id?.toString() || null
+      const categoryB = typeof b.category === 'string'
+        ? b.category
+        : b.category?._id?.toString() || null
+      
+      if (categoryA !== categoryB) {
+        if (categoryA === null) return 1 // null categories go last
+        if (categoryB === null) return -1
+        return categoryA.localeCompare(categoryB)
+      }
+
+      // 5. Compare by subcategory ID (or null) - QUINARY SORT
+      // Only used when prefix, numeric part, and category are the same
+      const subcategoryA = a.subcategoryId?.toString() || null
+      const subcategoryB = b.subcategoryId?.toString() || null
+      
+      if (subcategoryA !== subcategoryB) {
+        if (subcategoryA === null) return 1 // null subcategories go last
+        if (subcategoryB === null) return -1
+        return subcategoryA.localeCompare(subcategoryB)
+      }
+
+      // If everything is the same, maintain original order
+      return 0
+    })
+
+    return sortedProducts
+  }
+
   // Filtered and sorted products
   const filteredProducts = useMemo(() => {
+    // Ensure products is an array
+    if (!Array.isArray(products)) {
+      return []
+    }
+
     let filtered = products
 
     // Search filter
@@ -109,33 +263,46 @@ export default function AdminProductsPage() {
       })
     }
 
-    // Sort
-    filtered.sort((a, b) => {
-      let aValue: any, bValue: any
-      
-      switch (sortBy) {
-        case 'name':
-          aValue = a.name.toLowerCase()
-          bValue = b.name.toLowerCase()
-          break
-        case 'productID':
-          aValue = a.productID.toLowerCase()
-          bValue = b.productID.toLowerCase()
-          break
-        case 'packagingPrice':
-          aValue = a.packagingPrice || 0
-          bValue = b.packagingPrice || 0
-          break
-        default:
-          return 0
+    // Sort - ensure filtered is still an array and create a copy to avoid mutation
+    if (!Array.isArray(filtered)) {
+      return []
+    }
+
+    // Create a copy of the array before sorting to avoid mutating the original
+    let sorted = [...filtered]
+
+    // Apply category-based and productID-based sorting when sorting by productID
+    if (sortBy === 'productID') {
+      sorted = sortProductsByCategoryAndID(sorted)
+      // If descending order, reverse the sorted array
+      if (sortOrder === 'desc') {
+        sorted.reverse()
       }
+    } else {
+      // For other sort options, use standard sorting
+      sorted.sort((a, b) => {
+        let aValue: any, bValue: any
+        
+        switch (sortBy) {
+          case 'name':
+            aValue = a.name.toLowerCase()
+            bValue = b.name.toLowerCase()
+            break
+          case 'packagingPrice':
+            aValue = a.packagingPrice || 0
+            bValue = b.packagingPrice || 0
+            break
+          default:
+            return 0
+        }
 
-      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1
-      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1
-      return 0
-    })
+        if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1
+        if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1
+        return 0
+      })
+    }
 
-    return filtered
+    return sorted
   }, [products, searchQuery, selectedCategory, sortBy, sortOrder])
 
   const openCreateModal = () => {
@@ -188,6 +355,80 @@ export default function AdminProductsPage() {
     } catch (error) {
       console.error('Failed to toggle visibility:', error)
       alert(`Failed to ${action} product`)
+    }
+  }
+
+  const startPriceEdit = (product: Product) => {
+    // Check if product has materials
+    if (!product.materials || !Array.isArray(product.materials) || product.materials.length === 0) {
+      alert('This product has no materials. Cannot edit base price.')
+      return
+    }
+    
+    const currentPrice = product.materials[0].basePrice || 0
+    setEditingPriceProductId(product._id)
+    setNewPriceValue(currentPrice.toString())
+  }
+
+  const cancelPriceEdit = () => {
+    setEditingPriceProductId(null)
+    setNewPriceValue('')
+  }
+
+  const handlePriceUpdate = async (productId: string) => {
+    const product = products.find(p => p._id === productId)
+    if (!product) return
+
+    // Check if product has materials
+    if (!product.materials || !Array.isArray(product.materials) || product.materials.length === 0) {
+      alert('This product has no materials. Cannot update base price.')
+      cancelPriceEdit()
+      return
+    }
+
+    // Validate price
+    const priceValue = parseFloat(newPriceValue)
+    if (isNaN(priceValue) || priceValue < 0) {
+      alert('Please enter a valid positive number for the price.')
+      return
+    }
+
+    setUpdatingPrice(true)
+    try {
+      // Update the first material's basePrice
+      const updatedMaterials = [...product.materials]
+      updatedMaterials[0] = {
+        ...updatedMaterials[0],
+        basePrice: priceValue
+      }
+
+      await productsApi.update(productId, {
+        materials: updatedMaterials
+      })
+
+      // Update local state
+      const updatedProducts = products.map(p => 
+        p._id === productId 
+          ? { ...p, materials: updatedMaterials }
+          : p
+      )
+      setProducts(updatedProducts)
+
+      // Update selected product if it's the one being edited
+      if (selectedProduct?._id === productId) {
+        const updatedProduct = updatedProducts.find(p => p._id === productId)
+        if (updatedProduct) {
+          setSelectedProduct(updatedProduct)
+        }
+      }
+
+      // Reset editing state
+      cancelPriceEdit()
+    } catch (error) {
+      console.error('Failed to update price:', error)
+      alert('Failed to update price. Please try again.')
+    } finally {
+      setUpdatingPrice(false)
     }
   }
 
@@ -247,7 +488,7 @@ export default function AdminProductsPage() {
               className="flex-1 sm:flex-none px-2 py-1 text-xs border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
             >
               <option value="">All Categories</option>
-              {categories.map(cat => (
+              {Array.isArray(categories) && categories.map(cat => (
                 <option key={cat._id} value={cat.name}>{cat.name}</option>
               ))}
             </select>
@@ -338,7 +579,73 @@ export default function AdminProductsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-2 py-1.5 text-right font-semibold text-brass">{formatCurrency(getBasePrice(product))}</td>
+                      <td className="px-2 py-1.5 text-right">
+                        {editingPriceProductId === product._id ? (
+                          <div className="flex items-center justify-end gap-1">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={newPriceValue}
+                              onChange={(e) => setNewPriceValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  handlePriceUpdate(product._id)
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault()
+                                  cancelPriceEdit()
+                                }
+                              }}
+                              autoFocus
+                              disabled={updatingPrice}
+                              className="w-20 px-1.5 py-0.5 text-xs border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass text-right"
+                            />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handlePriceUpdate(product._id)
+                              }}
+                              disabled={updatingPrice}
+                              className="p-0.5 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
+                              title="Save"
+                            >
+                              <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                cancelPriceEdit()
+                              }}
+                              disabled={updatingPrice}
+                              className="p-0.5 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                              title="Cancel"
+                            >
+                              <svg className="w-3 h-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1">
+                            <span className="font-semibold text-brass">{formatCurrency(getBasePrice(product))}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                startPriceEdit(product)
+                              }}
+                              className="p-0.5 hover:bg-brass/10 rounded transition-colors"
+                              title="Edit price"
+                            >
+                              <svg className="w-3 h-3 text-charcoal/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </button>
+                          </div>
+                        )}
+                      </td>
                       <td className="px-2 py-1.5">
                         <div className="flex items-center justify-end gap-1">
                           <button
@@ -520,7 +827,7 @@ export default function AdminProductsPage() {
                     </svg>
                     Finishes ({selectedProduct.finishes?.length || 0})
                   </h4>
-                  {selectedProduct.finishes && selectedProduct.finishes.length > 0 ? (
+                  {selectedProduct.finishes && Array.isArray(selectedProduct.finishes) && selectedProduct.finishes.length > 0 ? (
                     <div className="space-y-1">
                       {selectedProduct.finishes.map((finish, index) => (
                         <div key={index} className="bg-olive/5 border border-olive/10 rounded p-2 flex justify-between items-center text-[10px]">

@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 interface QuantitySelectorProps {
   quantity: number
@@ -11,11 +12,13 @@ export default function QuantitySelector({
   quantity, 
   onQuantityChange 
 }: QuantitySelectorProps) {
+  const isMobile = useIsMobile()
+  
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={isMobile ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.6 }}
+      transition={isMobile ? { duration: 0 } : { delay: 0.6, duration: 0.3 }}
       className="bg-white/80 backdrop-blur-xl rounded-xl p-3 shadow-lg border border-brass/20"
     >
       <div className="flex items-center gap-2 mb-3">

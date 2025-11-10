@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { toNumber, formatCurrency } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import type { Product, Finish } from '@/types'
 
 interface FinishSelectionProps {
@@ -19,6 +20,8 @@ export default function FinishSelection({
   onFinishSelect,
   onFinishClear 
 }: FinishSelectionProps) {
+  const isMobile = useIsMobile()
+  
   if (availableFinishes.length === 0) {
     return null
   }
@@ -32,9 +35,9 @@ export default function FinishSelection({
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={isMobile ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
+        transition={isMobile ? { duration: 0 } : { delay: 0.4, duration: 0.3 }}
         className="bg-white/80 backdrop-blur-xl rounded-xl p-3 shadow-lg border border-brass/20"
       >
         <div className="flex items-center gap-2 mb-3">
@@ -50,9 +53,9 @@ export default function FinishSelection({
             return (
               <motion.button
                 key={finish._id}
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={isMobile ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.5 + finishIdx * 0.05 }}
+                transition={isMobile ? { duration: 0 } : { delay: 0.5 + finishIdx * 0.05, duration: 0.3 }}
                 whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => onFinishSelect(finish._id)}

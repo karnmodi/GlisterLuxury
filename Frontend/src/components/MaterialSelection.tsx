@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { formatCurrency } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import type { Material } from '@/types'
 
 interface MaterialSelectionProps {
@@ -15,11 +16,13 @@ export default function MaterialSelection({
   selectedMaterial, 
   onMaterialSelect 
 }: MaterialSelectionProps) {
+  const isMobile = useIsMobile()
+  
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={isMobile ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.3 }}
+      transition={isMobile ? { duration: 0 } : { delay: 0.3, duration: 0.3 }}
       className="bg-white/80 backdrop-blur-xl rounded-xl p-3 shadow-lg border border-brass/20"
     >
       <div className="flex items-center gap-2 mb-3">
@@ -32,9 +35,9 @@ export default function MaterialSelection({
         {materials.map((material, index) => (
           <motion.button
             key={index}
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={isMobile ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.4 + index * 0.1 }}
+            transition={isMobile ? { duration: 0 } : { delay: 0.4 + index * 0.1, duration: 0.3 }}
             whileHover={{ scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => onMaterialSelect(material)}

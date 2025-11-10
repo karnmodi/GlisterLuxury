@@ -212,12 +212,30 @@ export const productsApi = {
   },
 
   // Optimized endpoint for product listing - returns minimal data
-  getListing: (params?: { q?: string; material?: string; category?: string; subcategory?: string; limit?: number; skip?: number }) => {
+  // Note: Backend always applies category-based sorting regardless of sortBy/sortOrder
+  getListing: (params?: { 
+    q?: string
+    material?: string
+    category?: string
+    subcategory?: string
+    finishId?: string
+    hasSize?: boolean
+    hasDiscount?: boolean
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+    limit?: number
+    skip?: number
+  }) => {
     const queryParams = new URLSearchParams()
     if (params?.q) queryParams.append('q', params.q)
     if (params?.material) queryParams.append('material', params.material)
     if (params?.category) queryParams.append('category', params.category)
     if (params?.subcategory) queryParams.append('subcategory', params.subcategory)
+    if (params?.finishId) queryParams.append('finishId', params.finishId)
+    if (params?.hasSize !== undefined) queryParams.append('hasSize', params.hasSize.toString())
+    if (params?.hasDiscount !== undefined) queryParams.append('hasDiscount', params.hasDiscount.toString())
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder)
     if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString())
     if (params?.skip !== undefined) queryParams.append('skip', params.skip.toString())
 

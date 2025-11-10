@@ -3,31 +3,11 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
-import { categoriesApi } from '@/lib/api'
-import type { Category } from '@/types'
+import { useCategories } from '@/contexts/CategoriesContext'
 
 export default function LuxuryFooter() {
   const currentYear = new Date().getFullYear()
-  const [categoriesWithProducts, setCategoriesWithProducts] = useState<Category[]>([])
-
-  // Fetch categories - backend already filters to only show categories/subcategories with products
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch categories (already filtered to only those with products)
-        const categoriesData = await categoriesApi.getAllWithProducts()
-        // Ensure we always set an array, never null or undefined
-        setCategoriesWithProducts(Array.isArray(categoriesData) ? categoriesData : [])
-      } catch (error) {
-        console.error('Failed to fetch categories for footer:', error)
-        // Fallback to empty array on error
-        setCategoriesWithProducts([])
-      }
-    }
-
-    fetchData()
-  }, [])
+  const { categories: categoriesWithProducts, loading } = useCategories()
 
   return (
     <footer className="bg-gradient-charcoal relative overflow-hidden">
@@ -90,11 +70,13 @@ export default function LuxuryFooter() {
           <div>
             <h4 className="text-ivory font-semibold mb-6 tracking-wide">Products</h4>
             <ul className="space-y-3">
-              {categoriesWithProducts && Array.isArray(categoriesWithProducts) && categoriesWithProducts.length > 0 ? (
+              {loading ? (
+                <li className="text-ivory/50 text-sm">Loading...</li>
+              ) : categoriesWithProducts && Array.isArray(categoriesWithProducts) && categoriesWithProducts.length > 0 ? (
                 categoriesWithProducts.map((category) => (
                   <li key={category._id}>
                     <Link 
-                      href={`/products?category=${category.slug || category._id}`}
+                      href={`/products?category=${category._id}`}
                       className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
                     >
                       {category.name}
@@ -102,8 +84,7 @@ export default function LuxuryFooter() {
                   </li>
                 ))
               ) : (
-                // Fallback while loading or if no categories with products
-                <li className="text-ivory/50 text-sm">Loading...</li>
+                <li className="text-ivory/50 text-sm">No categories available</li>
               )}
             </ul>
           </div>
