@@ -126,6 +126,7 @@ apiRouter.use('/analytics', require('./src/routes/analytics.routes'));
 apiRouter.use('/offers', require('./src/routes/offers.routes'));
 apiRouter.use('/settings', require('./src/routes/settings.routes'));
 apiRouter.use('/collections', require('./src/routes/collections.routes'));
+apiRouter.use('/incoming-email', require('./src/routes/incomingEmail.routes'));
 
 app.use(apiRouter); // no prefix
 app.use('/api', apiRouter); // with /api prefix
@@ -145,6 +146,39 @@ app.use(require('./src/middleware/errorHandler'));
     console.log('🔄 Will attempt to reconnect on first request...');
   }
 })();
+
+// Set up scheduled email polling
+const incomingEmailController = require('./src/controllers/incomingEmail.controller');
+
+// Poll emails interval in seconds (configurable via IMAP_POLL_INTERVAL env var)
+// Default: 5 seconds (300 seconds = 5 minutes for production)
+const pollIntervalSeconds = parseInt(process.env.IMAP_POLL_INTERVAL) || 5;
+
+// Schedule email polling using setInterval (supports seconds)
+let pollingInterval = null;
+
+const startEmailPolling = () => {
+  // Clear any existing interval
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+  }
+
+  // Start polling
+  pollingInterval = setInterval(async () => {
+    // Email polling runs silently - logs are written to file
+    try {
+      await incomingEmailController.processIncomingEmails();
+    } catch (error) {
+      // Only log critical errors to console
+      console.error('[Email Polling] Critical error:', error.message);
+    }
+  }, pollIntervalSeconds * 1000); // Convert seconds to milliseconds
+
+  console.log(`📧 Email polling scheduled to run every ${pollIntervalSeconds} seconds`);
+};
+
+// Start polling after server initialization
+startEmailPolling();
 
 // Start server (for local development)
 if (process.env.NODE_ENV !== 'production') {
