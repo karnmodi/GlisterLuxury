@@ -1,20 +1,32 @@
 const fs = require('fs');
 const path = require('path');
 
-const LOG_DIR = path.join(__dirname, '../../logs');
-const LOG_FILE = path.join(LOG_DIR, 'auto-email.log');
+// Check if we're in a serverless environment (Vercel, AWS Lambda, etc.)
+const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NODE_ENV === 'production';
+
+const LOG_DIR = isServerless ? null : path.join(__dirname, '../../logs');
+const LOG_FILE = isServerless ? null : (LOG_DIR ? path.join(LOG_DIR, 'auto-email.log') : null);
 const MAX_LOG_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_LOG_FILES = 5;
 
-// Ensure log directory exists
-if (!fs.existsSync(LOG_DIR)) {
-  fs.mkdirSync(LOG_DIR, { recursive: true });
+// Ensure log directory exists (only in non-serverless environments)
+if (!isServerless && LOG_DIR && !fs.existsSync(LOG_DIR)) {
+  try {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+  } catch (error) {
+    // If we can't create the directory, fall back to console logging
+    console.warn('[Email Logger] Could not create log directory, using console logging:', error.message);
+  }
 }
 
 /**
  * Rotate log file if it exceeds max size
  */
 function rotateLogFile() {
+  if (isServerless || !LOG_FILE || !LOG_DIR) {
+    return; // Skip rotation in serverless environments
+  }
+  
   try {
     if (fs.existsSync(LOG_FILE)) {
       const stats = fs.statSync(LOG_FILE);
@@ -52,28 +64,39 @@ function rotateLogFile() {
 }
 
 /**
- * Write log entry to file
+ * Write log entry to file or console
  * @param {string} level - Log level (INFO, ERROR, WARN, DEBUG)
  * @param {string} message - Log message
  * @param {Object} data - Additional data to log
  */
 function writeLog(level, message, data = null) {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    level,
+    message,
+    ...(data && { data })
+  };
+  
+  // In serverless environments, use console logging
+  if (isServerless || !LOG_FILE) {
+    const logMethod = level === 'ERROR' ? console.error : 
+                     level === 'WARN' ? console.warn : 
+                     level === 'DEBUG' ? console.debug : 
+                     console.log;
+    logMethod(`[Email Logger ${level}] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+    return;
+  }
+  
+  // In non-serverless environments, write to file
   try {
     rotateLogFile();
-    
-    const timestamp = new Date().toISOString();
-    const logEntry = {
-      timestamp,
-      level,
-      message,
-      ...(data && { data })
-    };
-    
     const logLine = JSON.stringify(logEntry) + '\n';
     fs.appendFileSync(LOG_FILE, logLine, { encoding: 'utf8' });
   } catch (error) {
     // Fallback to console if file write fails
     console.error(`[Email Logger] Failed to write log:`, error.message);
+    console.log(`[Email Logger ${level}] ${message}`, data ? JSON.stringify(data, null, 2) : '');
   }
 }
 
