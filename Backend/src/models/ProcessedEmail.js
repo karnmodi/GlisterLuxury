@@ -48,28 +48,45 @@ processedEmailSchema.index({ emailAddress: 1, uniqueIdentifier: 1 });
 
 // Static method to check if email was already replied to
 processedEmailSchema.statics.checkIfReplied = async function(emailAddress, senderEmail, messageId, subject, date) {
-  // Generate unique identifier
-  const dateStr = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-  const uniqueId = messageId 
-    ? `${messageId}|${senderEmail.toLowerCase()}|${dateStr}`
-    : `${senderEmail.toLowerCase()}|${subject}|${dateStr}`;
-  
-  const existing = await this.findOne({ 
-    emailAddress: emailAddress.toLowerCase().trim(),
-    uniqueIdentifier: uniqueId
-  });
-  
-  return !!existing;
+  try {
+    // Check if database is connected
+    if (!this.db || this.db.readyState !== 1) {
+      return false; // Database not connected, assume not replied
+    }
+    
+    // Generate unique identifier
+    const dateStr = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const uniqueId = messageId 
+      ? `${messageId}|${senderEmail.toLowerCase()}|${dateStr}`
+      : `${senderEmail.toLowerCase()}|${subject}|${dateStr}`;
+    
+    const existing = await this.findOne({ 
+      emailAddress: emailAddress.toLowerCase().trim(),
+      uniqueIdentifier: uniqueId
+    });
+    
+    return !!existing;
+  } catch (error) {
+    // On error, assume not replied to avoid blocking legitimate emails
+    console.error('[ProcessedEmail] Error checking if replied:', error.message);
+    return false;
+  }
 };
 
 // Static method to mark email as replied
 processedEmailSchema.statics.markAsReplied = async function(emailAddress, senderEmail, messageId, subject, date) {
-  const dateStr = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-  const uniqueId = messageId 
-    ? `${messageId}|${senderEmail.toLowerCase()}|${dateStr}`
-    : `${senderEmail.toLowerCase()}|${subject}|${dateStr}`;
-  
   try {
+    // Check if database is connected
+    if (!this.db || this.db.readyState !== 1) {
+      console.warn('[ProcessedEmail] Database not connected, cannot mark email as replied');
+      return null; // Database not connected
+    }
+    
+    const dateStr = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const uniqueId = messageId 
+      ? `${messageId}|${senderEmail.toLowerCase()}|${dateStr}`
+      : `${senderEmail.toLowerCase()}|${subject}|${dateStr}`;
+    
     const processedEmail = await this.create({
       emailAddress: emailAddress.toLowerCase().trim(),
       senderEmail: senderEmail.toLowerCase().trim(),
@@ -84,7 +101,9 @@ processedEmailSchema.statics.markAsReplied = async function(emailAddress, sender
     if (error.code === 11000) {
       return null; // Already exists
     }
-    throw error;
+    // Log other errors but don't throw to prevent crashes
+    console.error('[ProcessedEmail] Error marking as replied:', error.message);
+    return null;
   }
 };
 

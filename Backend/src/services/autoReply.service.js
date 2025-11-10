@@ -57,12 +57,18 @@ function isBusinessEmail(email) {
  */
 async function checkIfAlreadyReplied(emailAddress, senderEmail, messageId, subject, date) {
   try {
+    // Check if mongoose is connected
+    if (!ProcessedEmail.db || ProcessedEmail.db.readyState !== 1) {
+      // Database not connected, return false to allow processing
+      return false;
+    }
     return await ProcessedEmail.checkIfReplied(emailAddress, senderEmail, messageId, subject, date);
   } catch (error) {
     emailLogger.error('Error checking if email was already replied', {
       emailAddress,
       senderEmail,
-      error: error.message
+      error: error.message,
+      stack: error.stack
     });
     // On error, assume not replied to avoid blocking legitimate emails
     return false;
@@ -80,14 +86,26 @@ async function checkIfAlreadyReplied(emailAddress, senderEmail, messageId, subje
  */
 async function markAsReplied(emailAddress, senderEmail, messageId, subject, date) {
   try {
+    // Check if mongoose is connected
+    if (!ProcessedEmail.db || ProcessedEmail.db.readyState !== 1) {
+      // Database not connected, return false to prevent marking
+      emailLogger.warn('Database not connected, cannot mark email as replied', {
+        emailAddress,
+        senderEmail
+      });
+      return false;
+    }
     const result = await ProcessedEmail.markAsReplied(emailAddress, senderEmail, messageId, subject, date);
     return result !== null; // Returns false if already exists (race condition)
   } catch (error) {
     emailLogger.error('Error marking email as replied', {
       emailAddress,
       senderEmail,
-      error: error.message
+      error: error.message,
+      stack: error.stack,
+      code: error.code
     });
+    // On error, return false to prevent duplicate sends
     return false;
   }
 }
