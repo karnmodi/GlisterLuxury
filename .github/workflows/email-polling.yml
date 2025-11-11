@@ -64,44 +64,14 @@ jobs:
             echo ""
             echo "✅ Email polling triggered successfully"
             echo ""
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "📧 EMAIL PROCESSING DETAILS"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             
-            # Parse and display results if available
-            if echo "$BODY" | grep -q "emailsProcessed"; then
-              EMAILS_PROCESSED=$(echo "$BODY" | grep -o '"emailsProcessed":[0-9]*' | cut -d':' -f2 || echo "0")
-              echo "📊 Total Emails Processed: ${EMAILS_PROCESSED}"
-              echo ""
+            # Simple logging: Only show "Email received" and "Auto reply sent"
+            if echo "$BODY" | grep -q '"status":"received"'; then
+              echo "📥 Email received"
             fi
             
-            # Parse and display detailed email information
-            # Check if details array exists in response
-            if echo "$BODY" | grep -q '"details":\['; then
-              echo "📋 Detailed Email Log:"
-              echo ""
-              
-              # Extract details array and process each entry
-              # Use Python or jq if available, otherwise use basic parsing
-              if command -v python3 &> /dev/null; then
-                PYTHON_SCRIPT="aW1wb3J0IGpzb24KaW1wb3J0IHN5cwoKdHJ5OgogICAgYm9keSA9IHN5cy5zdGRpbi5yZWFkKCkKICAgIGRhdGEgPSBqc29uLmxvYWRzKGJvZHkpCiAgICBkZXRhaWxzID0gZGF0YS5nZXQoJ2RldGFpbHMnLCBbXSkKICAgIAogICAgaWYgbm90IGRldGFpbHM6CiAgICAgICAgcHJpbnQoJyAgIOKEue+4jyAgTm8gZW1haWxzIHRvIHByb2Nlc3MnKQogICAgZWxzZToKICAgICAgICBmb3IgaSwgeCBpbiBlbnVtZXJhdGUoZGV0YWlscywgMSk6CiAgICAgICAgICAgIHN0YXR1cyA9IHguZ2V0KCdzdGF0dXMnLCAndW5rbm93bicpCiAgICAgICAgICAgIHRpbWVzdGFtcCA9IHguZ2V0KCd0aW1lc3RhbXAnLCAnJykKICAgICAgICAgICAgdGltZV9zdHIgPSB0aW1lc3RhbXAuc3BsaXQoJ1QnKVsxXS5zcGxpdCgnLicpWzBdIGlmICdUJyBpbiB0aW1lc3RhbXAgZWxzZSAnJwogICAgICAgICAgICByZWNlaXZlZCA9IHguZ2V0KCdyZWNlaXZlZEZyb20nLCB7fSkKICAgICAgICAgICAgCiAgICAgICAgICAgIGlmIHN0YXR1cyA9PSAncmVjZWl2ZWQnOgogICAgICAgICAgICAgICAgcHJpbnQoZicgICDwn5OlIFt7aX1dIE5FVyBFTUFJTCBSRUNFSVZFRCcpCiAgICAgICAgICAgICAgICBwcmludChmJyAgICAgIFRpbWU6IHt0aW1lX3N0cn0nKQogICAgICAgICAgICAgICAgbmFtZSA9IHJlY2VpdmVkLmdldCgnbmFtZScsICdVbmtub3duJykKICAgICAgICAgICAgICAgIGVtYWlsID0gcmVjZWl2ZWQuZ2V0KCdlbWFpbCcsICd1bmtub3duJykKICAgICAgICAgICAgICAgIHByaW50KGYnICAgICAgRnJvbToge25hbWV9IDx7ZW1haWx9PicpCiAgICAgICAgICAgICAgICBwcmludChmJyAgICAgIFN1YmplY3Q6IHtyZWNlaXZlZC5nZXQoInN1YmplY3QiLCAiTm8gU3ViamVjdCIpfScpCiAgICAgICAgICAgICAgICBwcmludChmJyAgICAgIFJlY2VpdmVkIEF0OiB7eC5nZXQoInJlY2VpdmVkQXQiLCAiIil9JykKICAgICAgICAgICAgICAgIHByaW50KCcnKQogICAgICAgICAgICBlbGlmIHN0YXR1cyA9PSAnc2VudCc6CiAgICAgICAgICAgICAgICBhdXRvX3JlcGx5ID0geC5nZXQoJ2F1dG9SZXBseVNlbnQnLCB7fSkKICAgICAgICAgICAgICAgIHByaW50KGYnICAg4pyFIFt7aX1dIEFVVE8tUkVQTFkgU0VOVCcpCiAgICAgICAgICAgICAgICBwcmludChmJyAgICAgIFRpbWU6IHt0aW1lX3N0cn0nKQogICAgICAgICAgICAgICAgbmFtZSA9IHJlY2VpdmVkLmdldCgnbmFtZScsICdVbmtub3duJykKICAgICAgICAgICAgICAgIGVtYWlsID0gcmVjZWl2ZWQuZ2V0KCdlbWFpbCcsICd1bmtub3duJykKICAgICAgICAgICAgICAgIHByaW50KGYnICAgICAgT3JpZ2luYWwgRW1haWwgRnJvbToge25hbWV9IDx7ZW1haWx9PicpCiAgICAgICAgICAgICAgICBwcmludChmJyAgICAgIE9yaWdpbmFsIFN1YmplY3Q6IHtyZWNlaXZlZC5nZXQoInN1YmplY3QiLCAiTm8gU3ViamVjdCIpfScpCiAgICAgICAgICAgICAgICBwcmludChmJyAgICAgIEF1dG8tUmVwbHkgVG86IHthdXRvX3JlcGx5LmdldCgidG8iLCAidW5rbm93biIpfScpCiAgICAgICAgICAgICAgICBwcmludChmJyAgICAgIEF1dG8tUmVwbHkgRnJvbToge2F1dG9fcmVwbHkuZ2V0KCJmcm9tIiwgInVua25vd24iKX0nKQogICAgICAgICAgICAgICAgcHJpbnQoZicgICAgICBBdXRvLVJlcGx5IFN1YmplY3Q6IHthdXRvX3JlcGx5LmdldCgic3ViamVjdCIsICJObyBTdWJqZWN0Iil9JykKICAgICAgICAgICAgICAgIG1lc3NhZ2VfcHJldmlldyA9IGF1dG9fcmVwbHkuZ2V0KCdtZXNzYWdlUHJldmlldycsICcnKQogICAgICAgICAgICAgICAgaWYgbWVzc2FnZV9wcmV2aWV3OgogICAgICAgICAgICAgICAgICAgIHByaW50KGYnICAgICAgTWVzc2FnZSBQcmV2aWV3OiB7bWVzc2FnZV9wcmV2aWV3WzoxMDBdfScpCiAgICAgICAgICAgICAgICBwcmludCgnJykKICAgICAgICAgICAgZWxpZiBzdGF0dXMgPT0gJ2ZhaWxlZCc6CiAgICAgICAgICAgICAgICBmYWlsZWQgPSB4LmdldCgnYXV0b1JlcGx5RmFpbGVkJywge30pCiAgICAgICAgICAgICAgICBwcmludChmJyAgIOKdjCBbe2l9XSBBVVRPLVJFUExZIEZBSUxFRCcpCiAgICAgICAgICAgICAgICBwcmludChmJyAgICAgIFRpbWU6IHt0aW1lX3N0cn0nKQogICAgICAgICAgICAgICAgbmFtZSA9IHJlY2VpdmVkLmdldCgnbmFtZScsICdVbmtub3duJykKICAgICAgICAgICAgICAgIGVtYWlsID0gcmVjZWl2ZWQuZ2V0KCdlbWFpbCcsICd1bmtub3duJykKICAgICAgICAgICAgICAgIHByaW50KGYnICAgICAgRnJvbToge25hbWV9IDx7ZW1haWx9PicpCiAgICAgICAgICAgICAgICBwcmludChmJyAgICAgIFN1YmplY3Q6IHtyZWNlaXZlZC5nZXQoInN1YmplY3QiLCAiTm8gU3ViamVjdCIpfScpCiAgICAgICAgICAgICAgICBwcmludChmJyAgICAgIFJlYXNvbjoge2ZhaWxlZC5nZXQoInJlYXNvbiIsICJVbmtub3duIGVycm9yIil9JykKICAgICAgICAgICAgICAgIHByaW50KCcnKQpleGNlcHQgRXhjZXB0aW9uIGFzIGU6CiAgICBwcmludChmJyAgIOKaoO+4jyAgQ291bGQgbm90IHBhcnNlIGRldGFpbGVkIGluZm9ybWF0aW9uOiB7c3RyKGUpfScpCg=="
-                echo "$BODY" | python3 -c "import base64, sys; exec(base64.b64decode('$PYTHON_SCRIPT').decode('utf-8'))"
-              elif command -v jq &> /dev/null; then
-                echo "$BODY" | jq -r '.details[]? | "   " + (if .status == "received" then "📥 NEW EMAIL RECEIVED" elif .status == "sent" then "✅ AUTO-REPLY SENT" elif .status == "failed" then "❌ AUTO-REPLY FAILED" else "ℹ️ " + .status end) + "\n" + "      Time: " + (.timestamp // "unknown" | split("T")[1] | split(".")[0]) + "\n" + (if .receivedFrom then "      From: " + (.receivedFrom.name // "Unknown") + " <" + (.receivedFrom.email // "unknown") + ">\n" + "      Subject: " + (.receivedFrom.subject // "No Subject") + "\n" else "" end) + (if .autoReplySent then "      Auto-Reply To: " + (.autoReplySent.to // "unknown") + "\n" + "      Auto-Reply Subject: " + (.autoReplySent.subject // "No Subject") + "\n" else "" end) + (if .autoReplyFailed then "      Reason: " + (.autoReplyFailed.reason // "Unknown") + "\n" else "" end) + ""'
-              else
-                # Fallback: Basic text parsing
-                echo "   ℹ️  Install python3 or jq for detailed parsing"
-                echo "   Raw details available in response body above"
-              fi
-            else
-              echo "   ℹ️  No detailed email information in response"
-            fi
-            
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            
-            if echo "$BODY" | grep -q '"errors":\[.*\]' && ! echo "$BODY" | grep -q '"errors":\[\]'; then
-              echo ""
-              echo "⚠️ Some errors occurred during processing"
+            if echo "$BODY" | grep -q '"status":"sent"'; then
+              echo "✅ Auto reply sent"
             fi
             
             exit 0
@@ -135,16 +105,4 @@ jobs:
             exit 0
           fi
           
-      - name: Log Execution Summary
-        if: always()
-        run: |
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📋 Execution Summary"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "Workflow: Email Auto-Reply Polling"
-          echo "Triggered: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-          echo "Repository: ${{ github.repository }}"
-          echo "Commit: ${{ github.sha }}"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
