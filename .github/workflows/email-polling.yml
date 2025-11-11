@@ -4,7 +4,6 @@ on:
   schedule:
     # Run every minute
     - cron: '* * * * *'
-  workflow_dispatch: # Allow manual triggering
 
 jobs:
   trigger-email-polling:
@@ -68,11 +67,11 @@ jobs:
             # Simple logging: Only show "Email received" and "Auto reply sent"
             if echo "$BODY" | grep -q '"status":"received"'; then
               echo "📥 Email received"
-              
+            fi
             
             if echo "$BODY" | grep -q '"status":"sent"'; then
               echo "✅ Auto reply sent"
-            
+            fi
             
             exit 0
           else
