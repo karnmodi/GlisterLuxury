@@ -55,6 +55,39 @@ const SettingsSchema = new Schema({
     default: true
   },
 
+  // Auto-reply configuration
+  autoReplySettings: {
+    type: [{
+      emailAddress: {
+        type: String,
+        required: true,
+        lowercase: true,
+        trim: true
+      },
+      enabled: {
+        type: Boolean,
+        default: false
+      },
+      subject: {
+        type: String,
+        default: ''
+      },
+      message: {
+        type: String,
+        default: ''
+      },
+      lastUpdated: {
+        type: Date,
+        default: Date.now
+      },
+      updatedBy: {
+        type: String,
+        default: 'system'
+      }
+    }],
+    default: []
+  },
+
   // Metadata
   lastUpdated: {
     type: Date,
@@ -126,6 +159,24 @@ SettingsSchema.statics.getSettings = async function() {
 
   if (!settings) {
     // Create default settings if none exist
+    const defaultAutoReplyMessage = `Thank you for reaching out to Glister London! 💛
+
+We're thrilled to hear from you and delighted to welcome you into the Glister family. Your enquiry is important to us, and our dedicated Enquiries Team will personally get back to you within 3 business days.
+
+At Glister London, every product we craft reflects timeless design, superior quality, and the elegance you deserve. From luxurious bathroom accessories to our full range of premium hardware solutions, we are committed to bringing beauty and distinction into your home.
+
+We can't wait to assist you and make your experience with Glister London truly exceptional. Your journey with us is just beginning, and we're excited to share it with you! ✨
+
+Warm regards,
+
+The Glister London Enquiries Team
+
+Crafted for those who value distinction.
+
++44 7767 198433 | enquiries@glisterlondon.com
+
+https://www.glisterlondon.com/`;
+
     settings = await this.create({
       deliveryTiers: [
         { minAmount: 0, maxAmount: 49.99, fee: 5.99 },
@@ -137,7 +188,41 @@ SettingsSchema.statics.getSettings = async function() {
         amount: 100.00
       },
       vatRate: 20.0,
-      vatEnabled: true
+      vatEnabled: true,
+      autoReplySettings: [
+        {
+          emailAddress: 'enquiries@glisterlondon.com',
+          enabled: false,
+          subject: 'Thank you for contacting Glister London',
+          message: defaultAutoReplyMessage,
+          lastUpdated: new Date(),
+          updatedBy: 'system'
+        },
+        {
+          emailAddress: 'sales@glisterlondon.com',
+          enabled: false,
+          subject: '',
+          message: '',
+          lastUpdated: new Date(),
+          updatedBy: 'system'
+        },
+        {
+          emailAddress: 'orders@glisterlondon.com',
+          enabled: false,
+          subject: '',
+          message: '',
+          lastUpdated: new Date(),
+          updatedBy: 'system'
+        },
+        {
+          emailAddress: 'noreply@glisterlondon.com',
+          enabled: false,
+          subject: '',
+          message: '',
+          lastUpdated: new Date(),
+          updatedBy: 'system'
+        }
+      ]
     });
   }
 
@@ -178,6 +263,17 @@ SettingsSchema.statics.updateSettings = async function(updates) {
     settings.vatEnabled = updates.vatEnabled;
   }
 
+  if (updates.autoReplySettings !== undefined) {
+    console.log('Updating autoReplySettings:', updates.autoReplySettings.length, 'configs');
+    // Update lastUpdated and updatedBy for each auto-reply config
+    const updatedAutoReplySettings = updates.autoReplySettings.map(config => ({
+      ...config,
+      lastUpdated: config.lastUpdated ? new Date(config.lastUpdated) : new Date(),
+      updatedBy: config.updatedBy || updates.updatedBy || 'system'
+    }));
+    settings.autoReplySettings = updatedAutoReplySettings;
+  }
+
   if (updates.updatedBy !== undefined) {
     settings.updatedBy = updates.updatedBy;
   }
@@ -187,6 +283,7 @@ SettingsSchema.statics.updateSettings = async function(updates) {
   settings.markModified('freeDeliveryThreshold');
   settings.markModified('vatRate');
   settings.markModified('vatEnabled');
+  settings.markModified('autoReplySettings');
 
   // Validate tiers before saving
   const validation = settings.validateDeliveryTiers();

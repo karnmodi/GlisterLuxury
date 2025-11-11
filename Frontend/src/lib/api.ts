@@ -1415,6 +1415,38 @@ export const settingsApi = {
     }),
 }
 
+// Incoming Email API
+export const incomingEmailApi = {
+  // Process incoming emails manually (admin only)
+  process: (token: string) =>
+    apiCall<{ success: boolean; message: string; emailsProcessed: number; errors: any[] }>('/incoming-email/process', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+    }),
+
+  // Get polling status (admin only)
+  getStatus: (token: string) =>
+    apiCall<{ lastChecked: string | null; isRunning: boolean; emailsProcessed: number; errors: any[] }>('/incoming-email/status', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+    }),
+
+  // Test IMAP connection (admin only)
+  testConnection: (token: string, emailAddress: string) =>
+    apiCall<{ success: boolean; message: string; stats?: any; error?: string }>('/incoming-email/test-connection', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ emailAddress }),
+    }),
+}
+
 // Collections API
 export const collectionsApi = {
   // Get all collections (public)

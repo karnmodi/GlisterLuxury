@@ -649,11 +649,21 @@ export interface FreeDeliveryThreshold {
   amount: number
 }
 
+export interface AutoReplyConfig {
+  emailAddress: string
+  enabled: boolean
+  subject: string
+  message: string
+  lastUpdated?: string
+  updatedBy?: string
+}
+
 export interface Settings {
   deliveryTiers: DeliveryTier[]
   freeDeliveryThreshold: FreeDeliveryThreshold
   vatRate: number
   vatEnabled: boolean
+  autoReplySettings?: AutoReplyConfig[]
   lastUpdated?: string
   updatedBy?: string
 }

@@ -23,6 +23,7 @@ const getSettings = async (req, res) => {
       },
       vatRate: settings.vatRate,
       vatEnabled: settings.vatEnabled,
+      autoReplySettings: settings.autoReplySettings || [],
       lastUpdated: settings.lastUpdated,
       updatedBy: settings.updatedBy
     };
@@ -135,6 +136,71 @@ const updateSettings = async (req, res) => {
       });
     }
 
+    // Validate auto-reply settings if provided
+    if (updates.autoReplySettings !== undefined) {
+      if (!Array.isArray(updates.autoReplySettings)) {
+        return res.status(400).json({
+          error: 'autoReplySettings must be an array'
+        });
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const emailAddresses = new Set();
+
+      for (let i = 0; i < updates.autoReplySettings.length; i++) {
+        const config = updates.autoReplySettings[i];
+
+        // Validate emailAddress
+        if (!config.emailAddress || typeof config.emailAddress !== 'string') {
+          return res.status(400).json({
+            error: `Auto-reply config ${i + 1}: emailAddress is required and must be a string`
+          });
+        }
+
+        if (!emailRegex.test(config.emailAddress)) {
+          return res.status(400).json({
+            error: `Auto-reply config ${i + 1}: emailAddress must be a valid email address`
+          });
+        }
+
+        // Normalize email address
+        const normalizedEmail = config.emailAddress.toLowerCase().trim();
+        
+        // Check for duplicates
+        if (emailAddresses.has(normalizedEmail)) {
+          return res.status(400).json({
+            error: `Auto-reply config: Duplicate email address ${normalizedEmail}`
+          });
+        }
+        emailAddresses.add(normalizedEmail);
+
+        // Update config with normalized email
+        config.emailAddress = normalizedEmail;
+
+        // Validate enabled
+        if (config.enabled !== undefined && typeof config.enabled !== 'boolean') {
+          return res.status(400).json({
+            error: `Auto-reply config ${i + 1}: enabled must be a boolean`
+          });
+        }
+
+        // If enabled, validate subject and message
+        if (config.enabled === true) {
+          if (!config.subject || typeof config.subject !== 'string' || config.subject.trim() === '') {
+            return res.status(400).json({
+              error: `Auto-reply config ${i + 1}: subject is required when enabled is true`
+            });
+          }
+
+          if (!config.message || typeof config.message !== 'string' || config.message.trim() === '') {
+            return res.status(400).json({
+              error: `Auto-reply config ${i + 1}: message is required when enabled is true`
+            });
+          }
+        }
+      }
+    }
+
     // Add updatedBy from user info if available
     // TODO: Add proper authentication middleware to get user email/id
     if (req.user && req.user.email) {
@@ -186,6 +252,7 @@ const updateSettings = async (req, res) => {
       },
       vatRate: updatedSettings.vatRate,
       vatEnabled: updatedSettings.vatEnabled,
+      autoReplySettings: updatedSettings.autoReplySettings || [],
       lastUpdated: updatedSettings.lastUpdated,
       updatedBy: updatedSettings.updatedBy
     };
@@ -241,6 +308,7 @@ const resetSettings = async (req, res) => {
       },
       vatRate: defaultSettings.vatRate,
       vatEnabled: defaultSettings.vatEnabled,
+      autoReplySettings: defaultSettings.autoReplySettings || [],
       lastUpdated: defaultSettings.lastUpdated,
       updatedBy: defaultSettings.updatedBy
     };

@@ -1,6 +1,7 @@
 const ContactInfo = require('../models/ContactInfo');
 const ContactInquiry = require('../models/ContactInquiry');
 const nodemailer = require('nodemailer');
+const autoReplyService = require('../services/autoReply.service');
 
 // Helper function to validate URL format
 function isValidUrl(url) {
@@ -427,8 +428,19 @@ async function submitInquiry(req, res) {
 		}
 
 		try {
-			// Send customer confirmation
+			// Try to send auto-reply first (if enabled)
+			const enquiriesEmail = process.env.EMAIL_FROM_ENQUIRIES || 'enquiries@glisterlondon.com';
+			const autoReplySent = await autoReplyService.sendAutoReply(
+				enquiriesEmail,
+				inquiry.email,
+				inquiry.name,
+				inquiry.subject
+			);
+			
+			// If auto-reply is not enabled or failed, send default confirmation email
+			if (!autoReplySent) {
 			await sendContactInquiryConfirmationEmail(inquiry);
+			}
 		} catch (emailError) {
 			console.error('[Contact Inquiry] Customer confirmation email sending failed:', emailError);
 			// Don't fail the inquiry submission if email fails

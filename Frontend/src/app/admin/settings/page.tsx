@@ -6,7 +6,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { useSettings as useGlobalSettings } from '@/contexts/SettingsContext'
 import { settingsApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
-import type { Settings, DeliveryTier } from '@/types'
+import type { Settings, DeliveryTier, AutoReplyConfig } from '@/types'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 
@@ -25,6 +25,15 @@ export default function SettingsPage() {
   const [freeDeliveryAmount, setFreeDeliveryAmount] = useState('100')
   const [vatRate, setVatRate] = useState('20')
   const [vatEnabled, setVatEnabled] = useState(true)
+  const [autoReplySettings, setAutoReplySettings] = useState<AutoReplyConfig[]>([])
+
+  // Business emails
+  const businessEmails = [
+    'enquiries@glisterlondon.com',
+    'sales@glisterlondon.com',
+    'orders@glisterlondon.com',
+    'noreply@glisterlondon.com'
+  ]
 
   // New tier form
   const [newTier, setNewTier] = useState({
@@ -49,6 +58,38 @@ export default function SettingsPage() {
       setFreeDeliveryAmount(data.freeDeliveryThreshold.amount.toString())
       setVatRate(data.vatRate.toString())
       setVatEnabled(data.vatEnabled)
+      
+      // Initialize auto-reply settings
+      if (data.autoReplySettings && data.autoReplySettings.length > 0) {
+        setAutoReplySettings(data.autoReplySettings)
+      } else {
+        // Initialize with default configs for each business email
+        const defaultConfigs: AutoReplyConfig[] = businessEmails.map(email => ({
+          emailAddress: email,
+          enabled: false,
+          subject: email === 'enquiries@glisterlondon.com' ? 'Thank you for contacting Glister London' : '',
+          message: email === 'enquiries@glisterlondon.com' 
+            ? `Thank you for reaching out to Glister London! 💛
+
+We're thrilled to hear from you and delighted to welcome you into the Glister family. Your enquiry is important to us, and our dedicated Enquiries Team will personally get back to you within 3 business days.
+
+At Glister London, every product we craft reflects timeless design, superior quality, and the elegance you deserve. From luxurious bathroom accessories to our full range of premium hardware solutions, we are committed to bringing beauty and distinction into your home.
+
+We can't wait to assist you and make your experience with Glister London truly exceptional. Your journey with us is just beginning, and we're excited to share it with you! ✨
+
+Warm regards,
+
+The Glister London Enquiries Team
+
+Crafted for those who value distinction.
+
++44 7767 198433 | enquiries@glisterlondon.com
+
+https://www.glisterlondon.com/`
+            : ''
+        }))
+        setAutoReplySettings(defaultConfigs)
+      }
     } catch (error) {
       console.error('Failed to fetch settings:', error)
       toast.error('Failed to load settings')
@@ -137,6 +178,13 @@ export default function SettingsPage() {
     try {
       setSaving(true)
 
+      // Update lastUpdated and updatedBy for auto-reply settings
+      const updatedAutoReplySettings = autoReplySettings.map(config => ({
+        ...config,
+        lastUpdated: new Date().toISOString(),
+        updatedBy: 'admin'
+      }))
+
       const updates: Partial<Settings> = {
         deliveryTiers,
         freeDeliveryThreshold: {
@@ -144,7 +192,8 @@ export default function SettingsPage() {
           amount: freeDeliveryAmountNum
         },
         vatRate: vatRateNum,
-        vatEnabled
+        vatEnabled,
+        autoReplySettings: updatedAutoReplySettings
       }
 
       console.log('=== FRONTEND: Sending settings update ===')
@@ -162,6 +211,9 @@ export default function SettingsPage() {
       setFreeDeliveryAmount(response.settings.freeDeliveryThreshold.amount.toString())
       setVatRate(response.settings.vatRate.toString())
       setVatEnabled(response.settings.vatEnabled)
+      if (response.settings.autoReplySettings) {
+        setAutoReplySettings(response.settings.autoReplySettings)
+      }
 
       // Refresh global settings context so changes are available app-wide
       await refetchSettings()
@@ -234,6 +286,9 @@ export default function SettingsPage() {
       setFreeDeliveryAmount(response.settings.freeDeliveryThreshold.amount.toString())
       setVatRate(response.settings.vatRate.toString())
       setVatEnabled(response.settings.vatEnabled)
+      if (response.settings.autoReplySettings) {
+        setAutoReplySettings(response.settings.autoReplySettings)
+      }
 
       toast.success('Settings reset to default')
     } catch (error: any) {
@@ -473,6 +528,93 @@ export default function SettingsPage() {
                 </p>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Email Auto-Reply Configuration */}
+        <div className="bg-white rounded-lg shadow border border-brass/20 p-2">
+          <h2 className="text-xs font-bold text-charcoal mb-1">Email Auto-Reply Configuration</h2>
+          <p className="text-charcoal/60 mb-2 text-[10px]">
+            Configure automatic replies for incoming emails to your business email addresses. Auto-replies are sent when emails are received directly or through the contact form.
+          </p>
+
+          <div className="space-y-3">
+            {businessEmails.map((email) => {
+              const config = autoReplySettings.find(c => c.emailAddress === email) || {
+                emailAddress: email,
+                enabled: false,
+                subject: '',
+                message: ''
+              }
+
+              const updateConfig = (updates: Partial<AutoReplyConfig>) => {
+                setAutoReplySettings(prev => {
+                  const existing = prev.find(c => c.emailAddress === email)
+                  if (existing) {
+                    return prev.map(c => c.emailAddress === email ? { ...c, ...updates } : c)
+                  } else {
+                    return [...prev, { ...config, ...updates }]
+                  }
+                })
+              }
+
+              return (
+                <div key={email} className="border border-charcoal/20 rounded p-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[11px] font-semibold text-charcoal">{email}</h3>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        id={`autoReplyEnabled-${email}`}
+                        checked={config.enabled}
+                        onChange={(e) => updateConfig({ enabled: e.target.checked })}
+                        className="w-3.5 h-3.5 text-brass border-charcoal/30 rounded focus:ring-brass"
+                      />
+                      <label htmlFor={`autoReplyEnabled-${email}`} className="text-[10px] text-charcoal font-medium">
+                        Enable Auto-Reply
+                      </label>
+                    </div>
+                  </div>
+
+                  {config.enabled && (
+                    <div className="space-y-2 pl-2 border-l-2 border-brass/30">
+                      <div>
+                        <Input
+                          label="Auto-Reply Subject"
+                          type="text"
+                          value={config.subject}
+                          onChange={(e) => updateConfig({ subject: e.target.value })}
+                          placeholder="e.g., Thank you for contacting Glister London"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-medium text-charcoal mb-1">
+                          Auto-Reply Message
+                          <span className="text-charcoal/60 ml-1">
+                            ({config.message.length} characters)
+                          </span>
+                        </label>
+                        <textarea
+                          value={config.message}
+                          onChange={(e) => updateConfig({ message: e.target.value })}
+                          placeholder="Enter your auto-reply message here..."
+                          rows={8}
+                          className="w-full px-2 py-1.5 text-[11px] border border-charcoal/30 rounded focus:outline-none focus:ring-1 focus:ring-brass focus:border-brass resize-y"
+                        />
+                        <p className="text-[9px] text-charcoal/60 mt-1">
+                          You can use variables: {'{name}'}, {'{email}'}, {'{date}'}, {'{originalSubject}'}
+                        </p>
+                      </div>
+                      {config.lastUpdated && (
+                        <p className="text-[9px] text-charcoal/60">
+                          Last updated: {new Date(config.lastUpdated).toLocaleString()} by {config.updatedBy || 'system'}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
 
