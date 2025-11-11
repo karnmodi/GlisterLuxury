@@ -1,0 +1,120 @@
+name: Email Auto-Reply Polling
+
+on:
+  schedule:
+    # Run every minute
+    - cron: '* * * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  trigger-email-polling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: Trigger Email Polling
+        run: |
+          # Get Vercel URL from GitHub secret or use default
+          VERCEL_URL="${{ secrets.VERCEL_URL }}"
+          
+          # If VERCEL_URL secret is not set, use default (you should set this in GitHub secrets)
+          if [ -z "$VERCEL_URL" ]; then
+            echo "⚠️ VERCEL_URL secret not set, using default URL"
+            echo "💡 Tip: Set VERCEL_URL secret in GitHub for better reliability"
+            # Default URL - UPDATE THIS with your actual Vercel URL
+            VERCEL_URL="https://glister-london-l2w3.vercel.app"
+          fi
+          
+          # Get cron secret from GitHub secrets
+          CRON_SECRET="${{ secrets.CRON_SECRET }}"
+          
+          if [ -z "$CRON_SECRET" ]; then
+            echo "❌ Error: CRON_SECRET is not set in GitHub secrets"
+            echo "Please set CRON_SECRET in: Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          
+          # Construct the endpoint URL
+          ENDPOINT="${VERCEL_URL}/api/incoming-email/cron"
+          
+          echo "🚀 Triggering email polling..."
+          echo "📍 Endpoint: ${ENDPOINT}"
+          echo "⏰ Time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          
+          # Make the request with token as query parameter
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "${ENDPOINT}?token=${CRON_SECRET}" \
+            -H "User-Agent: GitHub-Actions-Email-Polling/1.0" \
+            -H "X-GitHub-Action: email-polling" \
+            -H "X-GitHub-Repository: ${{ github.repository }}" \
+            --max-time 300 \
+            --connect-timeout 30)
+          
+          # Extract HTTP status code (last line)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          # Extract response body (all but last line)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo ""
+          echo "📊 Response Details:"
+          echo "HTTP Status Code: ${HTTP_CODE}"
+          echo "Response Body: ${BODY}"
+          
+          # Check if request was successful
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo ""
+            echo "✅ Email polling triggered successfully"
+            
+            # Parse and display results if available
+            if echo "$BODY" | grep -q "emailsProcessed"; then
+              EMAILS_PROCESSED=$(echo "$BODY" | grep -o '"emailsProcessed":[0-9]*' | cut -d':' -f2 || echo "0")
+              echo "📧 Emails processed: ${EMAILS_PROCESSED}"
+            fi
+            
+            if echo "$BODY" | grep -q '"errors":\[.*\]' && ! echo "$BODY" | grep -q '"errors":\[\]'; then
+              echo "⚠️ Some errors occurred during processing"
+            fi
+            
+            exit 0
+          else
+            echo ""
+            echo "❌ Email polling failed with status code: ${HTTP_CODE}"
+            echo "Response: ${BODY}"
+            
+            # Provide helpful error messages
+            if [ "$HTTP_CODE" -eq 401 ]; then
+              echo ""
+              echo "🔒 Authentication failed. Please verify:"
+              echo "   1. CRON_SECRET in GitHub secrets matches Vercel environment variable"
+              echo "   2. Secret is set correctly (no extra spaces)"
+            elif [ "$HTTP_CODE" -eq 404 ]; then
+              echo ""
+              echo "🔍 Endpoint not found. Please verify:"
+              echo "   1. VERCEL_URL is correct"
+              echo "   2. Endpoint path: /api/incoming-email/cron"
+              echo "   3. Deployment is live on Vercel"
+            elif [ "$HTTP_CODE" -eq 000 ] || [ -z "$HTTP_CODE" ]; then
+              echo ""
+              echo "🌐 Connection failed. Please verify:"
+              echo "   1. Vercel deployment is accessible"
+              echo "   2. VERCEL_URL is correct"
+              echo "   3. Network connectivity"
+            fi
+            
+            # Don't fail the workflow - just log the error
+            # This allows the workflow to continue running even if one execution fails
+            exit 0
+          fi
+          
+      - name: Log Execution Summary
+        if: always()
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📋 Execution Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Workflow: Email Auto-Reply Polling"
+          echo "Triggered: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "Repository: ${{ github.repository }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+

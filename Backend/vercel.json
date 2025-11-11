@@ -22,7 +22,7 @@
   "crons": [
     {
       "path": "/api/incoming-email/cron",
-      "schedule": "* * * * *"
+      "schedule": "0 9 * * *"
     }
   ]
 }

@@ -2,10 +2,9 @@ const router = require('express').Router();
 const ctrl = require('../controllers/incomingEmail.controller');
 const { protect, authorize } = require('../middleware/auth');
 
-// Public cron endpoint for Vercel cron jobs
-// Vercel cron jobs automatically call this endpoint
+// Public cron endpoint for Vercel cron jobs and GitHub Actions
 // GET /api/incoming-email/cron
-// Note: Vercel cron jobs are already protected by Vercel infrastructure
+// Supports authentication via query parameter (?token=SECRET) or Authorization header
 router.get('/cron', async (req, res) => {
   try {
     // Optional: Check for authorization if CRON_SECRET is set
@@ -13,14 +12,23 @@ router.get('/cron', async (req, res) => {
     const cronSecret = process.env.CRON_SECRET || process.env.EMAIL_POLLING_SECRET;
     
     // If secret is configured, check for it
-    // Vercel cron jobs can include custom headers via vercel.json configuration
+    // Supports: query parameter (?token=SECRET), Authorization header, or X-Cron-Secret header
     if (cronSecret) {
-      const authHeader = req.headers.authorization;
       const queryToken = req.query.token;
-      const providedSecret = authHeader?.replace('Bearer ', '') || queryToken;
+      const authHeader = req.headers.authorization;
+      const cronSecretHeader = req.headers['x-cron-secret'];
+      
+      const providedSecret = queryToken || 
+                           authHeader?.replace('Bearer ', '') || 
+                           cronSecretHeader;
       
       if (providedSecret !== cronSecret) {
-        console.warn('[Cron] Unauthorized access attempt to cron endpoint');
+        console.warn('[Cron] Unauthorized access attempt to cron endpoint', {
+          hasQueryToken: !!queryToken,
+          hasAuthHeader: !!authHeader,
+          hasCronSecretHeader: !!cronSecretHeader,
+          userAgent: req.headers['user-agent']
+        });
         return res.status(401).json({
           success: false,
           message: 'Unauthorized: Invalid or missing cron secret token'
@@ -28,7 +36,14 @@ router.get('/cron', async (req, res) => {
       }
     }
     
-    console.log('[Cron] Email polling triggered by cron job');
+    // Log the source of the request
+    const source = req.headers['user-agent']?.includes('GitHub-Actions') 
+      ? 'GitHub Actions' 
+      : req.headers['x-vercel-cron'] 
+        ? 'Vercel Cron' 
+        : 'Manual/External';
+    
+    console.log(`[Cron] Email polling triggered by ${source}`);
     
     // Process emails
     const result = await ctrl.processIncomingEmails();
@@ -40,7 +55,8 @@ router.get('/cron', async (req, res) => {
       message: result.message,
       emailsProcessed: result.emailsProcessed || 0,
       errors: result.errors || [],
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      source: source
     });
   } catch (error) {
     console.error('[Cron] Error processing emails:', error);

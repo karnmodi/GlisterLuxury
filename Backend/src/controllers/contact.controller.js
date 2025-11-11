@@ -439,7 +439,7 @@ async function submitInquiry(req, res) {
 			
 			// If auto-reply is not enabled or failed, send default confirmation email
 			if (!autoReplySent) {
-				await sendContactInquiryConfirmationEmail(inquiry);
+			await sendContactInquiryConfirmationEmail(inquiry);
 			}
 		} catch (emailError) {
 			console.error('[Contact Inquiry] Customer confirmation email sending failed:', emailError);
