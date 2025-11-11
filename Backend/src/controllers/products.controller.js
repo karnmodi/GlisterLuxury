@@ -709,12 +709,52 @@ async function uploadProductImages(req, res) {
 			});
 		}
 
+		// Check payload size and compress if needed (fallback compression)
+		const { compressMulterFiles, calculateTotalSizeMB } = require('../utils/imageCompression');
+		const totalSizeMB = calculateTotalSizeMB(req.files);
+		const maxPayloadMB = 4.5; // Vercel's limit
+		const safetyMarginMB = 4.0; // Safety margin for multipart encoding overhead
+
+		console.log(`[uploadProductImages] Total payload size: ${totalSizeMB.toFixed(2)}MB (limit: ${maxPayloadMB}MB)`);
+
+		let filesToUpload = req.files;
+
+		// If payload is close to or exceeds limit, compress server-side as fallback
+		if (totalSizeMB > safetyMarginMB) {
+			console.log(`[uploadProductImages] Payload size (${totalSizeMB.toFixed(2)}MB) exceeds safety margin (${safetyMarginMB}MB), applying server-side compression`);
+			
+			// Calculate target size per file to stay under limit
+			const availableSizeMB = (safetyMarginMB * 0.9) / req.files.length; // 90% of safety margin distributed across files
+			const targetSizeMB = Math.max(0.5, Math.min(availableSizeMB, 2)); // Between 0.5MB and 2MB per file
+
+			console.log(`[uploadProductImages] Compressing files to ${targetSizeMB.toFixed(2)}MB per file`);
+			
+			try {
+				filesToUpload = await compressMulterFiles(req.files, {
+					maxSizeMB: targetSizeMB,
+					maxWidthOrHeight: 2000,
+					quality: 85
+				});
+
+				const compressedTotalSizeMB = calculateTotalSizeMB(filesToUpload);
+				const savedMB = totalSizeMB - compressedTotalSizeMB;
+				console.log(`[uploadProductImages] Server-side compression complete: ${compressedTotalSizeMB.toFixed(2)}MB (saved ${savedMB.toFixed(2)}MB)`);
+			} catch (compressionError) {
+				console.error(`[uploadProductImages] Server-side compression failed:`, compressionError);
+				// Continue with original files if compression fails
+				filesToUpload = req.files;
+			}
+		} else {
+			console.log(`[uploadProductImages] Payload size within safety margin, skipping server-side compression`);
+		}
+
 		// Upload all images to Cloudinary
 		const sanitizedProductID = sanitizeProductID(product.productID);
-		console.log(`[uploadProductImages] Starting Cloudinary upload for ${req.files.length} file(s) to folder: glister/products/${sanitizedProductID}`);
+		console.log(`[uploadProductImages] Starting Cloudinary upload for ${filesToUpload.length} file(s) to folder: glister/products/${sanitizedProductID}`);
 		
-		const uploadPromises = req.files.map((file, index) => {
-			console.log(`[uploadProductImages] Uploading file ${index + 1}/${req.files.length}: ${file.originalname} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+		const uploadPromises = filesToUpload.map((file, index) => {
+			const fileSizeMB = file.buffer ? (file.buffer.length / 1024 / 1024).toFixed(2) : (file.size / 1024 / 1024).toFixed(2);
+			console.log(`[uploadProductImages] Uploading file ${index + 1}/${filesToUpload.length}: ${file.originalname} (${fileSizeMB}MB)`);
 			return uploadToCloudinary(file.buffer, {
 				folder: `glister/products/${sanitizedProductID}`,
 			}).catch(err => {

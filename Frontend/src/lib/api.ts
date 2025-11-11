@@ -312,10 +312,32 @@ export const productsApi = {
 
     console.log(`[productsApi.uploadImages] Preparing to upload ${files.length} file(s) for product ${id}`)
     
+    // Import compression utilities dynamically to avoid circular dependencies
+    const { compressImagesAdaptive, calculateTotalSizeMB } = await import('../utils/imageCompression')
+    
+    // Calculate original total size
+    const originalTotalSizeMB = calculateTotalSizeMB(files)
+    console.log(`[productsApi.uploadImages] Original total payload size: ${originalTotalSizeMB.toFixed(2)}MB`)
+    
+    // Compress all images with adaptive compression (max 4MB total payload for Vercel safety margin)
+    const compressionResults = await compressImagesAdaptive(files, 4)
+    
+    // Calculate compressed total size
+    const compressedTotalSizeMB = compressionResults.reduce((total, result) => total + result.compressedSize, 0) / (1024 * 1024)
+    const totalSavedMB = compressionResults.reduce((total, result) => total + result.savedBytes, 0) / (1024 * 1024)
+    
+    console.log(`[productsApi.uploadImages] Compressed total payload size: ${compressedTotalSizeMB.toFixed(2)}MB (saved ${totalSavedMB.toFixed(2)}MB)`)
+    
+    // Log compression stats for each file
+    compressionResults.forEach((result, index) => {
+      const savedMB = result.savedBytes / (1024 * 1024)
+      console.log(`[productsApi.uploadImages] File ${index + 1}: ${(result.originalSize / 1024 / 1024).toFixed(2)}MB → ${(result.compressedSize / 1024 / 1024).toFixed(2)}MB (saved ${savedMB.toFixed(2)}MB, ${(result.compressionRatio * 100).toFixed(1)}% of original)`)
+    })
+    
     const formData = new FormData()
-    files.forEach((file, index) => {
-      console.log(`[productsApi.uploadImages] Adding file ${index + 1}/${files.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`)
-      formData.append('images', file)
+    compressionResults.forEach((result, index) => {
+      console.log(`[productsApi.uploadImages] Adding compressed file ${index + 1}/${compressionResults.length}: ${result.compressedFile.name} (${(result.compressedSize / 1024 / 1024).toFixed(2)}MB)`)
+      formData.append('images', result.compressedFile)
     })
 
     try {
