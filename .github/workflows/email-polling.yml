@@ -68,7 +68,7 @@ jobs:
             # Simple logging: Only show "Email received" and "Auto reply sent"
             if echo "$BODY" | grep -q '"status":"received"'; then
               echo "📥 Email received"
-            fi
+              fi
             
             if echo "$BODY" | grep -q '"status":"sent"'; then
               echo "✅ Auto reply sent"
