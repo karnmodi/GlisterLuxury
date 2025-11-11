@@ -55,6 +55,7 @@ router.get('/cron', async (req, res) => {
       message: result.message,
       emailsProcessed: result.emailsProcessed || 0,
       errors: result.errors || [],
+      details: result.details || [], // Detailed information about processed emails
       timestamp: new Date().toISOString(),
       source: source
     });

@@ -38,6 +38,7 @@ async function processIncomingEmails() {
   pollingStatus.lastChecked = new Date();
   pollingStatus.errors = [];
   let totalProcessed = 0;
+  const processedEmailsDetails = []; // Track detailed information about processed emails
 
   // Removed repetitive polling cycle logs
 
@@ -82,6 +83,19 @@ async function processIncomingEmails() {
         
         for (const email of emails) {
           try {
+            // Track new email received
+            processedEmailsDetails.push({
+              status: 'received',
+              timestamp: new Date().toISOString(),
+              receivedFrom: {
+                email: email.from.email,
+                name: email.from.name,
+                subject: email.subject
+              },
+              receivedAt: emailAddress,
+              messageId: email.messageId
+            });
+            
             const config = await autoReplyService.getAutoReplyConfig(emailAddress);
             
             if (!config || !config.enabled) {
@@ -167,6 +181,28 @@ async function processIncomingEmails() {
 
             if (sent) {
               totalProcessed++;
+              
+              // Get auto-reply config to include subject and message preview
+              const config = await autoReplyService.getAutoReplyConfig(emailAddress);
+              
+              // Track detailed information for logging
+              processedEmailsDetails.push({
+                status: 'sent',
+                timestamp: new Date().toISOString(),
+                receivedFrom: {
+                  email: recipientEmail,
+                  name: recipientName,
+                  subject: email.subject
+                },
+                autoReplySent: {
+                  from: emailAddress,
+                  to: recipientEmail,
+                  subject: config?.subject || 'Auto-reply',
+                  messagePreview: config?.message ? config.message.substring(0, 100) + '...' : ''
+                },
+                messageId: email.messageId
+              });
+              
               // Log auto-reply sent - this is the key event to track
               emailLogger.info('✅ Auto-reply sent', {
                 emailAddress,
@@ -187,6 +223,23 @@ async function processIncomingEmails() {
                 imapPoller.markEmailAsRead(emailAddress, email.uid).catch(() => {});
               }
             } else {
+              // Track failed auto-reply
+              processedEmailsDetails.push({
+                status: 'failed',
+                timestamp: new Date().toISOString(),
+                receivedFrom: {
+                  email: recipientEmail,
+                  name: recipientName,
+                  subject: email.subject
+                },
+                autoReplyFailed: {
+                  from: emailAddress,
+                  to: recipientEmail,
+                  reason: 'Auto-reply send failed'
+                },
+                messageId: email.messageId
+              });
+              
               // If send failed, we should remove the mark (optional - for retry logic)
               // For now, we'll keep it marked to prevent duplicate attempts
               emailLogger.logEmailEvent('failed', email, emailAddress, {

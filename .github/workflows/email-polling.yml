@@ -63,14 +63,102 @@ jobs:
           if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
             echo ""
             echo "✅ Email polling triggered successfully"
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "📧 EMAIL PROCESSING DETAILS"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             
             # Parse and display results if available
             if echo "$BODY" | grep -q "emailsProcessed"; then
               EMAILS_PROCESSED=$(echo "$BODY" | grep -o '"emailsProcessed":[0-9]*' | cut -d':' -f2 || echo "0")
-              echo "📧 Emails processed: ${EMAILS_PROCESSED}"
+              echo "📊 Total Emails Processed: ${EMAILS_PROCESSED}"
+              echo ""
             fi
             
+            # Parse and display detailed email information
+            # Check if details array exists in response
+            if echo "$BODY" | grep -q '"details":\['; then
+              echo "📋 Detailed Email Log:"
+              echo ""
+              
+              # Extract details array and process each entry
+              # Use Python or jq if available, otherwise use basic parsing
+              if command -v python3 &> /dev/null; then
+                cat > /tmp/parse_emails.py << 'ENDOFPYTHON'
+import json
+import sys
+
+try:
+    body = sys.stdin.read()
+    data = json.loads(body)
+    
+    if 'details' in data and isinstance(data['details'], list):
+        details = data['details']
+        
+        if len(details) == 0:
+            print('   ℹ️  No emails to process')
+        else:
+            for i, detail in enumerate(details, 1):
+                status = detail.get('status', 'unknown')
+                timestamp = detail.get('timestamp', '')
+                time_str = timestamp.split('T')[1].split('.')[0] if 'T' in timestamp else timestamp
+                
+                if status == 'received':
+                    received = detail.get('receivedFrom', {})
+                    received_at = detail.get('receivedAt', '')
+                    print(f'   📥 [{i}] NEW EMAIL RECEIVED')
+                    print(f'      Time: {time_str}')
+                    print(f'      From: {received.get("name", "Unknown")} <{received.get("email", "unknown")}>')
+                    print(f'      Subject: {received.get("subject", "No Subject")}')
+                    print(f'      Received At: {received_at}')
+                    print('')
+                
+                elif status == 'sent':
+                    received = detail.get('receivedFrom', {})
+                    auto_reply = detail.get('autoReplySent', {})
+                    print(f'   ✅ [{i}] AUTO-REPLY SENT')
+                    print(f'      Time: {time_str}')
+                    print(f'      Original Email From: {received.get("name", "Unknown")} <{received.get("email", "unknown")}>')
+                    print(f'      Original Subject: {received.get("subject", "No Subject")}')
+                    print(f'      Auto-Reply To: {auto_reply.get("to", "unknown")}')
+                    print(f'      Auto-Reply From: {auto_reply.get("from", "unknown")}')
+                    print(f'      Auto-Reply Subject: {auto_reply.get("subject", "No Subject")}')
+                    message_preview = auto_reply.get('messagePreview', '')
+                    if message_preview:
+                        print(f'      Message Preview: {message_preview}')
+                    print('')
+                
+                elif status == 'failed':
+                    received = detail.get('receivedFrom', {})
+                    failed = detail.get('autoReplyFailed', {})
+                    print(f'   ❌ [{i}] AUTO-REPLY FAILED')
+                    print(f'      Time: {time_str}')
+                    print(f'      From: {received.get("name", "Unknown")} <{received.get("email", "unknown")}>')
+                    print(f'      Subject: {received.get("subject", "No Subject")}')
+                    print(f'      Reason: {failed.get("reason", "Unknown error")}')
+                    print('')
+    else:
+        print('   ℹ️  No detailed information available')
+except Exception as e:
+    print(f'   ⚠️  Could not parse detailed information: {str(e)}')
+ENDOFPYTHON
+                echo "$BODY" | python3 /tmp/parse_emails.py
+                rm -f /tmp/parse_emails.py
+              elif command -v jq &> /dev/null; then
+                echo "$BODY" | jq -r '.details[]? | "   " + (if .status == "received" then "📥 NEW EMAIL RECEIVED" elif .status == "sent" then "✅ AUTO-REPLY SENT" elif .status == "failed" then "❌ AUTO-REPLY FAILED" else "ℹ️ " + .status end) + "\n" + "      Time: " + (.timestamp // "unknown" | split("T")[1] | split(".")[0]) + "\n" + (if .receivedFrom then "      From: " + (.receivedFrom.name // "Unknown") + " <" + (.receivedFrom.email // "unknown") + ">\n" + "      Subject: " + (.receivedFrom.subject // "No Subject") + "\n" else "" end) + (if .autoReplySent then "      Auto-Reply To: " + (.autoReplySent.to // "unknown") + "\n" + "      Auto-Reply Subject: " + (.autoReplySent.subject // "No Subject") + "\n" else "" end) + (if .autoReplyFailed then "      Reason: " + (.autoReplyFailed.reason // "Unknown") + "\n" else "" end) + ""'
+              else
+                # Fallback: Basic text parsing
+                echo "   ℹ️  Install python3 or jq for detailed parsing"
+                echo "   Raw details available in response body above"
+              fi
+            else
+              echo "   ℹ️  No detailed email information in response"
+            fi
+            
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            
             if echo "$BODY" | grep -q '"errors":\[.*\]' && ! echo "$BODY" | grep -q '"errors":\[\]'; then
+              echo ""
               echo "⚠️ Some errors occurred during processing"
             fi
             
