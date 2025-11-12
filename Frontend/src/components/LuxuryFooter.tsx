@@ -166,6 +166,19 @@ export default function LuxuryFooter() {
           </div>
         </div>
 
+        {/* Developer Credit */}
+        <div className="mt-6 text-center">
+          <p className="text-ivory/40 text-xs">
+            Developed by{' '}
+            <a 
+              href="mailto:karanmodi3282@gmail.com"
+              className="text-ivory/60 hover:text-brass transition-colors duration-300 underline decoration-brass/50 hover:decoration-brass"
+            >
+              Karan Falgun Modi
+            </a>
+          </p>
+        </div>
+
         {/* Embossed Logo Mark */}
         <motion.div
           initial={{ opacity: 0 }}
