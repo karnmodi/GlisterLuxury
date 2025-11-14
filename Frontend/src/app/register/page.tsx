@@ -95,7 +95,7 @@ export default function RegisterPage() {
               Create Account
             </h1>
             <p className="text-brass text-sm tracking-luxury">
-              Join the Glister London family
+              Join the Glister Luxury family
             </p>
           </div>
 

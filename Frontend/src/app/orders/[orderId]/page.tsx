@@ -268,7 +268,7 @@ export default function OrderDetailsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-ivory text-xs sm:text-sm font-medium mb-1">Payment Information</p>
                     <p className="text-ivory/70 text-[10px] sm:text-xs">
-                      Payment instructions will be sent via email after order confirmation by Glister London.
+                      Payment instructions will be sent via email after order confirmation by Glister Luxury.
                     </p>
                   </div>
                 </div>

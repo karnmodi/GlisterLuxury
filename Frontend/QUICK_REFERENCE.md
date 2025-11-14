@@ -1,4 +1,4 @@
-# Glister London Homepage - Quick Reference
+# Glister Luxury Homepage - Quick Reference
 
 ## 🎨 Color Palette
 
@@ -23,7 +23,7 @@ Muted Olive:    #9A9774  (Secondary accents)
 - Animated light beam effect
 - **Text hierarchy:**
   ```
-  GLISTER LONDON          (Huge serif, ivory)
+  Glister Luxury          (Huge serif, ivory)
   ───                     (Brass line)
   The Soul of Interior    (Large serif, brass)
   Where Design Meets      (Medium, ivory/80)
@@ -90,7 +90,7 @@ OUR MISSION
 **4 columns:**
 ```
 [Logo]              Products        Company         Support
-Glister London      Cabinet HW      About Us        Contact
+Glister Luxury      Cabinet HW      About Us        Contact
 Description         Bathroom        Our Story       FAQs
 [Social Icons]      Mortise         Sustain...      Finishes
                     Sockets         Craft...        Delivery
@@ -99,7 +99,7 @@ Description         Bathroom        Our Story       FAQs
 
 **Bottom:**
 ```
-© 2025 Glister London  |  Privacy | Terms | Cookies
+© 2025 Glister Luxury  |  Privacy | Terms | Cookies
 ```
 
 ## ⚡ Key Interactions

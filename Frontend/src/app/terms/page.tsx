@@ -13,7 +13,7 @@ export default function TermsConditionsPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-serif font-bold text-charcoal mb-3 tracking-wide">
-              GLISTER LONDON LIMITED – TERMS & CONDITIONS
+              Glister Luxury LIMITED – TERMS & CONDITIONS
             </h1>
             <div className="w-20 h-px bg-gradient-to-r from-transparent via-brass to-transparent mx-auto mb-4" />
             <p className="text-sm text-charcoal/60">
@@ -35,7 +35,7 @@ export default function TermsConditionsPage() {
                   1. PRICES
                 </h2>
                 <p className="text-sm sm:text-base leading-relaxed">
-                  All prices shown include VAT. Glister London Limited ("the Company") reserves the right to modify prices and general sales conditions at any time without prior notice.
+                  All prices shown include VAT. Glister Luxury Limited ("the Company") reserves the right to modify prices and general sales conditions at any time without prior notice.
                 </p>
               </div>
 
@@ -159,7 +159,7 @@ export default function TermsConditionsPage() {
                   8. RETENTION OF TITLE
                 </h2>
                 <p className="text-sm sm:text-base leading-relaxed">
-                  All goods remain the exclusive property of Glister London Limited until full payment has been received by the Company.
+                  All goods remain the exclusive property of Glister Luxury Limited until full payment has been received by the Company.
                 </p>
               </div>
 

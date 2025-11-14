@@ -1,7 +1,7 @@
-# Glister London - Luxury Homepage Implementation
+# Glister Luxury - Luxury Homepage Implementation
 
 ## Overview
-A luxury, visually immersive homepage has been created for Glister London ("The Soul of Interior"), featuring modern minimalism meets timeless craftsmanship with warm luxury aesthetics.
+A luxury, visually immersive homepage has been created for Glister Luxury ("The Soul of Interior"), featuring modern minimalism meets timeless craftsmanship with warm luxury aesthetics.
 
 ## Implementation Summary
 
@@ -60,7 +60,7 @@ Features:
 - Light beam effect moving across the screen
 - Parallax scroll effect (content slows on scroll)
 - Sequential text reveals with delays:
-  - Brand name: "GLISTER LONDON" (1.2s animation)
+  - Brand name: "Glister Luxury" (1.2s animation)
   - Decorative line expansion (1s from center)
   - Tagline: "The Soul of Interior" (brass color)
   - Subheading: "Where Design Meets Craftsmanship"
@@ -281,7 +281,7 @@ Frontend/
 
 ## Summary
 
-The Glister London luxury homepage is now complete with:
+The Glister Luxury luxury homepage is now complete with:
 - ✅ Cinematic hero with parallax effects
 - ✅ Vision & Mission split layout
 - ✅ Core Values with metallic shine effects

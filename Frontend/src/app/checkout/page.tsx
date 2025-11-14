@@ -346,7 +346,7 @@ export default function CheckoutPage() {
                   <div>
                     <h3 className="text-ivory font-medium mb-2">Payment Information</h3>
                     <p className="text-ivory/70 text-sm">
-                      Payment will be collected after order confirmation by Glister London. 
+                      Payment will be collected after order confirmation by Glister Luxury. 
                       You will receive an email with payment instructions and details shortly after placing your order.
                     </p>
                   </div>

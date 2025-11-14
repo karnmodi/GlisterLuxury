@@ -404,7 +404,7 @@ export default function AboutPage() {
                 transition={{ duration: 1, delay: 0.4 }}
                 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-serif font-bold text-ivory leading-tight"
               >
-                {['About', 'Glister', 'London'].map((word, wordIdx) => (
+                {['About', 'Glister', 'Luxury'].map((word, wordIdx) => (
                   <motion.span
                     key={wordIdx}
                     className="inline-block mr-3"

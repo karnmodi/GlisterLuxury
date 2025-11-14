@@ -42,7 +42,7 @@ export default function WhatsAppFloatingButton() {
   }
 
   // Default message for customers to start the conversation
-  const defaultMessage = "Hello! I'm interested in learning more about Glister London's products and services."
+  const defaultMessage = "Hello! I'm interested in learning more about Glister Luxury's products and services."
 
   // Format WhatsApp number for URL (remove + sign) and include default message
   const whatsappNumberFormatted = whatsappNumber.replace(/^\+/, '')
