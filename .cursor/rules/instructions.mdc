@@ -3,4 +3,4 @@ alwaysApply: true
 ---
 make sure that you dont create MD file based on any implmenetaion of new feature in the system, instead show them in the chat windows what to do in steps. 
 
-Only create MD files only on the specific requests.
+Only create MD files on the specific requests.
