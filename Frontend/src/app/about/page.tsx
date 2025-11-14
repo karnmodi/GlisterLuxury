@@ -1184,7 +1184,7 @@ export default function AboutPage() {
               Experience the <span className="text-brass">Emotion of Craft</span>
             </h2>
             <p className="text-ivory/70 mb-10 text-lg lg:text-xl leading-relaxed max-w-2xl mx-auto">
-              Discover how <span className="text-brass">Glister London</span> transforms hardware into emotion—the art of design you can feel.
+              Discover how <span className="text-brass">Glister Luxury</span> transforms hardware into emotion—the art of design you can feel.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <motion.a

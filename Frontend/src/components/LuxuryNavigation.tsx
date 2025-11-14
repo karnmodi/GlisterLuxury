@@ -213,7 +213,7 @@ export default function LuxuryNavigation() {
             <div className="relative w-12 h-12 transition-transform duration-300 group-hover:scale-110">
               <Image
                 src="/images/business/G.png"
-                alt="Glister London Logo"
+                alt="Glister Luxury Logo"
                 fill
                 sizes="48px"
                 className="object-contain"
@@ -221,7 +221,7 @@ export default function LuxuryNavigation() {
               />
             </div>
             <div>
-              <h1 className="text-xl font-serif font-bold text-ivory tracking-wide">GLISTER LONDON</h1>
+              <h1 className="text-xl font-serif font-bold text-ivory tracking-wide">GLISTER LUXURY</h1>
               <p className="text-xs text-brass tracking-luxury">The Soul of Interior</p>
             </div>
           </Link>

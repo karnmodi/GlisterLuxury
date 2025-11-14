@@ -31,7 +31,7 @@ const crimson = Crimson_Text({
 })
 
 export const metadata: Metadata = {
-  title: 'Glister London - The Soul of Interior',
+  title: 'Glister Luxury - The Soul of Interior',
   description: 'Crafting the finest solid brass cabinet hardware and interior accessories since 2025. Premium hardware for discerning customers.',
   icons: {
     icon: '/images/business/G.png',
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     apple: '/images/business/G.png',
   },
   openGraph: {
-    title: 'Glister London - The Soul of Interior',
+    title: 'Glister Luxury - The Soul of Interior',
     description: 'Crafting the finest solid brass cabinet hardware and interior accessories since 2025. Premium hardware for discerning customers.',
     type: 'website',
     images: [
@@ -47,13 +47,13 @@ export const metadata: Metadata = {
         url: '/opengraph-image',
         width: 1200,
         height: 630,
-        alt: 'Glister London - The Soul of Interior',
+        alt: 'Glister Luxury - The Soul of Interior',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Glister London - The Soul of Interior',
+    title: 'Glister Luxury - The Soul of Interior',
     description: 'Crafting the finest solid brass cabinet hardware and interior accessories since 2025.',
     images: ['/opengraph-image'],
   },

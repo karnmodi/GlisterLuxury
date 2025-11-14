@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og'
 
 // Route segment config
 export const runtime = 'edge'
-export const alt = 'Glister London - The Soul of Interior'
+export const alt = 'Glister Luxury - The Soul of Interior'
 export const size = {
   width: 1200,
   height: 630,
@@ -78,7 +78,7 @@ export default async function Image() {
               lineHeight: 1.2,
             }}
           >
-            Glister London - The Soul of Interior
+            Glister Luxury - The Soul of Interior
           </div>
           <div
             style={{

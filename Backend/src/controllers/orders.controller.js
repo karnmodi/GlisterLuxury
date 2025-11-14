@@ -217,14 +217,14 @@ async function sendOrderEmails(order, user) {
 		<body>
 			<div class="container">
 				<div class="header">
-					<h1>GLISTER LONDON</h1>
+					<h1>GLISTER LUXURY</h1>
 					<h2 style="margin-top: 10px;">The Soul of Interior</h2>
 					<p style="margin-top: 15px; font-size: 16px;">Thank You for Your Order!</p>
 				</div>
 				<div class="content">
 					<p>Dear ${order.customerInfo.name},</p>
 					
-					<p>Thank you for your order with Glister London. We are delighted to serve you and will process your order shortly.</p>
+					<p>Thank you for your order with Glister Luxury. We are delighted to serve you and will process your order shortly.</p>
 
 					<div class="order-details">
 						<h2>Order Summary</h2>
@@ -395,7 +395,7 @@ async function sendOrderEmails(order, user) {
 
 					<p style="margin-top: 30px;">
 						Best regards,<br>
-						<strong>The Glister London Team</strong><br>
+						<strong>The Glister Luxury Team</strong><br>
 						<em>The Soul of Interior</em>
 					</p>
 				</div>
@@ -403,7 +403,7 @@ async function sendOrderEmails(order, user) {
 					<p>This is an automated confirmation email. Please do not reply to this email.</p>
 					<p>If you have any questions, feel free to reach out:</p>
 					<p><a href="mailto:enquiries@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">enquiries@glisterlondon.com</a> (All purposes) | <a href="mailto:sales@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">sales@glisterlondon.com</a> (Business purposes)</p>
-					<p>&copy; ${new Date().getFullYear()} Glister London. All rights reserved.</p>
+					<p>&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
 				</div>
 			</div>
 		</body>
@@ -443,7 +443,7 @@ async function sendOrderEmails(order, user) {
 	// Send admin notification from enquiries@glisterlondon.com (matches authentication)
 	const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USERNAME;
 	await adminTransporter.sendMail({
-		from: `Glister London <${enquiriesEmail}>`,
+		from: `Glister Luxury <${enquiriesEmail}>`,
 		to: adminEmail,
 		subject: `New Order #${order.orderNumber} - ${order.customerInfo.name}`,
 		html: adminEmailHTML
@@ -451,9 +451,9 @@ async function sendOrderEmails(order, user) {
 
 	// Send customer confirmation from orders@glisterlondon.com (matches authentication)
 	await customerTransporter.sendMail({
-		from: `Glister London <${ordersEmail}>`,
+		from: `Glister Luxury <${ordersEmail}>`,
 		to: order.customerInfo.email,
-		subject: `Order Confirmation #${order.orderNumber} - Glister London`,
+		subject: `Order Confirmation #${order.orderNumber} - Glister Luxury`,
 		html: customerEmailHTML
 	});
 }
@@ -1136,7 +1136,7 @@ exports.addAdminMessage = async (req, res, next) => {
 				<body>
 					<div class="container">
 						<div class="header">
-							<h1>GLISTER LONDON</h1>
+							<h1>GLISTER LUXURY</h1>
 							<h2 style="margin-top: 10px;">The Soul of Interior</h2>
 							<p style="margin-top: 15px; font-size: 16px;">Order Update</p>
 						</div>
@@ -1153,7 +1153,7 @@ exports.addAdminMessage = async (req, res, next) => {
 							</div>
 
 							<div class="message-box">
-								<h3 style="margin-top: 0; color: #D4AF37;">Message from Glister London</h3>
+								<h3 style="margin-top: 0; color: #D4AF37;">Message from Glister Luxury</h3>
 								<p style="font-size: 16px; line-height: 1.8;">${message.replace(/\n/g, '<br>')}</p>
 								<p style="font-size: 12px; color: #666; margin-top: 15px;">
 									Sent on ${new Date().toLocaleString('en-GB', { 
@@ -1170,7 +1170,7 @@ exports.addAdminMessage = async (req, res, next) => {
 
 							<p style="margin-top: 30px;">
 								Best regards,<br>
-								<strong>The Glister London Team</strong><br>
+								<strong>The Glister Luxury Team</strong><br>
 								<em>The Soul of Interior</em>
 							</p>
 						</div>
@@ -1178,7 +1178,7 @@ exports.addAdminMessage = async (req, res, next) => {
 							<p>This is an automated notification email. Please do not reply to this email.</p>
 							<p>If you have any questions, feel free to reach out:</p>
 							<p><a href="mailto:enquiries@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">enquiries@glisterlondon.com</a> (All purposes) | <a href="mailto:sales@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">sales@glisterlondon.com</a> (Business purposes)</p>
-							<p>&copy; ${new Date().getFullYear()} Glister London. All rights reserved.</p>
+							<p>&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
 						</div>
 					</div>
 				</body>
@@ -1186,9 +1186,9 @@ exports.addAdminMessage = async (req, res, next) => {
 			`;
 
 			await transporter.sendMail({
-				from: `Glister London <${ordersEmail}>`, // Matches authentication
+				from: `Glister Luxury <${ordersEmail}>`, // Matches authentication
 				to: order.customerInfo.email,
-				subject: `Order Update #${order.orderNumber} - Glister London`,
+				subject: `Order Update #${order.orderNumber} - Glister Luxury`,
 				html: customerEmailHTML
 			});
 		} catch (emailError) {

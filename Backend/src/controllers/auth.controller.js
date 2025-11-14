@@ -506,14 +506,14 @@ exports.forgotPassword = async (req, res, next) => {
       <body>
         <div class="container">
           <div class="header">
-            <h1>GLISTER LONDON</h1>
+            <h1>GLISTER LUXURY</h1>
             <h2 style="margin-top: 10px;">The Soul of Interior</h2>
             <p style="margin-top: 15px; font-size: 16px;">Password Reset Request</p>
           </div>
           <div class="content">
             <p>Dear User,</p>
             
-            <p>You have requested to reset your password for your Glister London account.</p>
+            <p>You have requested to reset your password for your Glister Luxury account.</p>
             
             <div class="info-box">
               <p>Please click the button below to reset your password:</p>
@@ -525,7 +525,7 @@ exports.forgotPassword = async (req, res, next) => {
             
             <p style="margin-top: 30px;">
               Best regards,<br>
-              <strong>The Glister London Team</strong><br>
+              <strong>The Glister Luxury Team</strong><br>
               <em>The Soul of Interior</em>
             </p>
           </div>
@@ -533,7 +533,7 @@ exports.forgotPassword = async (req, res, next) => {
             <p>This is an automated email. Please do not reply to this email.</p>
             <p>If you have any questions, feel free to reach out:</p>
             <p><a href="mailto:enquiries@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">enquiries@glisterlondon.com</a> (All purposes) | <a href="mailto:sales@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">sales@glisterlondon.com</a> (Business purposes)</p>
-            <p>&copy; ${new Date().getFullYear()} Glister London. All rights reserved.</p>
+            <p>&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -558,7 +558,7 @@ exports.forgotPassword = async (req, res, next) => {
       
       // Send email from noreply@glisterlondon.com (matches authentication)
       await transporter.sendMail({
-        from: `Glister London <${noreplyEmail}>`,
+        from: `Glister Luxury <${noreplyEmail}>`,
         to: email,
         subject: 'Password Reset Request - Glister',
         html: message

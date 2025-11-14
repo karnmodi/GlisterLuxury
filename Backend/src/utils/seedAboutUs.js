@@ -6,16 +6,16 @@ const aboutUsData = [
 	// About Section
 	{
 		section: 'about',
-		title: 'About Glister London',
-		content: `Glister London is not a product. It is a feeling — the quiet pride you feel when beauty meets precision, when craftsmanship meets soul.
+		title: 'About Glister Luxury',
+		content: `Glister Luxury is not a product. It is a feeling — the quiet pride you feel when beauty meets precision, when craftsmanship meets soul.
 
-Born in the heart of Britain, Glister London stands as a symbol of heritage, artistry, and enduring luxury. We craft architectural hardware that transforms houses into homes of distinction — every handle, every curve, every finish designed to whisper sophistication.
+Born in the heart of Britain, Glister Luxury stands as a symbol of heritage, artistry, and enduring luxury. We craft architectural hardware that transforms houses into homes of distinction — every handle, every curve, every finish designed to whisper sophistication.
 
 Our creations are the crown jewels of your interiors — meticulously forged in solid brass and noble metals, perfected through generations of craftsmanship, and finished with a devotion only found in true artistry.
 
-For those who understand that true refinement lies in the smallest details — Glister London is not an accessory. It is your home's signature.
+For those who understand that true refinement lies in the smallest details — Glister Luxury is not an accessory. It is your home's signature.
 
-Glister London — The Emotion of Craft. The Pride of Your Home.`,
+Glister Luxury — The Emotion of Craft. The Pride of Your Home.`,
 		order: 0,
 		isActive: true,
 	},
@@ -33,7 +33,7 @@ Glister London — The Emotion of Craft. The Pride of Your Home.`,
 	{
 		section: 'philosophy',
 		title: 'Philosophy',
-		content: `We believe every home deserves more than perfection. It deserves character, heritage, and a soul. At Glister London, we design for legacy, not trends.`,
+		content: `We believe every home deserves more than perfection. It deserves character, heritage, and a soul. At Glister Luxury, we design for legacy, not trends.`,
 		order: 0,
 		isActive: true,
 	},
@@ -42,7 +42,7 @@ Glister London — The Emotion of Craft. The Pride of Your Home.`,
 	{
 		section: 'promise',
 		title: 'Promise',
-		content: `Each Glister London creation is made to last a lifetime — not only in function but in feeling. A fusion of British tradition, modern artistry, and uncompromising quality.`,
+		content: `Each Glister Luxury creation is made to last a lifetime — not only in function but in feeling. A fusion of British tradition, modern artistry, and uncompromising quality.`,
 		order: 0,
 		isActive: true,
 	},

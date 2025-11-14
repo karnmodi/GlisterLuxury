@@ -67,19 +67,19 @@ export default function SettingsPage() {
         const defaultConfigs: AutoReplyConfig[] = businessEmails.map(email => ({
           emailAddress: email,
           enabled: false,
-          subject: email === 'enquiries@glisterlondon.com' ? 'Thank you for contacting Glister London' : '',
+          subject: email === 'enquiries@glisterlondon.com' ? 'Thank you for contacting Glister Luxury' : '',
           message: email === 'enquiries@glisterlondon.com' 
-            ? `Thank you for reaching out to Glister London! 💛
+            ? `Thank you for reaching out to Glister Luxury! 💛
 
 We're thrilled to hear from you and delighted to welcome you into the Glister family. Your enquiry is important to us, and our dedicated Enquiries Team will personally get back to you within 3 business days.
 
-At Glister London, every product we craft reflects timeless design, superior quality, and the elegance you deserve. From luxurious bathroom accessories to our full range of premium hardware solutions, we are committed to bringing beauty and distinction into your home.
+At Glister Luxury, every product we craft reflects timeless design, superior quality, and the elegance you deserve. From luxurious bathroom accessories to our full range of premium hardware solutions, we are committed to bringing beauty and distinction into your home.
 
-We can't wait to assist you and make your experience with Glister London truly exceptional. Your journey with us is just beginning, and we're excited to share it with you! ✨
+We can't wait to assist you and make your experience with Glister Luxury truly exceptional. Your journey with us is just beginning, and we're excited to share it with you! ✨
 
 Warm regards,
 
-The Glister London Enquiries Team
+The Glister Luxury Enquiries Team
 
 Crafted for those who value distinction.
 
@@ -584,7 +584,7 @@ https://www.glisterlondon.com/`
                           type="text"
                           value={config.subject}
                           onChange={(e) => updateConfig({ subject: e.target.value })}
-                          placeholder="e.g., Thank you for contacting Glister London"
+                          placeholder="e.g., Thank you for contacting Glister Luxury"
                         />
                       </div>
                       <div>

@@ -155,7 +155,7 @@ function formatAutoReplyHTML(message, variables) {
     <body>
       <div class="container">
         <div class="header">
-          <h1>GLISTER LONDON</h1>
+          <h1>GLISTER LUXURY</h1>
           <h2 style="margin-top: 10px;">The Soul of Interior</h2>
         </div>
         <div class="content">
@@ -167,7 +167,7 @@ function formatAutoReplyHTML(message, variables) {
           <p>This is an automated email. Please do not reply to this email.</p>
           <p>If you have any questions, feel free to reach out:</p>
           <p><a href="mailto:enquiries@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">enquiries@glisterlondon.com</a> (All purposes) | <a href="mailto:sales@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">sales@glisterlondon.com</a> (Business purposes)</p>
-          <p>&copy; ${new Date().getFullYear()} Glister London. All rights reserved.</p>
+          <p>&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
         </div>
       </div>
     </body>
@@ -286,7 +286,7 @@ async function sendAutoReply(emailAddress, recipientEmail, recipientName, origin
         const transporter = createTransporter(emailAddress);
         
         await transporter.sendMail({
-          from: `Glister London <${emailAddress}>`,
+          from: `Glister Luxury <${emailAddress}>`,
           to: recipientEmail,
           subject,
           html: htmlMessage,

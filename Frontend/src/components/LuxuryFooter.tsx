@@ -27,14 +27,14 @@ export default function LuxuryFooter() {
               <div className="relative w-12 h-12 transition-transform duration-300 group-hover:scale-110">
                 <Image
                   src="/images/business/G.png"
-                  alt="Glister London Logo"
+                  alt="Glister Luxury Logo"
                   fill
                   sizes="48px"
                   className="object-contain"
                 />
               </div>
               <div>
-                <h3 className="text-xl font-serif font-bold text-ivory tracking-wide">GLISTER LONDON</h3>
+                <h3 className="text-xl font-serif font-bold text-ivory tracking-wide">GLISTER LUXURY</h3>
                 <p className="text-xs text-brass tracking-luxury">The Soul of Interior</p>
               </div>
             </div>
@@ -150,7 +150,7 @@ export default function LuxuryFooter() {
         {/* Bottom Bar */}
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-ivory/50 text-sm">
-            © {currentYear} Glister London. All rights reserved.
+            © {currentYear} Glister Luxury. All rights reserved.
           </p>
           
           <div className="flex gap-6 text-sm">
@@ -189,7 +189,7 @@ export default function LuxuryFooter() {
           <div className="relative w-96 h-96">
             <Image
               src="/images/business/G.png"
-              alt="Glister London Logo"
+              alt="Glister Luxury Logo"
               fill
               className="object-contain"
             />

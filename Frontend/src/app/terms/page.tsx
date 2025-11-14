@@ -100,7 +100,7 @@ export default function TermsConditionsPage() {
                 </h2>
                 <div className="space-y-3">
                   <p className="text-sm sm:text-base leading-relaxed">
-                    Most Glister London products are compatible with UK specifications. Customers are advised to ensure product suitability prior to ordering to prevent installation issues.
+                    Most Glister Luxury products are compatible with UK specifications. Customers are advised to ensure product suitability prior to ordering to prevent installation issues.
                   </p>
                   <p className="text-sm sm:text-base leading-relaxed">
                     The Company reserves the right to make technical changes, modify, or discontinue models at any time. All product details and dimensions are approximate; therefore, pre-drilling or preparation for installation should not occur prior to delivery.

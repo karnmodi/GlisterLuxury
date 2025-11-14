@@ -160,7 +160,7 @@ export default function LoadingScreen() {
           transition={{ delay: 0.3 }}
         >
           <h2 className="text-xl sm:text-2xl font-serif font-bold text-ivory tracking-wide mb-2">
-            GLISTER LONDON
+            GLISTER LUXURY
           </h2>
           <p className="text-sm text-brass tracking-luxury mb-4">The Soul of Interior</p>
           

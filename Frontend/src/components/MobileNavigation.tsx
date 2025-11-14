@@ -120,13 +120,13 @@ export default function MobileNavigation() {
                       <div className="relative w-10 h-10 flex-shrink-0">
                         <Image
                           src="/images/business/G.png"
-                          alt="Glister London"
+                          alt="Glister Luxury"
                           fill
                           className="object-contain"
                         />
                       </div>
                       <div>
-                        <h3 className="text-ivory font-serif font-bold text-sm tracking-wide">GLISTER LONDON</h3>
+                        <h3 className="text-ivory font-serif font-bold text-sm tracking-wide">GLISTER LUXURY</h3>
                         <p className="text-brass text-xs">The Soul of Interior</p>
                       </div>
                     </div>
