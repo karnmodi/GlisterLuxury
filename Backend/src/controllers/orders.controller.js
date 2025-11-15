@@ -2,6 +2,7 @@ const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const User = require('../models/User');
 const nodemailer = require('nodemailer');
+const { getLogoUrl } = require('../utils/emailHelpers');
 
 /**
  * Helper function to send order confirmation emails
@@ -31,27 +32,126 @@ async function sendOrderEmails(order, user) {
 	`).join('');
 
 	// Admin notification email
+	const logoUrl = getLogoUrl();
 	const adminEmailHTML = `
 		<!DOCTYPE html>
-		<html>
+		<html lang="en">
 		<head>
+			<meta charset="UTF-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1.0">
 			<style>
-				body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-				.container { max-width: 600px; margin: 0 auto; padding: 10px; }
-				.header { background-color: #2C2C2C; color: #D4AF37; padding: 20px; text-align: center; }
-				.content { background-color: #f9f9f9; padding: 15px; }
-				.order-details { background-color: white; padding: 15px; margin: 15px 0; border-radius: 8px; }
-				table { width: 100%; border-collapse: collapse; }
-				th { background-color: #2C2C2C; color: #D4AF37; padding: 12px; text-align: left; }
-				.total-row { font-size: 18px; font-weight: bold; }
-				.alert-box { background-color: #fff3cd; border-left: 4px solid #D4AF37; padding: 15px; margin: 15px 0; }
+				* { margin: 0; padding: 0; box-sizing: border-box; }
+				body { 
+					font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+					line-height: 1.6; 
+					color: #333333; 
+					background-color: #f5f5f5;
+					-webkit-font-smoothing: antialiased;
+					-moz-osx-font-smoothing: grayscale;
+				}
+				.email-wrapper { 
+					max-width: 600px; 
+					margin: 0 auto; 
+					background-color: #ffffff;
+				}
+				.header { 
+					background: linear-gradient(135deg, #2C2C2C 0%, #1a1a1a 100%); 
+					padding: 40px 20px; 
+					text-align: center;
+					border-top-left-radius: 8px;
+					border-top-right-radius: 8px;
+				}
+				.logo-container {
+					margin-bottom: 20px;
+				}
+				.logo { 
+					max-width: 120px; 
+					height: auto; 
+					display: block;
+					margin: 0 auto;
+				}
+				.header-title {
+					color: #D4AF37;
+					font-size: 24px;
+					font-weight: 600;
+					margin: 15px 0 10px 0;
+					letter-spacing: 1px;
+				}
+				.header-subtitle {
+					color: #ffffff;
+					font-size: 16px;
+					font-weight: 300;
+				}
+				.content { 
+					background-color: #ffffff; 
+					padding: 30px 20px; 
+				}
+				.order-details { 
+					background-color: #ffffff; 
+					padding: 20px; 
+					margin: 20px 0; 
+					border-radius: 8px;
+					border: 1px solid #e5e5e5;
+					box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+				}
+				.order-details h2 {
+					color: #2C2C2C;
+					font-size: 18px;
+					margin-bottom: 15px;
+					padding-bottom: 10px;
+					border-bottom: 2px solid #D4AF37;
+				}
+				.order-details p {
+					margin: 8px 0;
+					line-height: 1.8;
+				}
+				table { 
+					width: 100%; 
+					border-collapse: collapse; 
+					margin-top: 10px;
+				}
+				th { 
+					background-color: #2C2C2C; 
+					color: #D4AF37; 
+					padding: 12px; 
+					text-align: left; 
+					font-weight: 600;
+					font-size: 14px;
+				}
+				td {
+					padding: 12px;
+					border-bottom: 1px solid #e5e5e5;
+				}
+				.total-row { 
+					font-size: 18px; 
+					font-weight: bold; 
+				}
+				.alert-box { 
+					background-color: #fff3cd; 
+					border-left: 4px solid #D4AF37; 
+					padding: 15px; 
+					margin: 20px 0; 
+					border-radius: 4px;
+				}
+				.alert-box strong {
+					color: #856404;
+				}
+				@media only screen and (max-width: 600px) {
+					.email-wrapper { width: 100% !important; }
+					.header { padding: 30px 15px; }
+					.content { padding: 20px 15px; }
+					.order-details { padding: 15px; }
+				}
 			</style>
 		</head>
 		<body>
-			<div class="container">
+			<div class="email-wrapper">
 				<div class="header">
-					<h1>NEW ORDER RECEIVED</h1>
-					<p>Order #${order.orderNumber}</p>
+					<div class="logo-container">
+						<img src="${logoUrl}" alt="Glister Luxury" class="logo" />
+					</div>
+					<div class="header-title">NEW ORDER RECEIVED</div>
+					<div class="header-subtitle">Order #${order.orderNumber}</div>
 				</div>
 				<div class="content">
 					<div class="alert-box">
@@ -199,27 +299,161 @@ async function sendOrderEmails(order, user) {
 	// Customer confirmation email
 	const customerEmailHTML = `
 		<!DOCTYPE html>
-		<html>
+		<html lang="en">
 		<head>
+			<meta charset="UTF-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1.0">
 			<style>
-				body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-				.container { max-width: 600px; margin: 0 auto; padding: 10px; }
-				.header { background-color: #2C2C2C; color: #D4AF37; padding: 20px; text-align: center; }
-				.content { background-color: #f9f9f9; padding: 15px; }
-				.order-details { background-color: white; padding: 15px; margin: 15px 0; border-radius: 8px; }
-				table { width: 100%; border-collapse: collapse; }
-				th { background-color: #2C2C2C; color: #D4AF37; padding: 12px; text-align: left; }
-				.total-row { font-size: 18px; font-weight: bold; }
-				.info-box { background-color: #e7f3ff; border-left: 4px solid #2196F3; padding: 15px; margin: 15px 0; }
-				.footer { text-align: center; padding: 15px; color: #666; font-size: 12px; }
+				* { margin: 0; padding: 0; box-sizing: border-box; }
+				body { 
+					font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+					line-height: 1.6; 
+					color: #333333; 
+					background-color: #f5f5f5;
+					-webkit-font-smoothing: antialiased;
+					-moz-osx-font-smoothing: grayscale;
+				}
+				.email-wrapper { 
+					max-width: 600px; 
+					margin: 0 auto; 
+					background-color: #ffffff;
+				}
+				.header { 
+					background: linear-gradient(135deg, #2C2C2C 0%, #1a1a1a 100%); 
+					padding: 40px 20px; 
+					text-align: center;
+					border-top-left-radius: 8px;
+					border-top-right-radius: 8px;
+				}
+				.logo-container {
+					margin-bottom: 20px;
+				}
+				.logo { 
+					max-width: 120px; 
+					height: auto; 
+					display: block;
+					margin: 0 auto;
+				}
+				.header-text {
+					color: #D4AF37;
+					font-size: 18px;
+					font-weight: 300;
+					letter-spacing: 2px;
+					margin-top: 15px;
+				}
+				.header-title {
+					color: #ffffff;
+					font-size: 20px;
+					font-weight: 400;
+					margin-top: 20px;
+				}
+				.content { 
+					background-color: #ffffff; 
+					padding: 30px 20px; 
+				}
+				.content p {
+					margin: 15px 0;
+					line-height: 1.8;
+					color: #333333;
+				}
+				.order-details { 
+					background-color: #ffffff; 
+					padding: 20px; 
+					margin: 20px 0; 
+					border-radius: 8px;
+					border: 1px solid #e5e5e5;
+					box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+				}
+				.order-details h2 {
+					color: #2C2C2C;
+					font-size: 18px;
+					margin-bottom: 15px;
+					padding-bottom: 10px;
+					border-bottom: 2px solid #D4AF37;
+				}
+				.order-details p {
+					margin: 8px 0;
+					line-height: 1.8;
+				}
+				table { 
+					width: 100%; 
+					border-collapse: collapse; 
+					margin-top: 10px;
+				}
+				th { 
+					background-color: #2C2C2C; 
+					color: #D4AF37; 
+					padding: 12px; 
+					text-align: left; 
+					font-weight: 600;
+					font-size: 14px;
+				}
+				td {
+					padding: 12px;
+					border-bottom: 1px solid #e5e5e5;
+				}
+				.total-row { 
+					font-size: 18px; 
+					font-weight: bold; 
+				}
+				.info-box { 
+					background-color: #e7f3ff; 
+					border-left: 4px solid #2196F3; 
+					padding: 20px; 
+					margin: 20px 0;
+					border-radius: 4px;
+				}
+				.info-box h3 {
+					margin-top: 0;
+					color: #2C2C2C;
+					font-size: 16px;
+				}
+				.info-box ol {
+					margin: 10px 0;
+					padding-left: 20px;
+				}
+				.info-box li {
+					margin: 8px 0;
+					line-height: 1.6;
+				}
+				.footer { 
+					text-align: center; 
+					padding: 30px 20px; 
+					color: #666666; 
+					font-size: 13px;
+					background-color: #f9f9f9;
+					border-bottom-left-radius: 8px;
+					border-bottom-right-radius: 8px;
+				}
+				.footer p {
+					margin: 8px 0;
+					line-height: 1.6;
+				}
+				.footer a {
+					color: #2C2C2C;
+					text-decoration: none;
+					font-weight: 500;
+				}
+				.footer a:hover {
+					text-decoration: underline;
+				}
+				@media only screen and (max-width: 600px) {
+					.email-wrapper { width: 100% !important; }
+					.header { padding: 30px 15px; }
+					.content { padding: 20px 15px; }
+					.order-details { padding: 15px; }
+					.footer { padding: 20px 15px; }
+				}
 			</style>
 		</head>
 		<body>
-			<div class="container">
+			<div class="email-wrapper">
 				<div class="header">
-					<h1>GLISTER LUXURY</h1>
-					<h2 style="margin-top: 10px;">The Soul of Interior</h2>
-					<p style="margin-top: 15px; font-size: 16px;">Thank You for Your Order!</p>
+					<div class="logo-container">
+						<img src="${logoUrl}" alt="Glister Luxury" class="logo" />
+					</div>
+					<div class="header-text">The Soul of Interior</div>
+					<div class="header-title">Thank You for Your Order!</div>
 				</div>
 				<div class="content">
 					<p>Dear ${order.customerInfo.name},</p>
@@ -402,8 +636,11 @@ async function sendOrderEmails(order, user) {
 				<div class="footer">
 					<p>This is an automated confirmation email. Please do not reply to this email.</p>
 					<p>If you have any questions, feel free to reach out:</p>
-					<p><a href="mailto:enquiries@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">enquiries@glisterlondon.com</a> (All purposes) | <a href="mailto:sales@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">sales@glisterlondon.com</a> (Business purposes)</p>
-					<p>&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
+					<p>
+						<a href="mailto:enquiries@glisterlondon.com">enquiries@glisterlondon.com</a> (All purposes) | 
+						<a href="mailto:sales@glisterlondon.com">sales@glisterlondon.com</a> (Business purposes)
+					</p>
+					<p style="margin-top: 15px;">&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
 				</div>
 			</div>
 		</body>
@@ -1118,27 +1355,150 @@ exports.addAdminMessage = async (req, res, next) => {
 				cancelled: 'Cancelled'
 			};
 
+			const logoUrl = getLogoUrl();
 			const customerEmailHTML = `
 				<!DOCTYPE html>
-				<html>
+				<html lang="en">
 				<head>
+					<meta charset="UTF-8">
+					<meta name="viewport" content="width=device-width, initial-scale=1.0">
 					<style>
-						body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-						.container { max-width: 600px; margin: 0 auto; padding: 10px; }
-						.header { background-color: #2C2C2C; color: #D4AF37; padding: 20px; text-align: center; }
-						.content { background-color: #f9f9f9; padding: 15px; }
-						.message-box { background-color: white; border-left: 4px solid #D4AF37; padding: 15px; margin: 15px 0; border-radius: 4px; }
-						.order-details { background-color: white; padding: 15px; margin: 15px 0; border-radius: 8px; }
-						.status-badge { display: inline-block; padding: 6px 12px; border-radius: 4px; background-color: #D4AF37; color: #2C2C2C; font-weight: bold; }
-						.footer { text-align: center; padding: 15px; color: #666; font-size: 12px; }
+						* { margin: 0; padding: 0; box-sizing: border-box; }
+						body { 
+							font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+							line-height: 1.6; 
+							color: #333333; 
+							background-color: #f5f5f5;
+							-webkit-font-smoothing: antialiased;
+							-moz-osx-font-smoothing: grayscale;
+						}
+						.email-wrapper { 
+							max-width: 600px; 
+							margin: 0 auto; 
+							background-color: #ffffff;
+						}
+						.header { 
+							background: linear-gradient(135deg, #2C2C2C 0%, #1a1a1a 100%); 
+							padding: 40px 20px; 
+							text-align: center;
+							border-top-left-radius: 8px;
+							border-top-right-radius: 8px;
+						}
+						.logo-container {
+							margin-bottom: 20px;
+						}
+						.logo { 
+							max-width: 120px; 
+							height: auto; 
+							display: block;
+							margin: 0 auto;
+						}
+						.header-text {
+							color: #D4AF37;
+							font-size: 18px;
+							font-weight: 300;
+							letter-spacing: 2px;
+							margin-top: 15px;
+						}
+						.header-title {
+							color: #ffffff;
+							font-size: 20px;
+							font-weight: 400;
+							margin-top: 20px;
+						}
+						.content { 
+							background-color: #ffffff; 
+							padding: 30px 20px; 
+						}
+						.content p {
+							margin: 15px 0;
+							line-height: 1.8;
+							color: #333333;
+						}
+						.message-box { 
+							background-color: #ffffff; 
+							border-left: 4px solid #D4AF37; 
+							padding: 20px; 
+							margin: 20px 0; 
+							border-radius: 4px;
+							box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+						}
+						.message-box h3 {
+							margin-top: 0;
+							color: #D4AF37;
+							font-size: 18px;
+							margin-bottom: 15px;
+						}
+						.message-box p {
+							margin: 10px 0;
+							line-height: 1.8;
+						}
+						.order-details { 
+							background-color: #ffffff; 
+							padding: 20px; 
+							margin: 20px 0; 
+							border-radius: 8px;
+							border: 1px solid #e5e5e5;
+							box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+						}
+						.order-details h2 {
+							color: #2C2C2C;
+							font-size: 18px;
+							margin-bottom: 15px;
+							padding-bottom: 10px;
+							border-bottom: 2px solid #D4AF37;
+						}
+						.order-details p {
+							margin: 8px 0;
+							line-height: 1.8;
+						}
+						.status-badge { 
+							display: inline-block; 
+							padding: 8px 16px; 
+							border-radius: 4px; 
+							background-color: #D4AF37; 
+							color: #2C2C2C; 
+							font-weight: bold;
+							font-size: 14px;
+						}
+						.footer { 
+							text-align: center; 
+							padding: 30px 20px; 
+							color: #666666; 
+							font-size: 13px;
+							background-color: #f9f9f9;
+							border-bottom-left-radius: 8px;
+							border-bottom-right-radius: 8px;
+						}
+						.footer p {
+							margin: 8px 0;
+							line-height: 1.6;
+						}
+						.footer a {
+							color: #2C2C2C;
+							text-decoration: none;
+							font-weight: 500;
+						}
+						.footer a:hover {
+							text-decoration: underline;
+						}
+						@media only screen and (max-width: 600px) {
+							.email-wrapper { width: 100% !important; }
+							.header { padding: 30px 15px; }
+							.content { padding: 20px 15px; }
+							.order-details { padding: 15px; }
+							.footer { padding: 20px 15px; }
+						}
 					</style>
 				</head>
 				<body>
-					<div class="container">
+					<div class="email-wrapper">
 						<div class="header">
-							<h1>GLISTER LUXURY</h1>
-							<h2 style="margin-top: 10px;">The Soul of Interior</h2>
-							<p style="margin-top: 15px; font-size: 16px;">Order Update</p>
+							<div class="logo-container">
+								<img src="${logoUrl}" alt="Glister Luxury" class="logo" />
+							</div>
+							<div class="header-text">The Soul of Interior</div>
+							<div class="header-title">Order Update</div>
 						</div>
 						<div class="content">
 							<p>Dear ${order.customerInfo.name},</p>
@@ -1177,8 +1537,11 @@ exports.addAdminMessage = async (req, res, next) => {
 						<div class="footer">
 							<p>This is an automated notification email. Please do not reply to this email.</p>
 							<p>If you have any questions, feel free to reach out:</p>
-							<p><a href="mailto:enquiries@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">enquiries@glisterlondon.com</a> (All purposes) | <a href="mailto:sales@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">sales@glisterlondon.com</a> (Business purposes)</p>
-							<p>&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
+							<p>
+								<a href="mailto:enquiries@glisterlondon.com">enquiries@glisterlondon.com</a> (All purposes) | 
+								<a href="mailto:sales@glisterlondon.com">sales@glisterlondon.com</a> (Business purposes)
+							</p>
+							<p style="margin-top: 15px;">&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
 						</div>
 					</div>
 				</body>

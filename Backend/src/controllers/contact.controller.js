@@ -2,6 +2,7 @@ const ContactInfo = require('../models/ContactInfo');
 const ContactInquiry = require('../models/ContactInquiry');
 const nodemailer = require('nodemailer');
 const autoReplyService = require('../services/autoReply.service');
+const { getLogoUrl } = require('../utils/emailHelpers');
 
 // Helper function to validate URL format
 function isValidUrl(url) {
@@ -197,26 +198,131 @@ async function sendContactInquiryEmail(inquiry) {
 		});
 
 		// Admin notification email
+		const logoUrl = getLogoUrl();
 		const adminEmailHTML = `
 			<!DOCTYPE html>
-			<html>
+			<html lang="en">
 			<head>
+				<meta charset="UTF-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<style>
-					body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-					.container { max-width: 600px; margin: 0 auto; padding: 20px; }
-					.header { background-color: #2C2C2C; color: #D4AF37; padding: 20px; text-align: center; }
-					.content { background-color: #f9f9f9; padding: 20px; }
-					.inquiry-details { background-color: white; padding: 20px; margin: 20px 0; border-radius: 8px; }
-					.alert-box { background-color: #fff3cd; border-left: 4px solid #D4AF37; padding: 15px; margin: 20px 0; }
-					.message-box { background-color: #f5f5f5; padding: 15px; border-radius: 4px; border-left: 3px solid #2C2C2C; margin: 15px 0; }
-					.footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+					* { margin: 0; padding: 0; box-sizing: border-box; }
+					body { 
+						font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+						line-height: 1.6; 
+						color: #333333; 
+						background-color: #f5f5f5;
+						-webkit-font-smoothing: antialiased;
+						-moz-osx-font-smoothing: grayscale;
+					}
+					.email-wrapper { 
+						max-width: 600px; 
+						margin: 0 auto; 
+						background-color: #ffffff;
+					}
+					.header { 
+						background: linear-gradient(135deg, #2C2C2C 0%, #1a1a1a 100%); 
+						padding: 40px 20px; 
+						text-align: center;
+						border-top-left-radius: 8px;
+						border-top-right-radius: 8px;
+					}
+					.logo-container {
+						margin-bottom: 20px;
+					}
+					.logo { 
+						max-width: 120px; 
+						height: auto; 
+						display: block;
+						margin: 0 auto;
+					}
+					.header-title {
+						color: #D4AF37;
+						font-size: 24px;
+						font-weight: 600;
+						margin: 15px 0 10px 0;
+						letter-spacing: 1px;
+					}
+					.header-subtitle {
+						color: #ffffff;
+						font-size: 16px;
+						font-weight: 300;
+					}
+					.content { 
+						background-color: #ffffff; 
+						padding: 30px 20px; 
+					}
+					.inquiry-details { 
+						background-color: #ffffff; 
+						padding: 20px; 
+						margin: 20px 0; 
+						border-radius: 8px;
+						border: 1px solid #e5e5e5;
+						box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+					}
+					.inquiry-details h2 {
+						color: #2C2C2C;
+						font-size: 18px;
+						margin-bottom: 15px;
+						padding-bottom: 10px;
+						border-bottom: 2px solid #D4AF37;
+					}
+					.inquiry-details p {
+						margin: 8px 0;
+						line-height: 1.8;
+					}
+					.alert-box { 
+						background-color: #fff3cd; 
+						border-left: 4px solid #D4AF37; 
+						padding: 15px; 
+						margin: 20px 0;
+						border-radius: 4px;
+					}
+					.alert-box strong {
+						color: #856404;
+					}
+					.message-box { 
+						background-color: #f5f5f5; 
+						padding: 15px; 
+						border-radius: 4px; 
+						border-left: 3px solid #2C2C2C; 
+						margin: 15px 0;
+					}
+					.message-box p {
+						margin: 0;
+						white-space: pre-wrap;
+						line-height: 1.8;
+					}
+					.footer { 
+						text-align: center; 
+						padding: 30px 20px; 
+						color: #666666; 
+						font-size: 13px;
+						background-color: #f9f9f9;
+						border-bottom-left-radius: 8px;
+						border-bottom-right-radius: 8px;
+					}
+					.footer p {
+						margin: 8px 0;
+						line-height: 1.6;
+					}
+					@media only screen and (max-width: 600px) {
+						.email-wrapper { width: 100% !important; }
+						.header { padding: 30px 15px; }
+						.content { padding: 20px 15px; }
+						.inquiry-details { padding: 15px; }
+						.footer { padding: 20px 15px; }
+					}
 				</style>
 			</head>
 			<body>
-				<div class="container">
+				<div class="email-wrapper">
 					<div class="header">
-						<h1>📧 NEW CONTACT REQUEST</h1>
-						<p>Contact Inquiry Received</p>
+						<div class="logo-container">
+							<img src="${logoUrl}" alt="Glister Luxury" class="logo" />
+						</div>
+						<div class="header-title">📧 NEW CONTACT REQUEST</div>
+						<div class="header-subtitle">Contact Inquiry Received</div>
 					</div>
 					<div class="content">
 						<div class="alert-box">
@@ -305,27 +411,154 @@ async function sendContactInquiryConfirmationEmail(inquiry) {
 		});
 
 		// Customer confirmation email
+		const logoUrl = getLogoUrl();
 		const customerEmailHTML = `
 			<!DOCTYPE html>
-			<html>
+			<html lang="en">
 			<head>
+				<meta charset="UTF-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<style>
-					body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-					.container { max-width: 600px; margin: 0 auto; padding: 10px; }
-					.header { background-color: #2C2C2C; color: #D4AF37; padding: 20px; text-align: center; }
-					.content { background-color: #f9f9f9; padding: 15px; }
-					.confirmation-box { background-color: white; padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #D4AF37; }
-					.inquiry-summary { background-color: #f5f5f5; padding: 15px; border-radius: 4px; margin: 15px 0; }
-					.info-box { background-color: #e7f3ff; border-left: 4px solid #2196F3; padding: 15px; margin: 15px 0; }
-					.footer { text-align: center; padding: 15px; color: #666; font-size: 12px; }
+					* { margin: 0; padding: 0; box-sizing: border-box; }
+					body { 
+						font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+						line-height: 1.6; 
+						color: #333333; 
+						background-color: #f5f5f5;
+						-webkit-font-smoothing: antialiased;
+						-moz-osx-font-smoothing: grayscale;
+					}
+					.email-wrapper { 
+						max-width: 600px; 
+						margin: 0 auto; 
+						background-color: #ffffff;
+					}
+					.header { 
+						background: linear-gradient(135deg, #2C2C2C 0%, #1a1a1a 100%); 
+						padding: 40px 20px; 
+						text-align: center;
+						border-top-left-radius: 8px;
+						border-top-right-radius: 8px;
+					}
+					.logo-container {
+						margin-bottom: 20px;
+					}
+					.logo { 
+						max-width: 120px; 
+						height: auto; 
+						display: block;
+						margin: 0 auto;
+					}
+					.header-text {
+						color: #D4AF37;
+						font-size: 18px;
+						font-weight: 300;
+						letter-spacing: 2px;
+						margin-top: 15px;
+					}
+					.header-title {
+						color: #ffffff;
+						font-size: 20px;
+						font-weight: 400;
+						margin-top: 20px;
+					}
+					.content { 
+						background-color: #ffffff; 
+						padding: 30px 20px; 
+					}
+					.content p {
+						margin: 15px 0;
+						line-height: 1.8;
+						color: #333333;
+					}
+					.confirmation-box { 
+						background-color: #ffffff; 
+						padding: 20px; 
+						margin: 20px 0; 
+						border-radius: 8px; 
+						border-left: 4px solid #D4AF37;
+						box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+					}
+					.confirmation-box h2 {
+						margin-top: 0;
+						color: #2C2C2C;
+						font-size: 20px;
+						margin-bottom: 15px;
+					}
+					.inquiry-summary { 
+						background-color: #f5f5f5; 
+						padding: 20px; 
+						border-radius: 4px; 
+						margin: 20px 0;
+						border: 1px solid #e5e5e5;
+					}
+					.inquiry-summary h3 {
+						margin-top: 0;
+						color: #2C2C2C;
+						font-size: 16px;
+						margin-bottom: 15px;
+					}
+					.inquiry-summary p {
+						margin: 8px 0;
+						line-height: 1.8;
+					}
+					.info-box { 
+						background-color: #e7f3ff; 
+						border-left: 4px solid #2196F3; 
+						padding: 20px; 
+						margin: 20px 0;
+						border-radius: 4px;
+					}
+					.info-box h3 {
+						margin-top: 0;
+						color: #2C2C2C;
+						font-size: 16px;
+					}
+					.info-box ol {
+						margin: 10px 0;
+						padding-left: 20px;
+					}
+					.info-box li {
+						margin: 8px 0;
+						line-height: 1.6;
+					}
+					.footer { 
+						text-align: center; 
+						padding: 30px 20px; 
+						color: #666666; 
+						font-size: 13px;
+						background-color: #f9f9f9;
+						border-bottom-left-radius: 8px;
+						border-bottom-right-radius: 8px;
+					}
+					.footer p {
+						margin: 8px 0;
+						line-height: 1.6;
+					}
+					.footer a {
+						color: #2C2C2C;
+						text-decoration: none;
+						font-weight: 500;
+					}
+					.footer a:hover {
+						text-decoration: underline;
+					}
+					@media only screen and (max-width: 600px) {
+						.email-wrapper { width: 100% !important; }
+						.header { padding: 30px 15px; }
+						.content { padding: 20px 15px; }
+						.footer { padding: 20px 15px; }
+					}
 				</style>
 			</head>
 			<body>
-				<div class="container">
+				<div class="email-wrapper">
 					<div class="header">
-						<h1>GLISTER LUXURY</h1>
-						<h2 style="margin-top: 10px;">The Soul of Interior</h2>
-						<p style="margin-top: 15px; font-size: 16px;">Thank You for Contacting Us</p>
+						<div class="logo-container">
+							<img src="${logoUrl}" alt="Glister Luxury" class="logo" />
+						</div>
+						<div class="header-text">The Soul of Interior</div>
+						<div class="header-title">Thank You for Contacting Us</div>
 					</div>
 					<div class="content">
 						<p>Dear ${inquiry.name},</p>
@@ -369,8 +602,11 @@ async function sendContactInquiryConfirmationEmail(inquiry) {
 					<div class="footer">
 						<p>This is an automated confirmation email. Please do not reply to this email.</p>
 						<p>If you have any questions, feel free to reach out:</p>
-						<p><a href="mailto:enquiries@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">enquiries@glisterlondon.com</a> (All purposes) | <a href="mailto:sales@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">sales@glisterlondon.com</a> (Business purposes)</p>
-						<p>&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
+						<p>
+							<a href="mailto:enquiries@glisterlondon.com">enquiries@glisterlondon.com</a> (All purposes) | 
+							<a href="mailto:sales@glisterlondon.com">sales@glisterlondon.com</a> (Business purposes)
+						</p>
+						<p style="margin-top: 15px;">&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
 					</div>
 				</div>
 			</body>

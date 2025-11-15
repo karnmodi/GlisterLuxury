@@ -3,6 +3,7 @@ const ProcessedEmail = require('../models/ProcessedEmail');
 const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
 const emailLogger = require('../utils/emailLogger');
+const { getLogoUrl } = require('../utils/emailHelpers');
 
 // Business email addresses that should not receive auto-replies
 const BUSINESS_EMAILS = [
@@ -133,41 +134,125 @@ function replaceVariables(text, variables) {
  * Format auto-reply message as HTML email
  * @param {string} message - The message text
  * @param {Object} variables - Variables to replace
+ * @param {Object} req - Optional Express request object for logo URL
  * @returns {string} HTML formatted email
  */
-function formatAutoReplyHTML(message, variables) {
+function formatAutoReplyHTML(message, variables, req = null) {
   const formattedMessage = replaceVariables(message, variables);
   const htmlMessage = formattedMessage.replace(/\n/g, '<br>').replace(/\r/g, '');
+  const logoUrl = getLogoUrl(req);
   
   return `
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 10px; }
-        .header { background-color: #2C2C2C; color: #D4AF37; padding: 20px; text-align: center; }
-        .content { background-color: #f9f9f9; padding: 15px; }
-        .message-box { background-color: white; border-left: 4px solid #D4AF37; padding: 15px; margin: 15px 0; border-radius: 4px; }
-        .footer { text-align: center; padding: 15px; color: #666; font-size: 12px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+          line-height: 1.6; 
+          color: #333333; 
+          background-color: #f5f5f5;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+        }
+        .email-wrapper { 
+          max-width: 600px; 
+          margin: 0 auto; 
+          background-color: #ffffff;
+        }
+        .header { 
+          background: linear-gradient(135deg, #2C2C2C 0%, #1a1a1a 100%); 
+          padding: 40px 20px; 
+          text-align: center;
+          border-top-left-radius: 8px;
+          border-top-right-radius: 8px;
+        }
+        .logo-container {
+          margin-bottom: 20px;
+        }
+        .logo { 
+          max-width: 120px; 
+          height: auto; 
+          display: block;
+          margin: 0 auto;
+        }
+        .header-text {
+          color: #D4AF37;
+          font-size: 18px;
+          font-weight: 300;
+          letter-spacing: 2px;
+          margin-top: 15px;
+        }
+        .content { 
+          background-color: #ffffff; 
+          padding: 30px 20px; 
+        }
+        .message-box { 
+          background-color: #ffffff; 
+          border-left: 4px solid #D4AF37; 
+          padding: 20px; 
+          margin: 20px 0; 
+          border-radius: 4px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .message-box p {
+          margin: 0;
+          line-height: 1.8;
+          color: #333333;
+        }
+        .footer { 
+          text-align: center; 
+          padding: 30px 20px; 
+          color: #666666; 
+          font-size: 13px;
+          background-color: #f9f9f9;
+          border-bottom-left-radius: 8px;
+          border-bottom-right-radius: 8px;
+        }
+        .footer p {
+          margin: 8px 0;
+          line-height: 1.6;
+        }
+        .footer a {
+          color: #2C2C2C;
+          text-decoration: none;
+          font-weight: 500;
+        }
+        .footer a:hover {
+          text-decoration: underline;
+        }
+        @media only screen and (max-width: 600px) {
+          .email-wrapper { width: 100% !important; }
+          .header { padding: 30px 15px; }
+          .content { padding: 20px 15px; }
+          .footer { padding: 20px 15px; }
+        }
       </style>
     </head>
     <body>
-      <div class="container">
+      <div class="email-wrapper">
         <div class="header">
-          <h1>GLISTER LUXURY</h1>
-          <h2 style="margin-top: 10px;">The Soul of Interior</h2>
+          <div class="logo-container">
+            <img src="${logoUrl}" alt="Glister Luxury" class="logo" />
+          </div>
+          <div class="header-text">The Soul of Interior</div>
         </div>
         <div class="content">
           <div class="message-box">
-            <p style="white-space: pre-wrap; margin: 0;">${htmlMessage}</p>
+            <p style="white-space: pre-wrap;">${htmlMessage}</p>
           </div>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this email.</p>
           <p>If you have any questions, feel free to reach out:</p>
-          <p><a href="mailto:enquiries@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">enquiries@glisterlondon.com</a> (All purposes) | <a href="mailto:sales@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">sales@glisterlondon.com</a> (Business purposes)</p>
-          <p>&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
+          <p>
+            <a href="mailto:enquiries@glisterlondon.com">enquiries@glisterlondon.com</a> (All purposes) | 
+            <a href="mailto:sales@glisterlondon.com">sales@glisterlondon.com</a> (Business purposes)
+          </p>
+          <p style="margin-top: 15px;">&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
         </div>
       </div>
     </body>

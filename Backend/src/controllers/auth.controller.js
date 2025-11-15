@@ -2,6 +2,7 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const { getLogoUrl } = require('../utils/emailHelpers');
 
 // Generate JWT Token
 const generateToken = (userId, role) => {
@@ -489,26 +490,130 @@ exports.forgotPassword = async (req, res, next) => {
     const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
     
     // Email message
+    const logoUrl = getLogoUrl(req);
     const message = `
       <!DOCTYPE html>
-      <html>
+      <html lang="en">
       <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 10px; }
-          .header { background-color: #2C2C2C; color: #D4AF37; padding: 20px; text-align: center; }
-          .content { background-color: #f9f9f9; padding: 15px; }
-          .info-box { background-color: white; padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #D4AF37; }
-          .button { display: inline-block; padding: 12px 24px; background-color: #2C2C2C; color: #D4AF37; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 15px 0; }
-          .footer { text-align: center; padding: 15px; color: #666; font-size: 12px; }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+            line-height: 1.6; 
+            color: #333333; 
+            background-color: #f5f5f5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+          }
+          .email-wrapper { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background-color: #ffffff;
+          }
+          .header { 
+            background: linear-gradient(135deg, #2C2C2C 0%, #1a1a1a 100%); 
+            padding: 40px 20px; 
+            text-align: center;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+          }
+          .logo-container {
+            margin-bottom: 20px;
+          }
+          .logo { 
+            max-width: 120px; 
+            height: auto; 
+            display: block;
+            margin: 0 auto;
+          }
+          .header-text {
+            color: #D4AF37;
+            font-size: 18px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin-top: 15px;
+          }
+          .header-title {
+            color: #ffffff;
+            font-size: 20px;
+            font-weight: 400;
+            margin-top: 20px;
+          }
+          .content { 
+            background-color: #ffffff; 
+            padding: 30px 20px; 
+          }
+          .content p {
+            margin: 15px 0;
+            line-height: 1.8;
+            color: #333333;
+          }
+          .info-box { 
+            background-color: #ffffff; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #D4AF37;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+          }
+          .info-box p {
+            margin: 10px 0;
+            line-height: 1.8;
+          }
+          .button { 
+            display: inline-block; 
+            padding: 14px 28px; 
+            background-color: #2C2C2C; 
+            color: #D4AF37; 
+            text-decoration: none; 
+            border-radius: 5px; 
+            font-weight: bold; 
+            margin: 20px 0;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+          }
+          .button:hover {
+            background-color: #1a1a1a;
+          }
+          .footer { 
+            text-align: center; 
+            padding: 30px 20px; 
+            color: #666666; 
+            font-size: 13px;
+            background-color: #f9f9f9;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+          }
+          .footer p {
+            margin: 8px 0;
+            line-height: 1.6;
+          }
+          .footer a {
+            color: #2C2C2C;
+            text-decoration: none;
+            font-weight: 500;
+          }
+          .footer a:hover {
+            text-decoration: underline;
+          }
+          @media only screen and (max-width: 600px) {
+            .email-wrapper { width: 100% !important; }
+            .header { padding: 30px 15px; }
+            .content { padding: 20px 15px; }
+            .footer { padding: 20px 15px; }
+          }
         </style>
       </head>
       <body>
-        <div class="container">
+        <div class="email-wrapper">
           <div class="header">
-            <h1>GLISTER LUXURY</h1>
-            <h2 style="margin-top: 10px;">The Soul of Interior</h2>
-            <p style="margin-top: 15px; font-size: 16px;">Password Reset Request</p>
+            <div class="logo-container">
+              <img src="${logoUrl}" alt="Glister Luxury" class="logo" />
+            </div>
+            <div class="header-text">The Soul of Interior</div>
+            <div class="header-title">Password Reset Request</div>
           </div>
           <div class="content">
             <p>Dear User,</p>
@@ -532,8 +637,11 @@ exports.forgotPassword = async (req, res, next) => {
           <div class="footer">
             <p>This is an automated email. Please do not reply to this email.</p>
             <p>If you have any questions, feel free to reach out:</p>
-            <p><a href="mailto:enquiries@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">enquiries@glisterlondon.com</a> (All purposes) | <a href="mailto:sales@glisterlondon.com" style="color: #2C2C2C; text-decoration: none;">sales@glisterlondon.com</a> (Business purposes)</p>
-            <p>&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
+            <p>
+              <a href="mailto:enquiries@glisterlondon.com">enquiries@glisterlondon.com</a> (All purposes) | 
+              <a href="mailto:sales@glisterlondon.com">sales@glisterlondon.com</a> (Business purposes)
+            </p>
+            <p style="margin-top: 15px;">&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
           </div>
         </div>
       </body>
