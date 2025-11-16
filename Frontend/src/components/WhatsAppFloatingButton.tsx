@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { usePathname } from 'next/navigation'
 import { contactApi } from '@/lib/api'
@@ -12,9 +12,30 @@ export default function WhatsAppFloatingButton() {
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [hasDragged, setHasDragged] = useState(false)
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
   const pathname = usePathname()
-  const constraintsRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
   const hasDraggedRef = useRef(false)
+
+  // Update viewport size
+  useEffect(() => {
+    const updateViewportSize = () => {
+      setViewportSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      })
+    }
+
+    // Set initial viewport size
+    updateViewportSize()
+
+    // Listen for resize events
+    window.addEventListener('resize', updateViewportSize)
+    
+    return () => {
+      window.removeEventListener('resize', updateViewportSize)
+    }
+  }, [])
 
   useEffect(() => {
     const fetchContactInfo = async () => {
@@ -43,10 +64,69 @@ export default function WhatsAppFloatingButton() {
     fetchContactInfo()
   }, [])
 
+  // Calculate drag constraints based on viewport and button size
+  const getDragConstraints = useCallback(() => {
+    if (viewportSize.width === 0 || viewportSize.height === 0) {
+      return { left: 0, right: 0, top: 0, bottom: 0 }
+    }
+
+    // Get button size - responsive sizes: w-12 h-12 (48px), sm:w-14 sm:h-14 (56px), md:w-16 md:h-16 (64px)
+    let buttonSize = 48 // default (w-12 h-12)
+    if (viewportSize.width >= 768) {
+      buttonSize = 64 // md:w-16 md:h-16
+    } else if (viewportSize.width >= 640) {
+      buttonSize = 56 // sm:w-14 sm:h-14
+    }
+
+    // Calculate constraints
+    // For fixed positioning with bottom/right, we need to account for:
+    // - Default spacing (bottom-4 right-4 = 16px, sm:bottom-6 sm:right-6 = 24px)
+    const defaultSpacing = viewportSize.width >= 640 ? 24 : 16
+    
+    // The button starts at bottom-right with defaultSpacing from edges
+    // When dragging, we need to ensure the button never goes outside viewport
+    // 
+    // Starting position: right edge at (viewportWidth - defaultSpacing), bottom edge at (viewportHeight - defaultSpacing)
+    // 
+    // Constraints relative to starting position (x: 0, y: 0):
+    // - Left: can move left until left edge hits 0, so max left movement = -(viewportWidth - buttonSize - defaultSpacing)
+    // - Right: can move right until right edge hits viewportWidth, so max right movement = defaultSpacing
+    // - Top: can move up until top edge hits 0, so max up movement = -(viewportHeight - buttonSize - defaultSpacing)
+    // - Bottom: can move down until bottom edge hits viewportHeight, so max down movement = defaultSpacing
+    
+    const maxLeft = -(viewportSize.width - buttonSize - defaultSpacing)
+    const maxRight = defaultSpacing
+    const maxTop = -(viewportSize.height - buttonSize - defaultSpacing)
+    const maxBottom = defaultSpacing
+    
+    return {
+      left: maxLeft,
+      right: maxRight,
+      top: maxTop,
+      bottom: maxBottom,
+    }
+  }, [viewportSize.width, viewportSize.height])
+
   // Reset position to default on mount and route changes
   useEffect(() => {
     setPosition({ x: 0, y: 0 })
   }, [pathname])
+
+  // Clamp position when viewport size changes to ensure button stays within bounds
+  useEffect(() => {
+    if (viewportSize.width === 0 || viewportSize.height === 0) return
+    
+    const constraints = getDragConstraints()
+    setPosition(prev => {
+      const clampedX = Math.max(constraints.left, Math.min(constraints.right, prev.x))
+      const clampedY = Math.max(constraints.top, Math.min(constraints.bottom, prev.y))
+      
+      if (clampedX !== prev.x || clampedY !== prev.y) {
+        return { x: clampedX, y: clampedY }
+      }
+      return prev
+    })
+  }, [viewportSize.width, viewportSize.height, getDragConstraints])
 
   // Don't render if loading or no WhatsApp number
   if (loading || !whatsappNumber) {
@@ -87,8 +167,15 @@ export default function WhatsAppFloatingButton() {
   }
 
   const handleDragEnd = (event: any, info: any) => {
-    // Update position state after drag ends
-    setPosition({ x: info.offset.x, y: info.offset.y })
+    // Get constraints to clamp position
+    const constraints = getDragConstraints()
+    
+    // Clamp position to stay within viewport boundaries
+    const clampedX = Math.max(constraints.left, Math.min(constraints.right, info.offset.x))
+    const clampedY = Math.max(constraints.top, Math.min(constraints.bottom, info.offset.y))
+    
+    // Update position state after drag ends (clamped to viewport)
+    setPosition({ x: clampedX, y: clampedY })
     
     // Reset drag flags after a delay to prevent click from firing
     // The delay ensures the click event (if any) is processed after drag end
@@ -99,36 +186,38 @@ export default function WhatsAppFloatingButton() {
     }, 200)
   }
 
+  const dragConstraints = getDragConstraints()
+
   return (
     <AnimatePresence>
-      <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-        <motion.div
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ 
-            opacity: 1, 
-            scale: 1,
-            x: position.x,
-            y: position.y,
-          }}
-          exit={{ opacity: 0, scale: 0 }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-auto cursor-grab active:cursor-grabbing"
-          drag
-          dragConstraints={constraintsRef}
-          dragElastic={0.2}
-          dragMomentum={false}
-          onDragStart={handleDragStart}
-          onDrag={handleDrag}
-          onDragEnd={handleDragEnd}
-          whileDrag={{ scale: 1.05, cursor: 'grabbing' }}
+      <motion.div
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ 
+          opacity: 1, 
+          scale: 1,
+          x: position.x,
+          y: position.y,
+        }}
+        exit={{ opacity: 0, scale: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-auto cursor-grab active:cursor-grabbing z-50"
+        drag
+        dragConstraints={dragConstraints}
+        dragElastic={0.2}
+        dragMomentum={false}
+        onDragStart={handleDragStart}
+        onDrag={handleDrag}
+        onDragEnd={handleDragEnd}
+        whileDrag={{ scale: 1.05, cursor: 'grabbing' }}
+      >
+        <motion.button
+          ref={buttonRef}
+          onClick={handleClick}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+          className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-[#25D366] rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all duration-300 group touch-manipulation"
+          aria-label="Contact us on WhatsApp"
         >
-          <motion.button
-            onClick={handleClick}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-[#25D366] rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all duration-300 group touch-manipulation"
-            aria-label="Contact us on WhatsApp"
-          >
           {/* WhatsApp Icon SVG */}
           <svg
             className="w-6 h-6 sm:w-7 sm:h-7 md:w-9 md:h-9 text-white"
@@ -154,7 +243,6 @@ export default function WhatsAppFloatingButton() {
           />
         </motion.button>
       </motion.div>
-      </div>
     </AnimatePresence>
   )
 }
