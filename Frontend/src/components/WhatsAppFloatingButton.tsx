@@ -10,8 +10,11 @@ export default function WhatsAppFloatingButton() {
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [hasDragged, setHasDragged] = useState(false)
   const pathname = usePathname()
   const constraintsRef = useRef<HTMLDivElement>(null)
+  const hasDraggedRef = useRef(false)
 
   useEffect(() => {
     const fetchContactInfo = async () => {
@@ -57,13 +60,43 @@ export default function WhatsAppFloatingButton() {
   const whatsappNumberFormatted = whatsappNumber.replace(/^\+/, '')
   const whatsappUrl = `https://wa.me/${whatsappNumberFormatted}?text=${encodeURIComponent(defaultMessage)}`
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    // Prevent navigation if user was dragging (check both state and ref for reliability)
+    if (hasDraggedRef.current || hasDragged || isDragging) {
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
+    // Only navigate if user didn't drag
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  const handleDragStart = () => {
+    setIsDragging(true)
+    setHasDragged(false)
+    hasDraggedRef.current = false
+  }
+
+  const handleDrag = (event: any, info: any) => {
+    // Check if user has dragged more than 5px (threshold for intentional drag)
+    const dragDistance = Math.sqrt(info.offset.x ** 2 + info.offset.y ** 2)
+    if (dragDistance > 5) {
+      setHasDragged(true)
+      hasDraggedRef.current = true
+    }
   }
 
   const handleDragEnd = (event: any, info: any) => {
     // Update position state after drag ends
     setPosition({ x: info.offset.x, y: info.offset.y })
+    
+    // Reset drag flags after a delay to prevent click from firing
+    // The delay ensures the click event (if any) is processed after drag end
+    setTimeout(() => {
+      setIsDragging(false)
+      setHasDragged(false)
+      hasDraggedRef.current = false
+    }, 200)
   }
 
   return (
@@ -84,6 +117,8 @@ export default function WhatsAppFloatingButton() {
           dragConstraints={constraintsRef}
           dragElastic={0.2}
           dragMomentum={false}
+          onDragStart={handleDragStart}
+          onDrag={handleDrag}
           onDragEnd={handleDragEnd}
           whileDrag={{ scale: 1.05, cursor: 'grabbing' }}
         >
