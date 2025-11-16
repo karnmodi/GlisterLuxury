@@ -17,6 +17,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.FRONTEND_URL_2,
   // Custom domains
+  'https://www.glisterluxury.com',
   'https://www.glisterlondon.com',
   'https://glisterlondon.com',
   'https://www.glisterlondon.co.uk',
