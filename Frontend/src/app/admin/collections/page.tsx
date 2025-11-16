@@ -207,7 +207,7 @@ export default function AdminCollectionsPage() {
 
   // Filter products based on search, category, and subcategory
   const filteredProducts = useMemo(() => {
-    return products.filter(product => {
+    const filtered = products.filter(product => {
       // Search filter
       const matchesSearch = !searchQuery || 
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -224,7 +224,21 @@ export default function AdminCollectionsPage() {
 
       return matchesSearch && matchesCategory && matchesSubcategory
     })
-  }, [products, searchQuery, productFilterCategory, productFilterSubcategory])
+
+    // Sort: selected products first, then unselected
+    // Within each group, sort alphabetically by name
+    return filtered.sort((a, b) => {
+      const aIsSelected = selectedProductIds.includes(a._id)
+      const bIsSelected = selectedProductIds.includes(b._id)
+      
+      // If one is selected and the other isn't, selected comes first
+      if (aIsSelected && !bIsSelected) return -1
+      if (!aIsSelected && bIsSelected) return 1
+      
+      // If both are in the same group (both selected or both unselected), sort alphabetically by name
+      return a.name.localeCompare(b.name)
+    })
+  }, [products, searchQuery, productFilterCategory, productFilterSubcategory, selectedProductIds])
 
   // Get product count per category for display
   const categoryProductCounts = useMemo(() => {

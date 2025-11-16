@@ -1,13 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { usePathname } from 'next/navigation'
 import { contactApi } from '@/lib/api'
 import type { ContactInfo } from '@/types'
 
 export default function WhatsAppFloatingButton() {
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const pathname = usePathname()
+  const constraintsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const fetchContactInfo = async () => {
@@ -36,6 +40,11 @@ export default function WhatsAppFloatingButton() {
     fetchContactInfo()
   }, [])
 
+  // Reset position to default on mount and route changes
+  useEffect(() => {
+    setPosition({ x: 0, y: 0 })
+  }, [pathname])
+
   // Don't render if loading or no WhatsApp number
   if (loading || !whatsappNumber) {
     return null
@@ -52,22 +61,39 @@ export default function WhatsAppFloatingButton() {
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer')
   }
 
+  const handleDragEnd = (event: any, info: any) => {
+    // Update position state after drag ends
+    setPosition({ x: info.offset.x, y: info.offset.y })
+  }
+
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
-        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50"
-      >
-        <motion.button
-          onClick={handleClick}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-[#25D366] rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all duration-300 group touch-manipulation"
-          aria-label="Contact us on WhatsApp"
+      <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+        <motion.div
+          initial={{ opacity: 0, scale: 0 }}
+          animate={{ 
+            opacity: 1, 
+            scale: 1,
+            x: position.x,
+            y: position.y,
+          }}
+          exit={{ opacity: 0, scale: 0 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-auto cursor-grab active:cursor-grabbing"
+          drag
+          dragConstraints={constraintsRef}
+          dragElastic={0.2}
+          dragMomentum={false}
+          onDragEnd={handleDragEnd}
+          whileDrag={{ scale: 1.05, cursor: 'grabbing' }}
         >
+          <motion.button
+            onClick={handleClick}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-[#25D366] rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all duration-300 group touch-manipulation"
+            aria-label="Contact us on WhatsApp"
+          >
           {/* WhatsApp Icon SVG */}
           <svg
             className="w-6 h-6 sm:w-7 sm:h-7 md:w-9 md:h-9 text-white"
@@ -93,6 +119,7 @@ export default function WhatsAppFloatingButton() {
           />
         </motion.button>
       </motion.div>
+      </div>
     </AnimatePresence>
   )
 }
