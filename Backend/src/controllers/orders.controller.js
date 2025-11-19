@@ -716,10 +716,10 @@ exports.createGuestOrder = async (req, res, next) => {
 		}
 
 		// Validate customer info
-		if (!customerInfo || !customerInfo.name || !customerInfo.email) {
+		if (!customerInfo || !customerInfo.name || !customerInfo.email || !customerInfo.phone) {
 			return res.status(400).json({
 				success: false,
-				message: 'Customer name and email are required'
+				message: 'Customer name, email, and phone number are required'
 			});
 		}
 
@@ -808,7 +808,7 @@ exports.createGuestOrder = async (req, res, next) => {
 			customerInfo: {
 				name: customerInfo.name,
 				email: customerInfo.email,
-				phone: customerInfo.phone || ''
+				phone: customerInfo.phone
 			},
 			deliveryAddress: {
 				label: deliveryAddress.label || 'Delivery Address',

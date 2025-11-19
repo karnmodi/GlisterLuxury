@@ -169,8 +169,8 @@ export default function CheckoutPage() {
       if (isGuestCheckout) {
         // GUEST CHECKOUT FLOW
         // Validate guest info
-        if (!guestInfo.name.trim() || !guestInfo.email.trim()) {
-          toast.error('Please provide your name and email address')
+        if (!guestInfo.name.trim() || !guestInfo.email.trim() || !guestInfo.phone.trim()) {
+          toast.error('Please provide your name, email address, and phone number')
           setProcessing(false)
           return
         }
@@ -195,7 +195,7 @@ export default function CheckoutPage() {
           customerInfo: {
             name: guestInfo.name.trim(),
             email: guestInfo.email.trim(),
-            phone: guestInfo.phone.trim() || undefined
+            phone: guestInfo.phone.trim()
           },
           deliveryAddress: {
             addressLine1: guestAddress.addressLine1.trim(),
@@ -364,7 +364,7 @@ export default function CheckoutPage() {
 
                     <div>
                       <label className="block text-ivory text-sm font-medium mb-2">
-                        Phone Number (Optional)
+                        Phone Number <span className="text-brass">*</span>
                       </label>
                       <input
                         type="tel"
@@ -372,6 +372,7 @@ export default function CheckoutPage() {
                         onChange={(e) => setGuestInfo({ ...guestInfo, phone: e.target.value })}
                         className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
                         placeholder="+44 1234 567890"
+                        required
                       />
                     </div>
                   </div>

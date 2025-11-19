@@ -566,9 +566,19 @@ export default function CartPage() {
                   </Button>
 
                   {!isAuthenticated && (
-                    <p className="text-xs text-charcoal/60 text-center mb-3">
-                      Continue as guest or sign in during checkout
-                    </p>
+                    <>
+                      <p className="text-xs text-charcoal/60 text-center mb-3">
+                        Continue as guest or sign in to your account
+                      </p>
+                      <Button
+                        variant="secondary"
+                        size="lg"
+                        className="w-full mb-3 min-h-[48px] text-sm sm:text-base"
+                        onClick={() => router.push('/login?redirect=/checkout')}
+                      >
+                        Sign In
+                      </Button>
+                    </>
                   )}
 
                   <Button
