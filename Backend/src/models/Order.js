@@ -42,13 +42,14 @@ const OrderSchema = new Schema(
 			required: true, 
 			unique: true
 		},
-		userID: { 
-			type: Schema.Types.ObjectId, 
-			ref: 'User', 
-			required: true, 
-			index: true 
+		userID: {
+			type: Schema.Types.ObjectId,
+			ref: 'User',
+			required: false,  // Optional to support guest orders
+			index: true
 		},
 		sessionID: { type: String },
+		isGuestOrder: { type: Boolean, default: false }, // Flag to identify guest orders
 		items: [OrderItemSchema],
 		customerInfo: {
 			name: { type: String, required: true },

@@ -6,6 +6,8 @@ const { getLogoUrl } = require('../utils/emailHelpers');
 
 /**
  * Helper function to send order confirmation emails
+ * @param {Object} order - The order document
+ * @param {Object|null} user - The user document (null for guest orders)
  */
 async function sendOrderEmails(order, user) {
 	const formatPrice = (price) => {
@@ -694,6 +696,251 @@ async function sendOrderEmails(order, user) {
 		html: customerEmailHTML
 	});
 }
+
+/**
+ * Create a new order from cart for guest users (no authentication required)
+ * POST /api/orders/guest
+ */
+exports.createGuestOrder = async (req, res, next) => {
+	try {
+		const { sessionID, customerInfo, deliveryAddress, orderNotes } = req.body;
+
+		console.log('[Create Guest Order] Starting guest order creation:', { sessionID });
+
+		// Validate required fields
+		if (!sessionID) {
+			return res.status(400).json({
+				success: false,
+				message: 'Session ID is required'
+			});
+		}
+
+		// Validate customer info
+		if (!customerInfo || !customerInfo.name || !customerInfo.email) {
+			return res.status(400).json({
+				success: false,
+				message: 'Customer name and email are required'
+			});
+		}
+
+		// Validate email format
+		const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+		if (!emailRegex.test(customerInfo.email)) {
+			return res.status(400).json({
+				success: false,
+				message: 'Please provide a valid email address'
+			});
+		}
+
+		// Validate delivery address
+		if (!deliveryAddress || !deliveryAddress.addressLine1 || !deliveryAddress.city || !deliveryAddress.postcode) {
+			return res.status(400).json({
+				success: false,
+				message: 'Delivery address (address line 1, city, and postcode) is required'
+			});
+		}
+
+		// Get cart
+		let cart = await Cart.findOne({ sessionID }).populate('items.productID');
+		if (!cart) {
+			console.error('[Create Guest Order] Cart not found for sessionID:', sessionID);
+			return res.status(400).json({
+				success: false,
+				message: 'Cart not found. Please add items to your cart.'
+			});
+		}
+
+		if (!cart.items || cart.items.length === 0) {
+			console.error('[Create Guest Order] Cart is empty');
+			return res.status(400).json({
+				success: false,
+				message: 'Cart is empty'
+			});
+		}
+
+		// Generate unique order number
+		const orderCount = await Order.countDocuments();
+		const orderNumber = `GL${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(orderCount + 1).padStart(5, '0')}`;
+
+		// Calculate pricing
+		const subtotal = cart.subtotal.$numberDecimal ? parseFloat(cart.subtotal.$numberDecimal) : parseFloat(cart.subtotal);
+		const discount = cart.discountAmount?.$numberDecimal ? parseFloat(cart.discountAmount.$numberDecimal) : parseFloat(cart.discountAmount || 0);
+
+		// Get settings and calculate shipping & VAT
+		const Settings = require('../models/Settings');
+		const { calculateShippingFee, calculateVAT } = require('../utils/shipping');
+
+		const settings = await Settings.getSettings();
+
+		// Calculate shipping based on total after discount
+		const totalAfterDiscount = Math.max(0, subtotal - discount);
+		const shipping = calculateShippingFee(totalAfterDiscount, settings);
+
+		// Extract VAT from VAT-inclusive prices (for display/reporting)
+		const taxableAmount = totalAfterDiscount + shipping;
+		const tax = calculateVAT(taxableAmount, settings);
+
+		// Total = subtotal - discount + shipping (VAT already in prices)
+		const total = Math.max(0, subtotal - discount + shipping);
+
+		// Create order for guest
+		const order = new Order({
+			orderNumber,
+			userID: null, // No user ID for guest orders
+			sessionID,
+			isGuestOrder: true, // Mark as guest order
+			items: cart.items.map(item => ({
+				productID: item.productID,
+				productName: item.productName,
+				productCode: item.productCode,
+				selectedMaterial: item.selectedMaterial,
+				selectedSize: item.selectedSize,
+				selectedSizeName: item.selectedSizeName,
+				sizeCost: item.sizeCost,
+				selectedFinish: item.selectedFinish,
+				finishCost: item.finishCost,
+				packagingPrice: item.packagingPrice,
+				quantity: item.quantity,
+				unitPrice: item.unitPrice,
+				totalPrice: item.totalPrice,
+				priceBreakdown: item.priceBreakdown
+			})),
+			customerInfo: {
+				name: customerInfo.name,
+				email: customerInfo.email,
+				phone: customerInfo.phone || ''
+			},
+			deliveryAddress: {
+				label: deliveryAddress.label || 'Delivery Address',
+				addressLine1: deliveryAddress.addressLine1,
+				addressLine2: deliveryAddress.addressLine2 || '',
+				city: deliveryAddress.city,
+				county: deliveryAddress.county || '',
+				postcode: deliveryAddress.postcode,
+				country: deliveryAddress.country || 'United Kingdom'
+			},
+			orderNotes,
+			discountCode: cart.discountCode || undefined,
+			discountAmount: cart.discountAmount || 0,
+			offerID: cart.offerID || undefined,
+			pricing: {
+				subtotal: cart.subtotal,
+				discount: cart.discountAmount || 0,
+				shipping: shipping,
+				tax: tax,
+				total: total,
+				vatRate: settings.vatRate || 20 // Store VAT rate at time of order for historical accuracy
+			},
+			status: 'pending',
+			orderStatusHistory: [{
+				status: 'pending',
+				note: 'Guest order placed',
+				updatedAt: new Date()
+			}],
+			paymentInfo: {
+				status: 'awaiting_payment'
+			},
+			paymentStatusHistory: [{
+				status: 'awaiting_payment',
+				note: 'Payment awaiting',
+				updatedAt: new Date()
+			}]
+		});
+
+		await order.save();
+		console.log('[Create Guest Order] Guest order created successfully:', order.orderNumber);
+
+		// Increment offer usage count if discount was applied
+		if (cart.offerID) {
+			const Offer = require('../models/Offer');
+			const offer = await Offer.findById(cart.offerID);
+			if (offer) {
+				offer.usedCount = (offer.usedCount || 0) + 1;
+				await offer.save();
+			}
+		}
+
+		// Clear the cart
+		cart.items = [];
+		cart.status = 'completed';
+		cart.discountCode = undefined;
+		cart.discountAmount = 0;
+		cart.offerID = undefined;
+		await cart.save();
+
+		// Send email notifications
+		try {
+			await sendOrderEmails(order, null); // Pass null for user since it's a guest order
+			console.log('[Create Guest Order] Order confirmation emails sent');
+		} catch (emailError) {
+			console.error('[Create Guest Order] Email sending failed:', emailError);
+			// Don't fail the order if email fails
+		}
+
+		const populatedOrder = await Order.findById(order._id).populate('items.productID');
+
+		res.status(201).json({
+			success: true,
+			message: 'Order placed successfully',
+			order: populatedOrder
+		});
+	} catch (error) {
+		console.error('[Create Guest Order] Error creating order:', {
+			error: error.message,
+			stack: error.stack,
+			sessionID: req.body?.sessionID
+		});
+		res.status(500).json({
+			success: false,
+			message: 'Error creating order',
+			error: process.env.NODE_ENV === 'development' ? error.message : undefined
+		});
+	}
+};
+
+/**
+ * Get guest order details by order number and email (no authentication required)
+ * GET /api/orders/guest/track/:orderNumber?email=guest@example.com
+ */
+exports.trackGuestOrder = async (req, res, next) => {
+	try {
+		const { orderNumber } = req.params;
+		const { email } = req.query;
+
+		if (!orderNumber || !email) {
+			return res.status(400).json({
+				success: false,
+				message: 'Order number and email are required'
+			});
+		}
+
+		// Find guest order by order number and email
+		const order = await Order.findOne({
+			orderNumber,
+			'customerInfo.email': email.toLowerCase(),
+			isGuestOrder: true
+		}).populate('items.productID');
+
+		if (!order) {
+			return res.status(404).json({
+				success: false,
+				message: 'Order not found. Please check your order number and email address.'
+			});
+		}
+
+		res.json({
+			success: true,
+			order
+		});
+	} catch (error) {
+		console.error('[Track Guest Order] Error tracking order:', error);
+		res.status(500).json({
+			success: false,
+			message: 'Error tracking order',
+			error: process.env.NODE_ENV === 'development' ? error.message : undefined
+		});
+	}
+};
 
 /**
  * Create a new order from cart

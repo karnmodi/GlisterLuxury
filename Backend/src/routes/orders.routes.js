@@ -3,6 +3,8 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const {
 	createOrder,
+	createGuestOrder,
+	trackGuestOrder,
 	getOrders,
 	getOrderById,
 	requestRefund,
@@ -13,6 +15,10 @@ const {
 	addAdminMessage,
 	updatePaymentStatus
 } = require('../controllers/orders.controller');
+
+// Public routes (no authentication required)
+router.post('/guest', createGuestOrder); // Guest checkout endpoint
+router.get('/guest/track/:orderNumber', trackGuestOrder); // Guest order tracking endpoint
 
 // Protected routes (require authentication)
 router.post('/', protect, createOrder);
