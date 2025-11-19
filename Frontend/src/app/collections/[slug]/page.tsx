@@ -6,6 +6,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { collectionsApi, productsApi, categoriesApi, finishesApi, materialsApi } from '@/lib/api'
 import type { Collection, Product, Category, Finish, MaterialMaster } from '@/types'
+import { useLoading } from '@/contexts/LoadingContext'
 import LuxuryNavigation from '@/components/LuxuryNavigation'
 import LuxuryFooter from '@/components/LuxuryFooter'
 import CollectionVisual from '@/components/CollectionVisual'
@@ -20,6 +21,7 @@ export default function CollectionDetailPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const slug = params.slug as string
+  const { isLoading: contextLoading } = useLoading()
 
   const [collection, setCollection] = useState<Collection | null>(null)
   const [products, setProducts] = useState<Product[]>([])
@@ -153,19 +155,20 @@ export default function CollectionDetailPage() {
       if (hasDiscount) params.hasDiscount = true
 
       const results = await collectionsApi.getProducts(collection._id, params)
+      const safeResults = Array.isArray(results) ? results : []
 
       if (reset) {
-        setProducts(results)
-        productsLengthRef.current = results.length
+        setProducts(safeResults)
+        productsLengthRef.current = safeResults.length
       } else {
         setProducts(prev => {
-          const newProducts = [...prev, ...results]
+          const newProducts = [...prev, ...safeResults]
           productsLengthRef.current = newProducts.length
           return newProducts
         })
       }
 
-      setHasMore(results.length === 20)
+      setHasMore(safeResults.length === 20)
     } catch (error) {
       console.error('Failed to fetch products:', error)
     } finally {
@@ -637,7 +640,8 @@ export default function CollectionDetailPage() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-charcoal/50 backdrop-blur-sm z-40 lg:hidden"
+                    transition={{ duration: 0.3 }}
+                    className="fixed inset-0 bg-charcoal/50 backdrop-blur-sm z-[9997] lg:hidden"
                     onClick={() => setMobileFiltersOpen(false)}
                   />
                   <motion.aside
@@ -645,36 +649,67 @@ export default function CollectionDetailPage() {
                     animate={{ x: 0 }}
                     exit={{ x: '-100%' }}
                     transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-                    className="fixed left-0 top-0 h-full w-full max-w-[min(380px,90vw)] bg-white shadow-2xl z-50 lg:hidden overflow-y-auto"
+                    className="fixed left-0 top-[80px] h-[calc(100vh-80px)] w-full max-w-[min(380px,90vw)] bg-white shadow-2xl z-[9998] lg:hidden overflow-y-auto filter-sidebar"
+                    style={{
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: 'rgba(218, 165, 32, 0.3) transparent',
+                      paddingBottom: 'env(safe-area-inset-bottom)',
+                    }}
                   >
-                    <div className="sticky top-0 bg-white border-b border-brass/20 p-4 flex items-center justify-between z-10">
-                      <h2 className="text-lg font-serif font-semibold text-charcoal">Filters</h2>
+                    <style dangerouslySetInnerHTML={{
+                      __html: `
+                        .filter-sidebar::-webkit-scrollbar {
+                          width: 6px;
+                        }
+                        .filter-sidebar::-webkit-scrollbar-track {
+                          background: transparent;
+                        }
+                        .filter-sidebar::-webkit-scrollbar-thumb {
+                          background: rgba(218, 165, 32, 0.3);
+                          border-radius: 3px;
+                        }
+                        .filter-sidebar::-webkit-scrollbar-thumb:hover {
+                          background: rgba(218, 165, 32, 0.5);
+                        }
+                      `
+                    }} />
+                    <div className="sticky top-0 bg-white border-b border-brass/20 p-4 sm:p-5 flex items-center justify-between z-10">
+                      <h2 className="text-lg sm:text-xl font-serif font-semibold text-charcoal flex items-center gap-2">
+                        <span className="w-1 h-6 bg-brass"></span>
+                        Filters
+                      </h2>
                       <button
                         onClick={() => setMobileFiltersOpen(false)}
-                        className="p-2 hover:bg-brass/10 rounded-full"
+                        className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-brass/10 rounded-full transition-colors"
+                        aria-label="Close filters"
                       >
                         <svg className="w-6 h-6 text-charcoal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
                     </div>
-                    <div className="p-4 space-y-4">
+                    <div className="p-4 sm:p-6 pb-24 space-y-5 sm:space-y-6">
+                      {activeFilterCount > 0 && (
+                        <p className="text-sm text-charcoal/60 mb-2">
+                          {activeFilterCount} {activeFilterCount === 1 ? 'filter' : 'filters'} active
+                        </p>
+                      )}
                       {/* Search */}
                       <div>
-                        <label className="block text-sm font-medium text-charcoal mb-2">
+                        <label className="block text-sm font-medium text-charcoal mb-2.5">
                           Search Products
                         </label>
                         <Input
                           placeholder="Search by name, ID..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full"
+                          className="w-full min-h-[44px] text-base"
                         />
                       </div>
 
                       {/* Category */}
                       <div>
-                        <label className="block text-sm font-medium text-charcoal mb-2">
+                        <label className="block text-sm font-medium text-charcoal mb-2.5">
                           Category
                         </label>
                         <select
@@ -683,84 +718,84 @@ export default function CollectionDetailPage() {
                             setSelectedCategory(e.target.value)
                             setSelectedSubcategory('')
                           }}
-                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                          className="w-full px-3 sm:px-4 py-3 text-sm sm:text-base bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all min-h-[44px]"
                         >
                           <option value="">All Categories</option>
-                          {availableCategories.map((cat) => (
+                          {availableCategories?.map((cat) => (
                             <option key={cat._id} value={cat._id}>
                               {cat.name}
                             </option>
-                          ))}
+                          )) || []}
                         </select>
                       </div>
 
                       {/* Subcategory */}
                       <div>
-                        <label className="block text-sm font-medium text-charcoal mb-2">
+                        <label className="block text-sm font-medium text-charcoal mb-2.5">
                           Subcategory
                         </label>
                         <select
                           value={selectedSubcategory}
                           onChange={(e) => setSelectedSubcategory(e.target.value)}
                           disabled={!selectedCategory || !availableSubcategories || availableSubcategories.length === 0}
-                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full px-3 sm:px-4 py-3 text-sm sm:text-base bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
                         >
                           <option value="">All Subcategories</option>
-                          {availableSubcategories.map((sub: any) => (
+                          {availableSubcategories?.map((sub: any) => (
                             <option key={sub._id} value={sub._id}>
                               {sub.name}
                             </option>
-                          ))}
+                          )) || []}
                         </select>
                       </div>
 
                       {/* Material */}
                       <div>
-                        <label className="block text-sm font-medium text-charcoal mb-2">
+                        <label className="block text-sm font-medium text-charcoal mb-2.5">
                           Material
                         </label>
                         <select
                           value={selectedMaterial}
                           onChange={(e) => setSelectedMaterial(e.target.value)}
-                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                          className="w-full px-3 sm:px-4 py-3 text-sm sm:text-base bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all min-h-[44px]"
                         >
                           <option value="">All Materials</option>
-                          {materials.map((mat) => (
+                          {materials?.map((mat) => (
                             <option key={mat._id} value={mat.name}>
                               {mat.name}
                             </option>
-                          ))}
+                          )) || []}
                         </select>
                       </div>
 
                       {/* Finish */}
                       <div>
-                        <label className="block text-sm font-medium text-charcoal mb-2">
+                        <label className="block text-sm font-medium text-charcoal mb-2.5">
                           Finish
                         </label>
                         <select
                           value={selectedFinish}
                           onChange={(e) => setSelectedFinish(e.target.value)}
-                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                          className="w-full px-3 sm:px-4 py-3 text-sm sm:text-base bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all min-h-[44px]"
                         >
                           <option value="">All Finishes</option>
-                          {finishes.map((fin) => (
+                          {finishes?.map((fin) => (
                             <option key={fin._id} value={fin._id}>
                               {fin.name}
                             </option>
-                          ))}
+                          )) || []}
                         </select>
                       </div>
 
                       {/* Sort */}
                       <div>
-                        <label className="block text-sm font-medium text-charcoal mb-2">
+                        <label className="block text-sm font-medium text-charcoal mb-2.5">
                           Sort By
                         </label>
                         <select
                           value={sortOption}
                           onChange={(e) => setSortOption(e.target.value as SortOption)}
-                          className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
+                          className="w-full px-3 sm:px-4 py-3 text-sm sm:text-base bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all min-h-[44px]"
                         >
                           <option value="newest">Newest First</option>
                           <option value="oldest">Oldest First</option>
@@ -774,42 +809,42 @@ export default function CollectionDetailPage() {
                       </div>
 
                       {/* Toggle Filters */}
-                      <div className="space-y-3 border-t border-brass/20 pt-4">
-                        <label className="flex items-center gap-3 cursor-pointer group">
+                      <div className="space-y-4 border-t border-brass/20 pt-4 sm:pt-5">
+                        <label className="flex items-center gap-3 cursor-pointer group min-h-[44px]">
                           <input
                             type="checkbox"
                             checked={hasSize}
                             onChange={(e) => setHasSize(e.target.checked)}
-                            className="w-5 h-5 text-brass border-brass/30 rounded focus:ring-brass transition-all group-hover:border-brass"
+                            className="w-6 h-6 text-brass border-brass/30 rounded focus:ring-brass transition-all group-hover:border-brass flex-shrink-0"
                           />
-                          <span className="text-sm text-charcoal group-hover:text-brass transition-colors">
+                          <span className="text-sm sm:text-base text-charcoal group-hover:text-brass transition-colors">
                             Has Size Options
                           </span>
                         </label>
 
-                        <label className="flex items-center gap-3 cursor-pointer group">
+                        <label className="flex items-center gap-3 cursor-pointer group min-h-[44px]">
                           <input
                             type="checkbox"
                             checked={hasDiscount}
                             onChange={(e) => setHasDiscount(e.target.checked)}
-                            className="w-5 h-5 text-brass border-brass/30 rounded focus:ring-brass transition-all group-hover:border-brass"
+                            className="w-6 h-6 text-brass border-brass/30 rounded focus:ring-brass transition-all group-hover:border-brass flex-shrink-0"
                           />
-                          <span className="text-sm text-charcoal group-hover:text-brass transition-colors">
+                          <span className="text-sm sm:text-base text-charcoal group-hover:text-brass transition-colors">
                             Discounted Items
                           </span>
                         </label>
                       </div>
 
                       {/* Group by Category Toggle */}
-                      <div className="border-t border-brass/20 pt-4">
-                        <label className="flex items-center gap-3 cursor-pointer group">
+                      <div className="border-t border-brass/20 pt-4 sm:pt-5">
+                        <label className="flex items-center gap-3 cursor-pointer group min-h-[44px]">
                           <input
                             type="checkbox"
                             checked={groupByCategory}
                             onChange={(e) => setGroupByCategory(e.target.checked)}
-                            className="w-5 h-5 text-brass border-brass/30 rounded focus:ring-brass transition-all group-hover:border-brass"
+                            className="w-6 h-6 text-brass border-brass/30 rounded focus:ring-brass transition-all group-hover:border-brass flex-shrink-0"
                           />
-                          <span className="text-sm font-medium text-charcoal group-hover:text-brass transition-colors">
+                          <span className="text-sm sm:text-base font-medium text-charcoal group-hover:text-brass transition-colors">
                             Group by Category
                           </span>
                         </label>
@@ -817,10 +852,121 @@ export default function CollectionDetailPage() {
 
                       {/* Clear Filters */}
                       {activeFilterCount > 0 && (
-                        <div className="border-t border-brass/20 pt-4">
-                          <Button onClick={clearFilters} variant="secondary" className="w-full">
+                        <div className="border-t border-brass/20 pt-4 sm:pt-5">
+                          <button
+                            onClick={() => {
+                              clearFilters()
+                              setMobileFiltersOpen(false)
+                            }}
+                            className="w-full px-4 py-3 min-h-[44px] bg-brass/10 hover:bg-brass/20 text-brass border border-brass/40 rounded-sm text-sm sm:text-base font-medium transition-all duration-200 flex items-center justify-center gap-2 group"
+                          >
+                            <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-90 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
                             Clear All Filters
-                          </Button>
+                            <span className="bg-brass/20 px-2 py-0.5 rounded text-xs sm:text-sm font-semibold">
+                              {activeFilterCount}
+                            </span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Active Filter Badges */}
+                      {(selectedCategory || selectedSubcategory || debouncedSearchQuery || selectedMaterial || selectedFinish || hasSize || hasDiscount) && (
+                        <div className="border-t border-brass/20 pt-4 sm:pt-5">
+                          <p className="text-xs font-medium text-charcoal/60 mb-3">Active Filters:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedCategory && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brass/10 text-brass text-xs sm:text-sm rounded-full border border-brass/30">
+                                <span className="truncate max-w-[150px]">{availableCategories?.find(c => c._id === selectedCategory)?.name || selectedCategory}</span>
+                                <button
+                                  onClick={() => {
+                                    setSelectedCategory('')
+                                    setSelectedSubcategory('')
+                                  }}
+                                  className="hover:text-charcoal transition-colors min-w-[20px] min-h-[20px] flex items-center justify-center"
+                                  aria-label="Remove category filter"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            )}
+                            {selectedSubcategory && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brass/10 text-brass text-xs sm:text-sm rounded-full border border-brass/30">
+                                <span className="truncate max-w-[150px]">{availableSubcategories?.find((sub: any) => sub._id === selectedSubcategory)?.name || selectedSubcategory}</span>
+                                <button
+                                  onClick={() => setSelectedSubcategory('')}
+                                  className="hover:text-charcoal transition-colors min-w-[20px] min-h-[20px] flex items-center justify-center"
+                                  aria-label="Remove subcategory filter"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            )}
+                            {debouncedSearchQuery && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brass/10 text-brass text-xs sm:text-sm rounded-full border border-brass/30">
+                                <span className="truncate max-w-[150px]">"{debouncedSearchQuery}"</span>
+                                <button
+                                  onClick={() => {
+                                    setSearchQuery('')
+                                    setDebouncedSearchQuery('')
+                                  }}
+                                  className="hover:text-charcoal transition-colors min-w-[20px] min-h-[20px] flex items-center justify-center"
+                                  aria-label="Remove search filter"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            )}
+                            {selectedMaterial && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brass/10 text-brass text-xs sm:text-sm rounded-full border border-brass/30">
+                                <span className="truncate max-w-[150px]">{selectedMaterial}</span>
+                                <button
+                                  onClick={() => setSelectedMaterial('')}
+                                  className="hover:text-charcoal transition-colors min-w-[20px] min-h-[20px] flex items-center justify-center"
+                                  aria-label="Remove material filter"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            )}
+                            {selectedFinish && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brass/10 text-brass text-xs sm:text-sm rounded-full border border-brass/30">
+                                <span className="truncate max-w-[150px]">{finishes?.find(f => f._id === selectedFinish)?.name || selectedFinish}</span>
+                                <button
+                                  onClick={() => setSelectedFinish('')}
+                                  className="hover:text-charcoal transition-colors min-w-[20px] min-h-[20px] flex items-center justify-center"
+                                  aria-label="Remove finish filter"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            )}
+                            {hasSize && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brass/10 text-brass text-xs sm:text-sm rounded-full border border-brass/30">
+                                Size Options
+                                <button
+                                  onClick={() => setHasSize(false)}
+                                  className="hover:text-charcoal transition-colors min-w-[20px] min-h-[20px] flex items-center justify-center"
+                                  aria-label="Remove size filter"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            )}
+                            {hasDiscount && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brass/10 text-brass text-xs sm:text-sm rounded-full border border-brass/30">
+                                Discounted
+                                <button
+                                  onClick={() => setHasDiscount(false)}
+                                  className="hover:text-charcoal transition-colors min-w-[20px] min-h-[20px] flex items-center justify-center"
+                                  aria-label="Remove discount filter"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -832,18 +978,46 @@ export default function CollectionDetailPage() {
             {/* Spacer div for desktop - maintains layout spacing */}
             <div className="hidden lg:block w-72 flex-shrink-0" />
 
-            {/* Desktop Sidebar - Filters */}
+            {/* Desktop Sidebar - Filters - Floating Card */}
             <aside 
               ref={sidebarRef}
-              className="hidden lg:block w-72 flex-shrink-0 fixed z-30"
+              className="hidden lg:block filter-sidebar w-72 lg:w-80 flex-shrink-0 fixed z-30 overflow-y-auto pr-2"
               style={{
                 top: `${sidebarTop}px`,
                 left: 'calc((100vw - min(1920px, 100vw)) / 2 + 2rem)',
                 maxHeight: 'calc(100vh - 9rem)',
                 transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(218, 165, 32, 0.3) transparent',
+              }}
+              onScroll={(e) => {
+                // Prevent scroll event from bubbling
+                e.stopPropagation()
               }}
             >
-              <div className="bg-white/95 backdrop-blur-md rounded-lg shadow-xl border border-brass/30 p-6 space-y-6">
+              <style dangerouslySetInnerHTML={{
+                __html: `
+                  .filter-sidebar::-webkit-scrollbar {
+                    width: 6px;
+                  }
+                  .filter-sidebar::-webkit-scrollbar-track {
+                    background: transparent;
+                  }
+                  .filter-sidebar::-webkit-scrollbar-thumb {
+                    background: rgba(218, 165, 32, 0.3);
+                    border-radius: 3px;
+                  }
+                  .filter-sidebar::-webkit-scrollbar-thumb:hover {
+                    background: rgba(218, 165, 32, 0.5);
+                  }
+                `
+              }} />
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4 }}
+                className="bg-white/95 backdrop-blur-md rounded-lg shadow-xl border border-brass/30 p-6 space-y-6 hover:shadow-2xl transition-shadow duration-300"
+              >
                 <div className="border-b border-brass/20 pb-4">
                   <h2 className="text-xl font-serif font-semibold text-charcoal flex items-center gap-2">
                     <span className="w-1 h-6 bg-brass"></span>
@@ -883,11 +1057,11 @@ export default function CollectionDetailPage() {
                     className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
                   >
                     <option value="">All Categories</option>
-                    {availableCategories.map((cat) => (
+                    {availableCategories?.map((cat) => (
                       <option key={cat._id} value={cat._id}>
                         {cat.name}
                       </option>
-                    ))}
+                    )) || []}
                   </select>
                 </div>
 
@@ -899,15 +1073,15 @@ export default function CollectionDetailPage() {
                   <select
                     value={selectedSubcategory}
                     onChange={(e) => setSelectedSubcategory(e.target.value)}
-                    disabled={!selectedCategory || availableSubcategories.length === 0}
+                    disabled={!selectedCategory || !availableSubcategories || availableSubcategories.length === 0}
                     className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">All Subcategories</option>
-                    {availableSubcategories.map((sub: any) => (
+                    {availableSubcategories?.map((sub: any) => (
                       <option key={sub._id} value={sub._id}>
                         {sub.name}
                       </option>
-                    ))}
+                    )) || []}
                   </select>
                 </div>
 
@@ -922,11 +1096,11 @@ export default function CollectionDetailPage() {
                     className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
                   >
                     <option value="">All Materials</option>
-                    {materials.map((mat) => (
+                    {materials?.map((mat) => (
                       <option key={mat._id} value={mat.name}>
                         {mat.name}
                       </option>
-                    ))}
+                    )) || []}
                   </select>
                 </div>
 
@@ -941,11 +1115,11 @@ export default function CollectionDetailPage() {
                     className="w-full px-3 py-2 text-sm bg-white border border-brass/30 rounded-sm focus:outline-none focus:ring-2 focus:ring-brass focus:border-transparent transition-all"
                   >
                     <option value="">All Finishes</option>
-                    {finishes.map((fin) => (
+                    {finishes?.map((fin) => (
                       <option key={fin._id} value={fin._id}>
                         {fin.name}
                       </option>
-                    ))}
+                    )) || []}
                   </select>
                 </div>
 
@@ -1029,7 +1203,99 @@ export default function CollectionDetailPage() {
                     </button>
                   </div>
                 )}
+
+                {/* Active Filter Badges */}
+                {(selectedCategory || selectedSubcategory || debouncedSearchQuery || selectedMaterial || selectedFinish || hasSize || hasDiscount) && (
+                  <div className="border-t border-brass/20 pt-4">
+                    <p className="text-xs font-medium text-charcoal/60 mb-2">Active Filters:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedCategory && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                          {availableCategories.find(c => c._id === selectedCategory)?.name || selectedCategory}
+                          <button
+                            onClick={() => {
+                              setSelectedCategory('')
+                              setSelectedSubcategory('')
+                            }}
+                            className="hover:text-charcoal transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )}
+                      {selectedSubcategory && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                          {availableSubcategories.find((sub: any) => sub._id === selectedSubcategory)?.name || selectedSubcategory}
+                          <button
+                            onClick={() => setSelectedSubcategory('')}
+                            className="hover:text-charcoal transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )}
+                      {debouncedSearchQuery && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                          "{debouncedSearchQuery}"
+                          <button
+                            onClick={() => {
+                              setSearchQuery('')
+                              setDebouncedSearchQuery('')
+                            }}
+                            className="hover:text-charcoal transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )}
+                      {selectedMaterial && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                          {selectedMaterial}
+                          <button
+                            onClick={() => setSelectedMaterial('')}
+                            className="hover:text-charcoal transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )}
+                      {selectedFinish && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                          {finishes.find(f => f._id === selectedFinish)?.name || selectedFinish}
+                          <button
+                            onClick={() => setSelectedFinish('')}
+                            className="hover:text-charcoal transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )}
+                      {hasSize && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                          Size Options
+                          <button
+                            onClick={() => setHasSize(false)}
+                            className="hover:text-charcoal transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )}
+                      {hasDiscount && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-brass/10 text-brass text-xs rounded-full border border-brass/30">
+                          Discounted
+                          <button
+                            onClick={() => setHasDiscount(false)}
+                            className="hover:text-charcoal transition-colors"
+                          >
+                            ×
+                          </button>
+                        </span>
+                )}
               </div>
+                  </div>
+                )}
+              </motion.div>
             </aside>
 
             {/* Products Grid */}
@@ -1053,11 +1319,11 @@ export default function CollectionDetailPage() {
                 )}
               </div>
 
-              {loading && products.length === 0 ? (
+              {!contextLoading && loading && products.length === 0 ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="text-charcoal/60">Loading products...</div>
                 </div>
-              ) : products.length === 0 ? (
+              ) : contextLoading ? null : products.length === 0 ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="text-center px-4">
                     <p className="text-charcoal/60 mb-4">No products found in this collection</p>
@@ -1211,7 +1477,7 @@ export default function CollectionDetailPage() {
       </main>
 
       <div ref={footerRef}>
-        <LuxuryFooter />
+      <LuxuryFooter />
       </div>
     </div>
   )

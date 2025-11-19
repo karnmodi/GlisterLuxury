@@ -6,10 +6,13 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { productsApi, categoriesApi, finishesApi, materialsApi } from '@/lib/api'
 import type { Category, Finish, MaterialMaster, Product } from '@/types'
+import { useCategories } from '@/contexts/CategoriesContext'
+import { useLoading } from '@/contexts/LoadingContext'
 import LuxuryNavigation from '@/components/LuxuryNavigation'
 import LuxuryFooter from '@/components/LuxuryFooter'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
+import ProductCardSkeleton from '@/components/ProductCardSkeleton'
 import { motion, AnimatePresence } from 'framer-motion'
 
 type MinimalProduct = {
@@ -28,6 +31,8 @@ type SortOption = 'newest' | 'oldest' | 'name-asc' | 'name-desc' | 'productid-as
 export default function ProductsPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { isLoading: contextLoading } = useLoading()
+  const { categories: contextCategories, loading: categoriesLoading } = useCategories()
   const [products, setProducts] = useState<MinimalProduct[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [finishes, setFinishes] = useState<Finish[]>([])
@@ -39,7 +44,7 @@ export default function ProductsPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const productsLengthRef = useRef(0)
-  const [sidebarTop, setSidebarTop] = useState(80) // Start at 5rem (80px)
+  const [sidebarTop, setSidebarTop] = useState(120) // Initial position with comfortable gap
   const sidebarRef = useRef<HTMLDivElement | null>(null)
   const headerSectionRef = useRef<HTMLElement | null>(null)
   const footerRef = useRef<HTMLDivElement | null>(null)
@@ -155,15 +160,28 @@ export default function ProductsPage() {
     fetchProductsFromUrl()
   }, [searchParams])
 
-  // Fetch initial data (categories, finishes, materials) - only those with products
+  // Use categories from context if available, otherwise fetch
+  useEffect(() => {
+    if (contextCategories.length > 0) {
+      setCategories(contextCategories)
+    }
+  }, [contextCategories])
+
+  // Fetch initial data (categories if not in context, finishes, materials) - only those with products
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
+        // Only fetch categories if context doesn't have them yet
+        const categoriesPromise = contextCategories.length > 0 
+          ? Promise.resolve(contextCategories)
+          : categoriesApi.getAllWithProducts()
+        
         const [categoriesData, finishesData, materialsData] = await Promise.all([
-          categoriesApi.getAllWithProducts(),
+          categoriesPromise,
           finishesApi.getAllWithProducts(),
           materialsApi.getAllWithProducts(),
         ])
+        
         setCategories(Array.isArray(categoriesData) ? categoriesData : [])
         setFinishes(Array.isArray(finishesData) ? finishesData : [])
         setMaterials(Array.isArray(materialsData) ? materialsData : [])
@@ -179,7 +197,7 @@ export default function ProductsPage() {
       }
     }
     fetchInitialData()
-  }, [])
+  }, [contextCategories])
 
 
   // Update active category when selection changes
@@ -394,8 +412,8 @@ export default function ProductsPage() {
     }
   }, [hasMore, loading, loadingMore, loadMoreProducts])
 
-  // Scroll position tracking for floating filter card with Products header and footer boundaries
-  // Uses IntersectionObserver + dynamic calculations based on parent components
+  // Smooth floating sidebar with natural scroll behavior
+  // Sidebar floats in viewport and respects header/footer boundaries
   useEffect(() => {
     if (typeof window === 'undefined') return
 
@@ -413,105 +431,90 @@ export default function ProductsPage() {
 
       const scrollY = window.scrollY
       const viewportHeight = window.innerHeight
-      const cardHeight = sidebar.offsetHeight
+      const sidebarHeight = sidebar.offsetHeight
 
-      // Get actual bounding boxes
+      // Get element positions
       const headerRect = headerSection.getBoundingClientRect()
       const footerRect = footer.getBoundingClientRect()
 
-      // Get container spacing dynamically from the products container
-      const productsContainer = headerSection.nextElementSibling as HTMLElement
-      const computedStyle = productsContainer ? getComputedStyle(productsContainer) : null
-      const containerPaddingTop = computedStyle
-        ? parseFloat(computedStyle.paddingTop) || 24
-        : 24
-      const containerPaddingBottom = computedStyle
-        ? parseFloat(computedStyle.paddingBottom) || 24
-        : 24
+      // Navigation bar height (approximate)
+      const navHeight = 80
 
-      // Calculate boundaries based on actual element positions (in viewport coordinates)
-      const headerBottomViewport = headerRect.bottom
-      const footerTopViewport = footerRect.top
+      // Spacing/padding
+      const topGap = 24 // Space from header/nav
+      const bottomGap = 24 // Space from footer
 
-      // Convert to absolute positions for boundary calculations
-      const headerBottomAbsolute = headerRect.bottom + scrollY
-      const footerTopAbsolute = footerRect.top + scrollY
+      // Calculate boundaries in viewport coordinates
+      const headerBottom = headerRect.bottom
+      const footerTop = footerRect.top
 
-      // Dynamic boundaries with calculated margins from container
-      // Min: header bottom + container padding (where card should stick at top)
-      // Max: footer top - card height - container padding (where card should stick at bottom)
-      const minTop = headerBottomViewport + containerPaddingTop
-      const maxTop = footerTopViewport - cardHeight - containerPaddingBottom
+      // Min position: below navigation and header + gap
+      const minTop = Math.max(navHeight + topGap, headerBottom + topGap)
 
-      // Calculate centered position in viewport (vertically centered)
-      const centeredTop = (viewportHeight - cardHeight) / 2
+      // Max position: above footer with enough room for sidebar
+      const maxTop = footerTop - sidebarHeight - bottomGap
 
-      // Smart positioning: try to center, but respect boundaries
-      let newTop: number
+      // Determine optimal position
+      let targetTop: number
 
-      if (centeredTop < minTop) {
-        // Centered position would be above header boundary - stick to header bottom
-        newTop = minTop
-      } else if (centeredTop > maxTop && maxTop > minTop) {
-        // Centered position would be below footer boundary - stick to footer top
-        newTop = maxTop
+      // If sidebar is shorter than available space, position it naturally
+      if (maxTop > minTop) {
+        // Sidebar fits comfortably - use a smooth position near the top
+        // but not stuck to navigation
+        targetTop = Math.max(minTop, Math.min(viewportHeight * 0.15, minTop))
       } else {
-        // Centered position is within boundaries - use centered position
-        newTop = centeredTop
+        // Sidebar is tall or space is limited - keep it at min position
+        targetTop = minTop
       }
 
-      // Final boundary check to ensure card never goes out of bounds
-      if (minTop > 0 && newTop < minTop) {
-        newTop = minTop
-      }
-      if (maxTop < viewportHeight && newTop > maxTop) {
-        newTop = maxTop
+      // Ensure we don't go below the footer
+      if (targetTop + sidebarHeight + bottomGap > footerTop) {
+        targetTop = Math.max(minTop, footerTop - sidebarHeight - bottomGap)
       }
 
-      setSidebarTop(newTop)
+      // Apply position
+      setSidebarTop(targetTop)
     }
 
-    // Use IntersectionObserver for header/footer visibility changes
+    // Throttled scroll handler for smooth performance
+    let rafId: number | null = null
+    const handleScroll = () => {
+      if (rafId === null) {
+        rafId = window.requestAnimationFrame(() => {
+          updatePosition()
+          rafId = null
+        })
+      }
+    }
+
+    // Set up observers for header and footer
     const headerObserver = new IntersectionObserver(
-      () => {
-        updatePosition()
-      },
-      { threshold: [0, 0.1, 0.5, 1], rootMargin: '0px' }
+      () => updatePosition(),
+      { threshold: [0, 0.25, 0.5, 0.75, 1] }
     )
 
     const footerObserver = new IntersectionObserver(
-      () => {
-        updatePosition()
-      },
-      { threshold: [0, 0.1, 0.5, 1], rootMargin: '0px' }
+      () => updatePosition(),
+      { threshold: [0, 0.25, 0.5, 0.75, 1] }
     )
 
     headerObserver.observe(headerSection)
     footerObserver.observe(footer)
 
-    // Throttled scroll handler for smooth updates
-    let ticking = false
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          updatePosition()
-          ticking = false
-        })
-        ticking = true
-      }
-    }
-
     window.addEventListener('scroll', handleScroll, { passive: true })
     window.addEventListener('resize', updatePosition, { passive: true })
 
     // Initial calculation
-    updatePosition()
+    setTimeout(updatePosition, 100)
 
     return () => {
       headerObserver.disconnect()
       footerObserver.disconnect()
       window.removeEventListener('scroll', handleScroll)
       window.removeEventListener('resize', updatePosition)
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+      }
     }
   }, [])
 
@@ -1047,14 +1050,14 @@ export default function ProductsPage() {
             </AnimatePresence>
 
             {/* Desktop Sidebar - Filters - Floating Card */}
-            <aside 
+            <aside
               ref={sidebarRef}
               className="hidden lg:block filter-sidebar w-72 lg:w-80 flex-shrink-0 fixed z-30 overflow-y-auto pr-2"
               style={{
                 top: `${sidebarTop}px`,
                 left: 'calc((100vw - min(1920px, 100vw)) / 2 + 2rem)',
-                maxHeight: 'calc(100vh - 9rem)',
-                transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                maxHeight: 'calc(100vh - 160px)', // More flexible height
+                transition: 'top 0.2s cubic-bezier(0.4, 0.0, 0.2, 1)',
                 scrollbarWidth: 'thin',
                 scrollbarColor: 'rgba(218, 165, 32, 0.3) transparent',
               }}
@@ -1372,11 +1375,13 @@ export default function ProductsPage() {
               </motion.div>
 
               {/* Products Grid - More Columns */}
-              {loading ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-charcoal/60 text-base sm:text-lg">Loading products...</div>
+              {!contextLoading && loading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+                  {Array.from({ length: 8 }).map((_, index) => (
+                    <ProductCardSkeleton key={index} />
+                  ))}
                 </div>
-              ) : (products?.length || 0) === 0 ? (
+              ) : contextLoading ? null : (products?.length || 0) === 0 ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="text-center px-4">
                     <p className="text-charcoal/60 text-base sm:text-lg mb-4">No products found</p>

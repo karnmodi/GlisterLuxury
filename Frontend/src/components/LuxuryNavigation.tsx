@@ -18,7 +18,7 @@ export default function LuxuryNavigation() {
   const [scrolled, setScrolled] = useState(false)
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const { categories, loading: categoriesLoading } = useCategories()
+  const { categories, loading: categoriesLoading, hasAttemptedFetch, error: categoriesError } = useCategories()
   const { collections, collectionsWithProducts } = useCollections()
   const [bannerHeight, setBannerHeight] = useState(0)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
@@ -265,9 +265,14 @@ export default function LuxuryNavigation() {
                       }
                     }}
                   >
-                    {categoriesLoading ? (
+                    {categoriesLoading || !hasAttemptedFetch ? (
                       <div className="px-6 py-8 text-center">
                         <p className="text-sm text-ivory/50">Loading categories...</p>
+                      </div>
+                    ) : categoriesError ? (
+                      <div className="px-6 py-8 text-center">
+                        <p className="text-sm text-red-400 mb-2">Failed to load categories</p>
+                        <p className="text-xs text-ivory/50">{categoriesError}</p>
                       </div>
                     ) : categories.length > 0 ? (
                       <div className="flex flex-col" style={{ maxHeight: `${menuMaxHeight}px` }}>
@@ -465,6 +470,9 @@ export default function LuxuryNavigation() {
                     ) : (
                       <div className="px-6 py-8 text-center">
                         <p className="text-sm text-ivory/50">No categories available</p>
+                        {hasAttemptedFetch && categories.length === 0 && (
+                          <p className="text-xs text-ivory/40 mt-2">No categories with products found</p>
+                        )}
                       </div>
                     )}
                   </motion.div>

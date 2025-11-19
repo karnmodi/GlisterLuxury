@@ -13,7 +13,7 @@ import type { Category, Collection } from '@/types'
 export default function MobileNavigation() {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
-  const { categories, loading: categoriesLoading } = useCategories()
+  const { categories, loading: categoriesLoading, hasAttemptedFetch, error: categoriesError } = useCategories()
   const { collections, collectionsWithProducts } = useCollections()
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [expandedCollection, setExpandedCollection] = useState<string | null>(null)
@@ -153,9 +153,13 @@ export default function MobileNavigation() {
                         Products
                       </Link>
                       <div className="space-y-1 pb-2">
-                        {categoriesLoading ? (
+                        {categoriesLoading || !hasAttemptedFetch ? (
                           <div className="px-4 py-2 text-sm text-ivory/50 ml-4">
                             Loading categories...
+                          </div>
+                        ) : categoriesError ? (
+                          <div className="px-4 py-2 text-sm text-red-400 ml-4">
+                            Failed to load categories
                           </div>
                         ) : categories.length > 0 ? (
                           // Backend already filters to only show categories/subcategories with products
@@ -240,7 +244,7 @@ export default function MobileNavigation() {
                             })
                         ) : (
                           <div className="px-4 py-2 text-sm text-ivory/50 ml-4">
-                            Loading categories...
+                            {hasAttemptedFetch ? 'No categories available' : 'Loading categories...'}
                           </div>
                         )}
                       </div>
