@@ -33,6 +33,10 @@ export default function CollectionDetailPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const productsLengthRef = useRef(0)
+  const [sidebarTop, setSidebarTop] = useState(80) // Start at 5rem (80px)
+  const sidebarRef = useRef<HTMLDivElement | null>(null)
+  const headerSectionRef = useRef<HTMLElement | null>(null)
+  const footerRef = useRef<HTMLDivElement | null>(null)
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('')
@@ -201,6 +205,122 @@ export default function CollectionDetailPage() {
     }
   }, [hasMore, loading, loadingMore, loadMoreProducts])
 
+  // Dynamic filter bar positioning on scroll (desktop only)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    // Only update on desktop (lg and above)
+    if (window.innerWidth < 1024) return
+
+    const headerSection = headerSectionRef.current
+    const footer = footerRef.current
+    const sidebar = sidebarRef.current
+    if (!headerSection || !footer || !sidebar) return
+
+    const updatePosition = () => {
+      // Only update on desktop
+      if (window.innerWidth < 1024) return
+
+      const scrollY = window.scrollY
+      const viewportHeight = window.innerHeight
+      const cardHeight = sidebar.offsetHeight
+
+      // Get actual bounding boxes
+      const headerRect = headerSection.getBoundingClientRect()
+      const footerRect = footer.getBoundingClientRect()
+
+      // Get container spacing dynamically from the products container
+      const productsContainer = headerSection.nextElementSibling as HTMLElement
+      const computedStyle = productsContainer ? getComputedStyle(productsContainer) : null
+      const containerPaddingTop = computedStyle
+        ? parseFloat(computedStyle.paddingTop) || 24
+        : 24
+      const containerPaddingBottom = computedStyle
+        ? parseFloat(computedStyle.paddingBottom) || 24
+        : 24
+
+      // Calculate boundaries based on actual element positions (in viewport coordinates)
+      const headerBottomViewport = headerRect.bottom
+      const footerTopViewport = footerRect.top
+
+      // Dynamic boundaries with calculated margins from container
+      // Min: header bottom + container padding (where card should stick at top)
+      // Max: footer top - card height - container padding (where card should stick at bottom)
+      const minTop = headerBottomViewport + containerPaddingTop
+      const maxTop = footerTopViewport - cardHeight - containerPaddingBottom
+
+      // Calculate centered position in viewport (vertically centered)
+      const centeredTop = (viewportHeight - cardHeight) / 2
+
+      // Smart positioning: try to center, but respect boundaries
+      let newTop: number
+
+      if (centeredTop < minTop) {
+        // Centered position would be above header boundary - stick to header bottom
+        newTop = minTop
+      } else if (centeredTop > maxTop && maxTop > minTop) {
+        // Centered position would be below footer boundary - stick to footer top
+        newTop = maxTop
+      } else {
+        // Centered position is within boundaries - use centered position
+        newTop = centeredTop
+      }
+
+      // Final boundary check to ensure card never goes out of bounds
+      if (minTop > 0 && newTop < minTop) {
+        newTop = minTop
+      }
+      if (maxTop < viewportHeight && newTop > maxTop) {
+        newTop = maxTop
+      }
+
+      setSidebarTop(newTop)
+    }
+
+    // Use IntersectionObserver for header/footer visibility changes
+    const headerObserver = new IntersectionObserver(
+      () => {
+        updatePosition()
+      },
+      { threshold: [0, 0.1, 0.5, 1], rootMargin: '0px' }
+    )
+
+    const footerObserver = new IntersectionObserver(
+      () => {
+        updatePosition()
+      },
+      { threshold: [0, 0.1, 0.5, 1], rootMargin: '0px' }
+    )
+
+    headerObserver.observe(headerSection)
+    footerObserver.observe(footer)
+
+    // Throttled scroll handler for smooth updates
+    let ticking = false
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          updatePosition()
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('resize', updatePosition, { passive: true })
+
+    // Initial calculation
+    updatePosition()
+
+    return () => {
+      headerObserver.disconnect()
+      footerObserver.disconnect()
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [])
+
   const clearFilters = () => {
     setSearchQuery('')
     setDebouncedSearchQuery('')
@@ -301,6 +421,62 @@ export default function CollectionDetailPage() {
     return category.subcategories.filter((sub: any) => subcategoryIds.has(sub._id))
   }, [selectedCategory, products, categories])
 
+  // Parse productID to extract prefix and numeric part (matching backend logic)
+  const parseProductID = useCallback((productID: string) => {
+    if (!productID || typeof productID !== 'string') {
+      return { prefix: productID || '', numericPart: 0 }
+    }
+
+    const lastDashIndex = productID.lastIndexOf('-')
+    
+    // If no dash found, treat entire string as prefix
+    if (lastDashIndex === -1) {
+      return { prefix: productID, numericPart: 0 }
+    }
+
+    // Extract prefix: all parts before the last "-"
+    const prefix = productID.substring(0, lastDashIndex)
+    
+    // Extract numeric part: last part after the last "-"
+    const numericStr = productID.substring(lastDashIndex + 1)
+    const numericPart = parseInt(numericStr, 10)
+    
+    // If numeric part is not a valid number, treat as 0
+    return {
+      prefix: prefix || productID,
+      numericPart: isNaN(numericPart) ? 0 : numericPart
+    }
+  }, [])
+
+  // Sort products by productID sequences (matching backend sortProductsByCategoryAndID logic)
+  const sortProductsByID = useCallback((products: Product[]) => {
+    if (!Array.isArray(products) || products.length === 0) {
+      return products
+    }
+
+    // Create a copy to avoid mutating the original array
+    const sortedProducts = [...products]
+
+    sortedProducts.sort((a, b) => {
+      // Parse productIDs to get prefix and numeric part
+      const parsedA = parseProductID(a.productID)
+      const parsedB = parseProductID(b.productID)
+      
+      // Compare by productID prefix (alphabetically)
+      const prefixCompare = parsedA.prefix.localeCompare(parsedB.prefix)
+      if (prefixCompare !== 0) {
+        return prefixCompare
+      }
+
+      // Compare by numeric part (numerically)
+      const numA = Number(parsedA.numericPart) || 0
+      const numB = Number(parsedB.numericPart) || 0
+      return numA - numB
+    })
+
+    return sortedProducts
+  }, [parseProductID])
+
   // Group products by category when grouping is enabled
   const groupedProducts = useMemo(() => {
     if (!groupByCategory) return { ungrouped: products }
@@ -322,8 +498,13 @@ export default function CollectionDetailPage() {
       grouped[categoryName].push(product)
     })
     
+    // Sort products within each category by productID sequences
+    Object.keys(grouped).forEach((categoryName) => {
+      grouped[categoryName] = sortProductsByID(grouped[categoryName])
+    })
+    
     return grouped
-  }, [products, groupByCategory, categories])
+  }, [products, groupByCategory, categories, sortProductsByID])
 
   if (loading && !collection) {
     return (
@@ -373,7 +554,7 @@ export default function CollectionDetailPage() {
       
       <main className="pt-24 pb-16 relative z-10">
         {/* Header Section */}
-        <section className="bg-gradient-charcoal text-ivory py-8 relative overflow-hidden">
+        <section ref={headerSectionRef} className="bg-gradient-charcoal text-ivory py-8 relative overflow-hidden">
           <motion.div
             className="absolute inset-0 opacity-10"
             style={{
@@ -648,9 +829,21 @@ export default function CollectionDetailPage() {
               )}
             </AnimatePresence>
 
+            {/* Spacer div for desktop - maintains layout spacing */}
+            <div className="hidden lg:block w-72 flex-shrink-0" />
+
             {/* Desktop Sidebar - Filters */}
-            <aside className="hidden lg:block w-72 flex-shrink-0">
-              <div className="bg-white/95 backdrop-blur-md rounded-lg shadow-xl border border-brass/30 p-6 space-y-6 sticky top-24">
+            <aside 
+              ref={sidebarRef}
+              className="hidden lg:block w-72 flex-shrink-0 fixed z-30"
+              style={{
+                top: `${sidebarTop}px`,
+                left: 'calc((100vw - min(1920px, 100vw)) / 2 + 2rem)',
+                maxHeight: 'calc(100vh - 9rem)',
+                transition: 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+              <div className="bg-white/95 backdrop-blur-md rounded-lg shadow-xl border border-brass/30 p-6 space-y-6">
                 <div className="border-b border-brass/20 pb-4">
                   <h2 className="text-xl font-serif font-semibold text-charcoal flex items-center gap-2">
                     <span className="w-1 h-6 bg-brass"></span>
@@ -1017,7 +1210,9 @@ export default function CollectionDetailPage() {
         </div>
       </main>
 
-      <LuxuryFooter />
+      <div ref={footerRef}>
+        <LuxuryFooter />
+      </div>
     </div>
   )
 }

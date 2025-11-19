@@ -108,13 +108,24 @@ export default function AdminCollectionsPage() {
     if (!token) return
 
     try {
+      let updatedCollection: Collection | null = null
       if (editingCollection) {
-        await collectionsApi.update(editingCollection._id, formData, token)
+        updatedCollection = await collectionsApi.update(editingCollection._id, formData, token)
       } else {
-        await collectionsApi.create(formData, token)
+        updatedCollection = await collectionsApi.create(formData, token)
       }
       setIsModalOpen(false)
-      fetchCollections()
+      await fetchCollections()
+      // Update selected collection if it matches the saved one
+      if (selectedCollection && editingCollection && selectedCollection._id === editingCollection._id) {
+        const refreshedCollections = await collectionsApi.getAll({ includeProductCount: true })
+        const refreshedCollection = refreshedCollections.find(c => c._id === editingCollection._id)
+        if (refreshedCollection) {
+          setSelectedCollection(refreshedCollection)
+        } else if (updatedCollection) {
+          setSelectedCollection(updatedCollection)
+        }
+      }
     } catch (error) {
       console.error('Failed to save collection:', error)
       alert('Failed to save collection')
@@ -143,7 +154,15 @@ export default function AdminCollectionsPage() {
         { isActive: !collection.isActive },
         token
       )
-      fetchCollections()
+      await fetchCollections()
+      // Update selected collection if it matches the toggled one
+      if (selectedCollection?._id === collection._id) {
+        const refreshedCollections = await collectionsApi.getAll({ includeProductCount: true })
+        const refreshedCollection = refreshedCollections.find(c => c._id === collection._id)
+        if (refreshedCollection) {
+          setSelectedCollection(refreshedCollection)
+        }
+      }
     } catch (error) {
       console.error('Failed to update collection:', error)
       alert('Failed to update collection')

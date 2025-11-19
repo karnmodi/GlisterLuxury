@@ -10,7 +10,7 @@ import { useCart } from '@/contexts/CartContext'
 import { useWishlist } from '@/contexts/WishlistContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCategories } from '@/contexts/CategoriesContext'
-import { collectionsApi } from '@/lib/api'
+import { useCollections } from '@/contexts/CollectionsContext'
 import type { Category, Collection } from '@/types'
 
 export default function LuxuryNavigation() {
@@ -19,12 +19,11 @@ export default function LuxuryNavigation() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const { categories, loading: categoriesLoading } = useCategories()
+  const { collections, collectionsWithProducts } = useCollections()
   const [bannerHeight, setBannerHeight] = useState(0)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [menuMaxHeight, setMenuMaxHeight] = useState(600)
-  const [collections, setCollections] = useState<Collection[]>([])
-  const [collectionsWithProducts, setCollectionsWithProducts] = useState<Set<string>>(new Set())
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { itemCount } = useCart()
   const { itemCount: wishlistCount } = useWishlist()
@@ -58,38 +57,6 @@ export default function LuxuryNavigation() {
       clearTimeout(timeout)
       clearInterval(interval)
     }
-  }, [])
-
-  // Fetch collections - categories are now provided by CategoriesContext
-  useEffect(() => {
-    const fetchCollections = async () => {
-      try {
-        const collectionsData = await collectionsApi.getAll({ isActive: true, includeProductCount: true })
-        
-        if (collectionsData && Array.isArray(collectionsData)) {
-          const sortedCollections = collectionsData.sort((a, b) => a.displayOrder - b.displayOrder)
-          setCollections(sortedCollections)
-        
-          // Track collections with products
-          const collectionSet = new Set<string>()
-          collectionsData.forEach((collection: Collection) => {
-            if (collection.productCount && collection.productCount > 0) {
-              collectionSet.add(collection._id)
-            }
-          })
-          
-          setCollectionsWithProducts(collectionSet)
-        } else {
-          setCollections([])
-          setCollectionsWithProducts(new Set())
-        }
-      } catch (error) {
-        console.error('Failed to fetch collections:', error)
-        setCollections([])
-        setCollectionsWithProducts(new Set())
-      }
-    }
-    fetchCollections()
   }, [])
 
   // Calculate viewport-aware menu height

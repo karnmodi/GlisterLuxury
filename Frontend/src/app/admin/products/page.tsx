@@ -344,13 +344,24 @@ export default function AdminProductsPage() {
     
     try {
       await productsApi.toggleVisibility(product._id, newVisibility)
-      // Update local state
-      setProducts(products.map(p => 
-        p._id === product._id ? { ...p, isVisible: newVisibility } : p
-      ))
+      // Refresh data to get latest state
+      await fetchData()
       // Update selected product if it's the one being toggled
       if (selectedProduct?._id === product._id) {
-        setSelectedProduct({ ...selectedProduct, isVisible: newVisibility })
+        // Refetch the specific product to get fresh data
+        try {
+          const refreshedProduct = await productsApi.getById(product._id)
+          if (refreshedProduct) {
+            setSelectedProduct(refreshedProduct)
+          }
+        } catch {
+          // If refetch fails, find in the refreshed list
+          const refreshedProducts = await productsApi.getAll()
+          const refreshedProduct = refreshedProducts.find(p => p._id === product._id)
+          if (refreshedProduct) {
+            setSelectedProduct(refreshedProduct)
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to toggle visibility:', error)
@@ -402,23 +413,29 @@ export default function AdminProductsPage() {
         basePrice: priceValue
       }
 
-      await productsApi.update(productId, {
+      const updatedProduct = await productsApi.update(productId, {
         materials: updatedMaterials
       })
 
-      // Update local state
-      const updatedProducts = products.map(p => 
-        p._id === productId 
-          ? { ...p, materials: updatedMaterials }
-          : p
-      )
-      setProducts(updatedProducts)
+      // Refresh data to get latest state
+      await fetchData()
 
       // Update selected product if it's the one being edited
       if (selectedProduct?._id === productId) {
-        const updatedProduct = updatedProducts.find(p => p._id === productId)
+        // Use API response directly for immediate update
         if (updatedProduct) {
           setSelectedProduct(updatedProduct)
+        } else {
+          // Fallback: refetch the specific product
+          try {
+            const refreshedProduct = await productsApi.getById(productId)
+            if (refreshedProduct) {
+              setSelectedProduct(refreshedProduct)
+            }
+          } catch {
+            // If refetch fails, use the updated product from API response
+            setSelectedProduct(updatedProduct)
+          }
         }
       }
 

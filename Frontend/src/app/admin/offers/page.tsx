@@ -136,7 +136,14 @@ export default function OffersPage() {
         toast.success('Offer created successfully')
       }
       setIsModalOpen(false)
-      fetchOffers()
+      await fetchOffers()
+      // Update selected offer if it matches the saved one
+      if (selectedOffer && editingOffer && selectedOffer._id === editingOffer._id) {
+        const refreshedOffer = offers.find(o => o._id === editingOffer._id)
+        if (refreshedOffer) {
+          setSelectedOffer(refreshedOffer)
+        }
+      }
     } catch (error: any) {
       console.error('Failed to save offer:', error)
       toast.error(error?.response?.data?.message || 'Failed to save offer')
@@ -162,7 +169,14 @@ export default function OffersPage() {
     try {
       await offersApi.update(offer._id, { isActive: !offer.isActive }, token!)
       toast.success(`Offer ${!offer.isActive ? 'activated' : 'deactivated'}`)
-      fetchOffers()
+      await fetchOffers()
+      // Update selected offer if it matches the toggled one
+      if (selectedOffer?._id === offer._id) {
+        const refreshedOffer = offers.find(o => o._id === offer._id)
+        if (refreshedOffer) {
+          setSelectedOffer(refreshedOffer)
+        }
+      }
     } catch (error) {
       console.error('Failed to toggle offer:', error)
       toast.error('Failed to update offer')

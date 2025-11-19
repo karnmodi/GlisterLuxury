@@ -1,58 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCategories } from '@/contexts/CategoriesContext'
-import { collectionsApi } from '@/lib/api'
+import { useCollections } from '@/contexts/CollectionsContext'
 import type { Category, Collection } from '@/types'
 
 export default function MobileNavigation() {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const { categories, loading: categoriesLoading } = useCategories()
-  const [collections, setCollections] = useState<Collection[]>([])
+  const { collections, collectionsWithProducts } = useCollections()
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [expandedCollection, setExpandedCollection] = useState<string | null>(null)
-  const [collectionsWithProducts, setCollectionsWithProducts] = useState<Set<string>>(new Set())
   const { user, isAuthenticated } = useAuth()
 
   const closeMenu = () => setIsOpen(false)
-
-  // Fetch collections - categories are now provided by CategoriesContext
-  useEffect(() => {
-    const fetchCollections = async () => {
-      try {
-        const collectionsData = await collectionsApi.getAll({ isActive: true, includeProductCount: true })
-        
-        if (collectionsData && Array.isArray(collectionsData)) {
-          const sortedCollections = collectionsData.sort((a, b) => a.displayOrder - b.displayOrder)
-          setCollections(sortedCollections)
-          
-          // Track collections with products
-          const collectionSet = new Set<string>()
-          collectionsData.forEach((collection: Collection) => {
-            if (collection.productCount && collection.productCount > 0) {
-              collectionSet.add(collection._id)
-            }
-          })
-          
-          setCollectionsWithProducts(collectionSet)
-        } else {
-          setCollections([])
-          setCollectionsWithProducts(new Set())
-        }
-      } catch (error) {
-        console.error('Failed to fetch collections:', error)
-        setCollections([])
-        setCollectionsWithProducts(new Set())
-      }
-    }
-    fetchCollections()
-  }, [])
 
   const toggleCategory = (categoryId: string) => {
     setExpandedCategory(expandedCategory === categoryId ? null : categoryId)

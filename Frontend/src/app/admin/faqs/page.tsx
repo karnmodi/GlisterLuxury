@@ -105,13 +105,23 @@ export default function AdminFAQsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      let updatedFaq: FAQ | null = null
       if (editingFaq) {
-        await faqApi.update(editingFaq._id, formData)
+        updatedFaq = await faqApi.update(editingFaq._id, formData)
       } else {
-        await faqApi.create(formData)
+        updatedFaq = await faqApi.create(formData)
       }
       setIsModalOpen(false)
-      fetchData()
+      await fetchData()
+      // Update selected FAQ if it matches the saved one
+      if (selectedFaq && editingFaq && selectedFaq._id === editingFaq._id) {
+        const refreshedFaq = faqs.find(f => f._id === editingFaq._id)
+        if (refreshedFaq) {
+          setSelectedFaq(refreshedFaq)
+        } else if (updatedFaq) {
+          setSelectedFaq(updatedFaq)
+        }
+      }
     } catch (error) {
       console.error('Failed to save FAQ:', error)
       alert('Failed to save FAQ')
@@ -136,7 +146,14 @@ export default function AdminFAQsPage() {
   const toggleActive = async (faq: FAQ) => {
     try {
       await faqApi.update(faq._id, { isActive: !faq.isActive })
-      fetchData()
+      await fetchData()
+      // Update selected FAQ if it matches the toggled one
+      if (selectedFaq?._id === faq._id) {
+        const refreshedFaq = faqs.find(f => f._id === faq._id)
+        if (refreshedFaq) {
+          setSelectedFaq(refreshedFaq)
+        }
+      }
     } catch (error) {
       console.error('Failed to toggle FAQ status:', error)
       alert('Failed to update FAQ status')

@@ -72,13 +72,23 @@ export default function AdminMaterialsFinishesPage() {
   const handleMaterialSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      let updatedMaterial: MaterialMaster | null = null
       if (editingMaterial) {
-        await materialsApi.update(editingMaterial._id, materialFormData)
+        updatedMaterial = await materialsApi.update(editingMaterial._id, materialFormData)
       } else {
-        await materialsApi.create(materialFormData)
+        updatedMaterial = await materialsApi.create(materialFormData)
       }
       setIsMaterialModalOpen(false)
-      fetchData()
+      await fetchData()
+      // Update selected material if it matches the saved one
+      if (selectedMaterial && editingMaterial && selectedMaterial._id === editingMaterial._id) {
+        const refreshedMaterial = materials.find(m => m._id === editingMaterial._id)
+        if (refreshedMaterial) {
+          setSelectedMaterial(refreshedMaterial)
+        } else if (updatedMaterial) {
+          setSelectedMaterial(updatedMaterial)
+        }
+      }
     } catch (error) {
       console.error('Failed to save material:', error)
       alert('Failed to save material')
@@ -135,7 +145,16 @@ export default function AdminMaterialsFinishesPage() {
       }
       
       setIsFinishModalOpen(false)
-      fetchData()
+      await fetchData()
+      // Update selected finish if it matches the saved one
+      if (selectedFinish && editingFinish && selectedFinish._id === editingFinish._id) {
+        const refreshedFinish = finishes.find(f => f._id === editingFinish._id)
+        if (refreshedFinish) {
+          setSelectedFinish(refreshedFinish)
+        } else if (finish) {
+          setSelectedFinish(finish)
+        }
+      }
     } catch (error) {
       console.error('Failed to save finish:', error)
       alert('Failed to save finish')

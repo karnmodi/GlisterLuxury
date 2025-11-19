@@ -93,13 +93,23 @@ export default function AdminAboutUsPage() {
     if (!token) return
     e.preventDefault()
     try {
+      let updatedItem: AboutUs | null = null
       if (editingItem) {
-        await aboutUsApi.update(editingItem._id, formData, token)
+        updatedItem = await aboutUsApi.update(editingItem._id, formData, token)
       } else {
-        await aboutUsApi.create(formData, token)
+        updatedItem = await aboutUsApi.create(formData, token)
       }
       setIsModalOpen(false)
-      fetchData()
+      await fetchData()
+      // Update selected item if it matches the saved one
+      if (selectedItem && editingItem && selectedItem._id === editingItem._id) {
+        const refreshedItem = aboutUs.find(a => a._id === editingItem._id)
+        if (refreshedItem) {
+          setSelectedItem(refreshedItem)
+        } else if (updatedItem) {
+          setSelectedItem(updatedItem)
+        }
+      }
     } catch (error) {
       console.error('Failed to save About Us content:', error)
       alert('Failed to save About Us content')
@@ -125,7 +135,14 @@ export default function AdminAboutUsPage() {
     if (!token) return
     try {
       await aboutUsApi.update(item._id, { isActive: !item.isActive }, token)
-      fetchData()
+      await fetchData()
+      // Update selected item if it matches the toggled one
+      if (selectedItem?._id === item._id) {
+        const refreshedItem = aboutUs.find(a => a._id === item._id)
+        if (refreshedItem) {
+          setSelectedItem(refreshedItem)
+        }
+      }
     } catch (error) {
       console.error('Failed to toggle About Us content status:', error)
       alert('Failed to update About Us content status')

@@ -107,13 +107,23 @@ export default function AdminAnnouncementsPage() {
         startDate: formData.startDate || undefined,
         endDate: formData.endDate || undefined,
       }
+      let updatedAnnouncement: Announcement | null = null
       if (editingAnnouncement) {
-        await announcementsApi.update(editingAnnouncement._id, submitData, token)
+        updatedAnnouncement = await announcementsApi.update(editingAnnouncement._id, submitData, token)
       } else {
-        await announcementsApi.create(submitData, token)
+        updatedAnnouncement = await announcementsApi.create(submitData, token)
       }
       setIsModalOpen(false)
-      fetchData()
+      await fetchData()
+      // Update selected announcement if it matches the saved one
+      if (selectedAnnouncement && editingAnnouncement && selectedAnnouncement._id === editingAnnouncement._id) {
+        const refreshedAnnouncement = announcements.find(a => a._id === editingAnnouncement._id)
+        if (refreshedAnnouncement) {
+          setSelectedAnnouncement(refreshedAnnouncement)
+        } else if (updatedAnnouncement) {
+          setSelectedAnnouncement(updatedAnnouncement)
+        }
+      }
     } catch (error) {
       console.error('Failed to save announcement:', error)
       alert('Failed to save announcement')
@@ -140,7 +150,14 @@ export default function AdminAnnouncementsPage() {
     if (!token) return
     try {
       await announcementsApi.update(announcement._id, { isActive: !announcement.isActive }, token)
-      fetchData()
+      await fetchData()
+      // Update selected announcement if it matches the toggled one
+      if (selectedAnnouncement?._id === announcement._id) {
+        const refreshedAnnouncement = announcements.find(a => a._id === announcement._id)
+        if (refreshedAnnouncement) {
+          setSelectedAnnouncement(refreshedAnnouncement)
+        }
+      }
     } catch (error) {
       console.error('Failed to toggle announcement status:', error)
       alert('Failed to update announcement status')

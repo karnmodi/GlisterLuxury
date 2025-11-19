@@ -132,13 +132,23 @@ export default function AdminBlogPage() {
       }
       delete (submitData as any).tagInput
 
+      let updatedItem: Blog | null = null
       if (editingItem) {
-        await blogApi.update(editingItem._id, submitData, token)
+        updatedItem = await blogApi.update(editingItem._id, submitData, token)
       } else {
-        await blogApi.create(submitData, token)
+        updatedItem = await blogApi.create(submitData, token)
       }
       setIsModalOpen(false)
-      fetchData()
+      await fetchData()
+      // Update selected item if it matches the saved one
+      if (selectedItem && editingItem && selectedItem._id === editingItem._id) {
+        const refreshedItem = blogs.find(b => b._id === editingItem._id)
+        if (refreshedItem) {
+          setSelectedItem(refreshedItem)
+        } else if (updatedItem) {
+          setSelectedItem(updatedItem)
+        }
+      }
     } catch (error) {
       console.error('Failed to save blog article:', error)
       alert('Failed to save blog article')
@@ -164,7 +174,14 @@ export default function AdminBlogPage() {
     if (!token) return
     try {
       await blogApi.update(item._id, { isActive: !item.isActive }, token)
-      fetchData()
+      await fetchData()
+      // Update selected item if it matches the toggled one
+      if (selectedItem?._id === item._id) {
+        const refreshedItem = blogs.find(b => b._id === item._id)
+        if (refreshedItem) {
+          setSelectedItem(refreshedItem)
+        }
+      }
     } catch (error) {
       console.error('Failed to toggle blog article status:', error)
       alert('Failed to update blog article status')

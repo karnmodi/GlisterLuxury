@@ -78,13 +78,24 @@ export default function AdminCategoriesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      let updatedCategory: Category | null = null
       if (editingCategory) {
-        await categoriesApi.update(editingCategory._id, formData)
+        updatedCategory = await categoriesApi.update(editingCategory._id, formData)
       } else {
-        await categoriesApi.create(formData)
+        updatedCategory = await categoriesApi.create(formData)
       }
       setIsModalOpen(false)
-      fetchCategories()
+      await fetchCategories()
+      // Update selected category if it matches the saved one
+      if (selectedCategory && editingCategory && selectedCategory._id === editingCategory._id) {
+        const refreshedCategories = await categoriesApi.getAll()
+        const refreshedCategory = refreshedCategories.find(c => c._id === editingCategory._id)
+        if (refreshedCategory) {
+          setSelectedCategory(refreshedCategory)
+        } else if (updatedCategory) {
+          setSelectedCategory(updatedCategory)
+        }
+      }
     } catch (error) {
       console.error('Failed to save category:', error)
       alert('Failed to save category')
@@ -96,14 +107,25 @@ export default function AdminCategoriesPage() {
     if (!selectedCategory) return
 
     try {
+      let updatedCategory: Category | null = null
       if (editingSubcategory) {
-        await categoriesApi.updateSubcategory(selectedCategory._id, editingSubcategory._id, subcategoryFormData)
+        updatedCategory = await categoriesApi.updateSubcategory(selectedCategory._id, editingSubcategory._id, subcategoryFormData)
       } else {
-        await categoriesApi.addSubcategory(selectedCategory._id, subcategoryFormData)
+        updatedCategory = await categoriesApi.addSubcategory(selectedCategory._id, subcategoryFormData)
       }
       setIsSubcategoryModalOpen(false)
       setEditingSubcategory(null)
-      fetchCategories()
+      await fetchCategories()
+      // Update selected category with refreshed data
+      if (selectedCategory) {
+        const refreshedCategories = await categoriesApi.getAll()
+        const refreshedCategory = refreshedCategories.find(c => c._id === selectedCategory._id)
+        if (refreshedCategory) {
+          setSelectedCategory(refreshedCategory)
+        } else if (updatedCategory) {
+          setSelectedCategory(updatedCategory)
+        }
+      }
     } catch (error) {
       console.error('Failed to save subcategory:', error)
       alert('Failed to save subcategory')
