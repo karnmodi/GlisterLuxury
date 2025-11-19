@@ -1278,7 +1278,7 @@ export const contactApi = {
     }),
 
   // Contact Inquiries
-  submitInquiry: (data: { name: string; email: string; phone?: string; subject: string; message: string }) =>
+  submitInquiry: (data: { name: string; email: string; phone?: string; category: string; subject: string; message: string }) =>
     apiCall<{ message: string; inquiry: ContactInquiry }>('/contact/inquiry', {
       method: 'POST',
       body: JSON.stringify(data),

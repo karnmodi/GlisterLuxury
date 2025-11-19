@@ -331,13 +331,14 @@ async function sendContactInquiryEmail(inquiry) {
 						
 						<div class="inquiry-details">
 							<h2>Inquiry Information</h2>
-							<p><strong>Submitted Date:</strong> ${new Date(inquiry.createdAt).toLocaleString('en-GB', { 
-								day: 'numeric', 
-								month: 'long', 
+							<p><strong>Submitted Date:</strong> ${new Date(inquiry.createdAt).toLocaleString('en-GB', {
+								day: 'numeric',
+								month: 'long',
 								year: 'numeric',
 								hour: '2-digit',
 								minute: '2-digit'
 							})}</p>
+							<p><strong>Category:</strong> <span style="background-color: #e7f3ff; padding: 4px 8px; border-radius: 4px; font-weight: bold;">${inquiry.category.replace(/_/g, ' ').toUpperCase()}</span></p>
 							<p><strong>Status:</strong> <span style="background-color: #fff3cd; padding: 4px 8px; border-radius: 4px;">NEW</span></p>
 							<p><strong>Inquiry ID:</strong> ${inquiry._id}</p>
 						</div>
@@ -571,10 +572,11 @@ async function sendContactInquiryConfirmationEmail(inquiry) {
 						<div class="inquiry-summary">
 							<h3 style="margin-top: 0; color: #2C2C2C;">Your Inquiry Summary</h3>
 							<p><strong>Inquiry ID:</strong> ${inquiry._id}</p>
+							<p><strong>Category:</strong> ${inquiry.category.replace(/_/g, ' ').charAt(0).toUpperCase() + inquiry.category.replace(/_/g, ' ').slice(1)}</p>
 							<p><strong>Subject:</strong> ${inquiry.subject}</p>
-							<p><strong>Submitted Date:</strong> ${new Date(inquiry.createdAt).toLocaleString('en-GB', { 
-								day: 'numeric', 
-								month: 'long', 
+							<p><strong>Submitted Date:</strong> ${new Date(inquiry.createdAt).toLocaleString('en-GB', {
+								day: 'numeric',
+								month: 'long',
 								year: 'numeric',
 								hour: '2-digit',
 								minute: '2-digit'
@@ -631,24 +633,25 @@ async function sendContactInquiryConfirmationEmail(inquiry) {
 // Contact Inquiry operations
 async function submitInquiry(req, res) {
 	try {
-		const { name, email, phone, subject, message } = req.body;
-		
+		const { name, email, phone, category, subject, message } = req.body;
+
 		if (!name || !email || !subject || !message) {
-			return res.status(400).json({ 
-				message: 'Name, email, subject, and message are required' 
+			return res.status(400).json({
+				message: 'Name, email, subject, and message are required'
 			});
 		}
-		
+
 		// Basic email validation
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 		if (!emailRegex.test(email)) {
 			return res.status(400).json({ message: 'Invalid email format' });
 		}
-		
+
 		const inquiry = await ContactInquiry.create({
 			name: name.trim(),
 			email: email.trim().toLowerCase(),
 			phone: phone ? phone.trim() : undefined,
+			category: category || 'general_inquiry',
 			subject: subject.trim(),
 			message: message.trim(),
 			status: 'new'
