@@ -903,6 +903,35 @@ export const ordersApi = {
       },
       body: JSON.stringify({ paymentStatus }),
     }),
+
+  // Guest order endpoints (no authentication required)
+  createGuest: (data: {
+    sessionID: string
+    customerInfo: {
+      name: string
+      email: string
+      phone?: string
+    }
+    deliveryAddress: {
+      label?: string
+      addressLine1: string
+      addressLine2?: string
+      city: string
+      county?: string
+      postcode: string
+      country?: string
+    }
+    orderNotes?: string
+  }) =>
+    apiCall<{ success: boolean; message: string; order: Order }>('/orders/guest', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  trackGuest: (orderNumber: string, email: string) =>
+    apiCall<{ success: boolean; order: Order }>(
+      `/orders/guest/track/${orderNumber}?email=${encodeURIComponent(email)}`
+    ),
 }
 
 // Wishlist API
