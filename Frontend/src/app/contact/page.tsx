@@ -20,9 +20,24 @@ export default function ContactPage() {
     name: '',
     email: '',
     phone: '',
+    category: 'general_inquiry',
     subject: '',
     message: ''
   })
+
+  // Category options for the dropdown
+  const categoryOptions = [
+    { value: 'general_inquiry', label: 'General Inquiry' },
+    { value: 'product_inquiry', label: 'Product Inquiry' },
+    { value: 'order_status', label: 'Order Status' },
+    { value: 'refund_request', label: 'Refund Request' },
+    { value: 'bulk_order', label: 'Bulk Order' },
+    { value: 'technical_support', label: 'Technical Support' },
+    { value: 'shipping_delivery', label: 'Shipping & Delivery' },
+    { value: 'payment_issue', label: 'Payment Issue' },
+    { value: 'complaint', label: 'Complaint' },
+    { value: 'other', label: 'Other' }
+  ]
 
   const [ref, inView] = useInView({
     triggerOnce: true,
@@ -115,17 +130,19 @@ export default function ContactPage() {
         name: formData.name,
         email: formData.email,
         phone: formData.phone || undefined,
+        category: formData.category,
         subject: formData.subject,
         message: formData.message
       })
 
       toast.success('Your inquiry has been submitted successfully! We will get back to you soon.')
-      
+
       // Reset form
       setFormData({
         name: '',
         email: '',
         phone: '',
+        category: 'general_inquiry',
         subject: '',
         message: ''
       })
@@ -726,6 +743,28 @@ export default function ContactPage() {
                 className="w-full px-4 py-3 bg-zinc-900 border border-brass/20 rounded-lg text-ivory placeholder-ivory/50 focus:outline-none focus:ring-2 focus:ring-brass/50 focus:border-brass transition-all duration-300"
                 placeholder="+44 123 456 789"
               />
+            </div>
+
+            <div>
+              <label htmlFor="category" className="block text-ivory font-medium mb-2">
+                Inquiry Category <span className="text-brass">*</span>
+              </label>
+              <select
+                id="category"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                required
+                className="w-full px-4 py-3 bg-zinc-900 border border-brass/20 rounded-lg text-ivory focus:outline-none focus:ring-2 focus:ring-brass/50 focus:border-brass transition-all duration-300"
+              >
+                {categoryOptions.map((option) => (
+                  <option key={option.value} value={option.value} className="bg-zinc-900 text-ivory">
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-ivory/50">
+                Please select the category that best describes your inquiry
+              </p>
             </div>
 
             <div>
