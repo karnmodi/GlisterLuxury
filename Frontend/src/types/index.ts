@@ -384,8 +384,9 @@ export interface OrderItem {
 export interface Order {
   _id: string
   orderNumber: string
-  userID: string
+  userID?: string | null
   sessionID?: string
+  isGuestOrder?: boolean
   items: OrderItem[]
   customerInfo: {
     name: string

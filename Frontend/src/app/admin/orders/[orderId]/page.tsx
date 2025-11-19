@@ -193,9 +193,18 @@ export default function AdminOrderDetailPage() {
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
           {/* Order Info */}
           <div className="flex-1">
-            <h1 className="text-3xl font-serif font-bold text-charcoal mb-2 tracking-tight">
-              Order #{order.orderNumber}
-            </h1>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-serif font-bold text-charcoal tracking-tight">
+                Order #{order.orderNumber}
+              </h1>
+              <span className={`inline-flex items-center rounded-full border px-3 py-1 text-sm font-medium ${
+                order.isGuestOrder 
+                  ? 'bg-gray-100 text-gray-700 border-gray-300' 
+                  : 'bg-blue-100 text-blue-700 border-blue-300'
+              }`}>
+                {order.isGuestOrder ? 'Guest User' : 'Registered User'}
+              </span>
+            </div>
             <div className="flex flex-wrap items-center gap-3 text-charcoal/60 text-sm">
               <div className="flex items-center gap-1.5">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
