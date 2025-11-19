@@ -560,20 +560,14 @@ export default function CartPage() {
                   <Button
                     size="lg"
                     className="w-full mb-3 mt-4 sm:mt-5 min-h-[48px] text-sm sm:text-base"
-                    onClick={() => {
-                      if (!isAuthenticated) {
-                        router.push('/login?returnUrl=/checkout')
-                      } else {
-                        router.push('/checkout')
-                      }
-                    }}
+                    onClick={() => router.push('/checkout')}
                   >
                     Proceed to Checkout
                   </Button>
 
                   {!isAuthenticated && (
                     <p className="text-xs text-charcoal/60 text-center mb-3">
-                      You&apos;ll need to sign in to complete your purchase
+                      Continue as guest or sign in during checkout
                     </p>
                   )}
 
