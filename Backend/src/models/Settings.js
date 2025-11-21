@@ -173,7 +173,7 @@ The Glister Luxury Enquiries Team
 
 Crafted for those who value distinction.
 
-+44 7767 198433 | enquiries@glisterlondon.com
++44 7767 198433 | enquiries@glisterluxury.com
 
 https://www.glisterlondon.com/`;
 
@@ -191,7 +191,7 @@ https://www.glisterlondon.com/`;
       vatEnabled: true,
       autoReplySettings: [
         {
-          emailAddress: 'enquiries@glisterlondon.com',
+          emailAddress: 'enquiries@glisterluxury.com',
           enabled: false,
           subject: 'Thank you for contacting Glister Luxury',
           message: defaultAutoReplyMessage,
@@ -199,7 +199,7 @@ https://www.glisterlondon.com/`;
           updatedBy: 'system'
         },
         {
-          emailAddress: 'sales@glisterlondon.com',
+          emailAddress: 'sales@glisterluxury.com',
           enabled: false,
           subject: '',
           message: '',
@@ -207,7 +207,7 @@ https://www.glisterlondon.com/`;
           updatedBy: 'system'
         },
         {
-          emailAddress: 'orders@glisterlondon.com',
+          emailAddress: 'orders@glisterluxury.com',
           enabled: false,
           subject: '',
           message: '',
@@ -215,7 +215,15 @@ https://www.glisterlondon.com/`;
           updatedBy: 'system'
         },
         {
-          emailAddress: 'noreply@glisterlondon.com',
+          emailAddress: 'noreply@glisterluxury.com',
+          enabled: false,
+          subject: '',
+          message: '',
+          lastUpdated: new Date(),
+          updatedBy: 'system'
+        },
+        {
+          emailAddress: 'admin@glisterluxury.com',
           enabled: false,
           subject: '',
           message: '',

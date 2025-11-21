@@ -638,8 +638,8 @@ exports.forgotPassword = async (req, res, next) => {
             <p>This is an automated email. Please do not reply to this email.</p>
             <p>If you have any questions, feel free to reach out:</p>
             <p>
-              <a href="mailto:enquiries@glisterlondon.com">enquiries@glisterlondon.com</a> (All purposes) | 
-              <a href="mailto:sales@glisterlondon.com">sales@glisterlondon.com</a> (Business purposes)
+              <a href="mailto:enquiries@glisterluxury.com">enquiries@glisterluxury.com</a> (All purposes) | 
+              <a href="mailto:sales@glisterluxury.com">sales@glisterluxury.com</a> (Business purposes)
             </p>
             <p style="margin-top: 15px;">&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
           </div>
@@ -649,8 +649,8 @@ exports.forgotPassword = async (req, res, next) => {
     `;
     
     try {
-      // Configure email transporter for FastHost SMTP - authenticate with noreply@glisterlondon.com
-      const noreplyEmail = process.env.EMAIL_FROM_NOREPLY || 'noreply@glisterlondon.com';
+      // Configure email transporter for FastHost SMTP - authenticate with noreply@glisterluxury.com
+      const noreplyEmail = process.env.EMAIL_FROM_NOREPLY || 'noreply@glisterluxury.com';
       const transporter = nodemailer.createTransport({
         host: process.env.EMAIL_HOST || 'smtp.livemail.co.uk',
         port: parseInt(process.env.EMAIL_PORT) || 587,
@@ -664,7 +664,7 @@ exports.forgotPassword = async (req, res, next) => {
         }
       });
       
-      // Send email from noreply@glisterlondon.com (matches authentication)
+      // Send email from noreply@glisterluxury.com (matches authentication)
       await transporter.sendMail({
         from: `Glister Luxury <${noreplyEmail}>`,
         to: email,

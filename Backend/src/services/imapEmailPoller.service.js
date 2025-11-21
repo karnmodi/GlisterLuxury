@@ -5,10 +5,11 @@ const autoReplyService = require('./autoReply.service');
 
 // Business email addresses to poll
 const BUSINESS_EMAILS = [
-  'enquiries@glisterlondon.com',
-  'sales@glisterlondon.com',
-  'orders@glisterlondon.com',
-  'noreply@glisterlondon.com'
+  'enquiries@glisterluxury.com',
+  'sales@glisterluxury.com',
+  'orders@glisterluxury.com',
+  'noreply@glisterluxury.com',
+  'admin@glisterluxury.com'
 ];
 
 // Store processed email UIDs to prevent duplicate processing

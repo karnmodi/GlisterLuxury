@@ -65,7 +65,9 @@ async function sendOrderEmails(order, user) {
 	}).join('');
 
 	// Admin notification email
-	const logoUrl = getLogoUrl();
+	// Use absolute URL for logo to ensure it displays in emails
+	const frontendUrl = process.env.FRONTEND_URL || process.env.FRONTEND_URL_2 || 'http://localhost:3000';
+	const logoUrl = `${frontendUrl}/images/business/G.png`;
 	const adminEmailHTML = `
 		<!DOCTYPE html>
 		<html lang="en">
@@ -684,8 +686,8 @@ async function sendOrderEmails(order, user) {
 					<p>This is an automated confirmation email. Please do not reply to this email.</p>
 					<p>If you have any questions, feel free to reach out:</p>
 					<p>
-						<a href="mailto:enquiries@glisterlondon.com">enquiries@glisterlondon.com</a> (All purposes) | 
-						<a href="mailto:sales@glisterlondon.com">sales@glisterlondon.com</a> (Business purposes)
+						<a href="mailto:enquiries@glisterluxury.com">enquiries@glisterluxury.com</a> (All purposes) | 
+						<a href="mailto:sales@glisterluxury.com">sales@glisterluxury.com</a> (Business purposes)
 					</p>
 					<p style="margin-top: 15px;">&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
 				</div>
@@ -694,8 +696,8 @@ async function sendOrderEmails(order, user) {
 		</html>
 	`;
 
-	// Create transporter for admin emails - authenticate with enquiries@glisterlondon.com
-	const enquiriesEmail = process.env.EMAIL_FROM_ENQUIRIES || 'enquiries@glisterlondon.com';
+	// Create transporter for admin emails - authenticate with enquiries@glisterluxury.com
+	const enquiriesEmail = process.env.EMAIL_FROM_ENQUIRIES || 'enquiries@glisterluxury.com';
 	const adminTransporter = nodemailer.createTransport({
 		host: process.env.EMAIL_HOST || 'smtp.livemail.co.uk',
 		port: parseInt(process.env.EMAIL_PORT) || 587,
@@ -709,8 +711,8 @@ async function sendOrderEmails(order, user) {
 		}
 	});
 
-	// Create transporter for customer emails - authenticate with orders@glisterlondon.com
-	const ordersEmail = process.env.EMAIL_FROM_ORDERS || 'orders@glisterlondon.com';
+	// Create transporter for customer emails - authenticate with orders@glisterluxury.com
+	const ordersEmail = process.env.EMAIL_FROM_ORDERS || 'orders@glisterluxury.com';
 	const customerTransporter = nodemailer.createTransport({
 		host: process.env.EMAIL_HOST || 'smtp.livemail.co.uk',
 		port: parseInt(process.env.EMAIL_PORT) || 587,
@@ -724,16 +726,17 @@ async function sendOrderEmails(order, user) {
 		}
 	});
 
-	// Send admin notification from enquiries@glisterlondon.com (matches authentication)
+	// Send admin notification from enquiries@glisterluxury.com (matches authentication)
 	const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USERNAME;
+	const adminRecipients = [adminEmail, 'londonglister@gmail.com'].filter(Boolean);
 	await adminTransporter.sendMail({
 		from: `Glister Luxury <${enquiriesEmail}>`,
-		to: adminEmail,
+		to: adminRecipients,
 		subject: `New Order #${order.orderNumber} - ${order.customerInfo.name}`,
 		html: adminEmailHTML
 	});
 
-	// Send customer confirmation from orders@glisterlondon.com (matches authentication)
+	// Send customer confirmation from orders@glisterluxury.com (matches authentication)
 	await customerTransporter.sendMail({
 		from: `Glister Luxury <${ordersEmail}>`,
 		to: order.customerInfo.email,
@@ -1670,8 +1673,8 @@ exports.addAdminMessage = async (req, res, next) => {
 
 		// Send email notification to customer
 		try {
-			// Create transporter for customer emails - authenticate with orders@glisterlondon.com
-			const ordersEmail = process.env.EMAIL_FROM_ORDERS || 'orders@glisterlondon.com';
+			// Create transporter for customer emails - authenticate with orders@glisterluxury.com
+			const ordersEmail = process.env.EMAIL_FROM_ORDERS || 'orders@glisterluxury.com';
 			const transporter = nodemailer.createTransport({
 				host: process.env.EMAIL_HOST || 'smtp.livemail.co.uk',
 				port: parseInt(process.env.EMAIL_PORT) || 587,
@@ -1704,7 +1707,9 @@ exports.addAdminMessage = async (req, res, next) => {
 				cancelled: 'Cancelled'
 			};
 
-			const logoUrl = getLogoUrl();
+			// Use absolute URL for logo to ensure it displays in emails
+			const frontendUrl = process.env.FRONTEND_URL || process.env.FRONTEND_URL_2 || 'http://localhost:3000';
+			const logoUrl = `${frontendUrl}/images/business/G.png`;
 			const customerEmailHTML = `
 				<!DOCTYPE html>
 				<html lang="en">
@@ -1887,8 +1892,8 @@ exports.addAdminMessage = async (req, res, next) => {
 							<p>This is an automated notification email. Please do not reply to this email.</p>
 							<p>If you have any questions, feel free to reach out:</p>
 							<p>
-								<a href="mailto:enquiries@glisterlondon.com">enquiries@glisterlondon.com</a> (All purposes) | 
-								<a href="mailto:sales@glisterlondon.com">sales@glisterlondon.com</a> (Business purposes)
+								<a href="mailto:enquiries@glisterluxury.com">enquiries@glisterluxury.com</a> (All purposes) | 
+								<a href="mailto:sales@glisterluxury.com">sales@glisterluxury.com</a> (Business purposes)
 							</p>
 							<p style="margin-top: 15px;">&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
 						</div>

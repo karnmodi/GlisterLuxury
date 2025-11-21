@@ -717,7 +717,7 @@ export default function TrackGuestOrderPage() {
                       If you have any questions about your order, please contact us at:
                     </p>
                     <div className="space-y-1 text-sm">
-                      <p className="text-brass font-medium">enquiries@glisterlondon.com</p>
+                      <p className="text-brass font-medium">enquiries@glisterluxury.com</p>
                       <p className="text-ivory/60">Quote your order number: <span className="text-brass font-semibold">{order.orderNumber}</span></p>
                     </div>
                   </div>

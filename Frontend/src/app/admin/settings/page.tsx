@@ -29,10 +29,11 @@ export default function SettingsPage() {
 
   // Business emails
   const businessEmails = [
-    'enquiries@glisterlondon.com',
-    'sales@glisterlondon.com',
-    'orders@glisterlondon.com',
-    'noreply@glisterlondon.com'
+    'enquiries@glisterluxury.com',
+    'sales@glisterluxury.com',
+    'orders@glisterluxury.com',
+    'noreply@glisterluxury.com',
+    'admin@glisterluxury.com'
   ]
 
   // New tier form
@@ -67,8 +68,8 @@ export default function SettingsPage() {
         const defaultConfigs: AutoReplyConfig[] = businessEmails.map(email => ({
           emailAddress: email,
           enabled: false,
-          subject: email === 'enquiries@glisterlondon.com' ? 'Thank you for contacting Glister Luxury' : '',
-          message: email === 'enquiries@glisterlondon.com' 
+          subject: email === 'enquiries@glisterluxury.com' ? 'Thank you for contacting Glister Luxury' : '',
+          message: email === 'enquiries@glisterluxury.com' 
             ? `Thank you for reaching out to Glister Luxury! 💛
 
 We're thrilled to hear from you and delighted to welcome you into the Glister family. Your enquiry is important to us, and our dedicated Enquiries Team will personally get back to you within 3 business days.
@@ -83,7 +84,7 @@ The Glister Luxury Enquiries Team
 
 Crafted for those who value distinction.
 
-+44 7767 198433 | enquiries@glisterlondon.com
++44 7767 198433 | enquiries@glisterluxury.com
 
 https://www.glisterlondon.com/`
             : ''
