@@ -4,10 +4,11 @@ const emailLogger = require('../utils/emailLogger');
 const autoReplyService = require('./autoReply.service');
 
 const BUSINESS_EMAILS = [
-  'enquiries@glisterlondon.com',
-  'sales@glisterlondon.com',
-  'orders@glisterlondon.com',
-  'noreply@glisterlondon.com'
+  'enquiries@glisterluxury.com',
+  'sales@glisterluxury.com',
+  'orders@glisterluxury.com',
+  'noreply@glisterluxury.com',
+  'admin@glisterluxury.com'
 ];
 
 const NOREPLY_PATTERNS = ['noreply', 'no-reply', 'donotreply', 'mailer-daemon'];

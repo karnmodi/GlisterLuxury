@@ -231,8 +231,8 @@ async function deleteContactInfo(req, res) {
  */
 async function sendContactInquiryEmail(inquiry) {
 	try {
-		// Configure email transporter for FastHost SMTP - authenticate with enquiries@glisterlondon.com
-		const enquiriesEmail = process.env.EMAIL_FROM_ENQUIRIES || 'enquiries@glisterlondon.com';
+		// Configure email transporter for FastHost SMTP - authenticate with enquiries@glisterluxury.com
+		const enquiriesEmail = process.env.EMAIL_FROM_ENQUIRIES || 'enquiries@glisterluxury.com';
 		const transporter = nodemailer.createTransport({
 			host: process.env.EMAIL_HOST || 'smtp.livemail.co.uk',
 			port: parseInt(process.env.EMAIL_PORT) || 587,
@@ -424,11 +424,12 @@ async function sendContactInquiryEmail(inquiry) {
 			</html>
 		`;
 
-		// Send admin notification from enquiries@glisterlondon.com (matches authentication)
+		// Send admin notification from enquiries@glisterluxury.com (matches authentication)
 		const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USERNAME;
+		const adminRecipients = [adminEmail, 'londonglister@gmail.com'].filter(Boolean);
 		await transporter.sendMail({
 			from: `Glister Luxury <${enquiriesEmail}>`,
-			to: adminEmail,
+			to: adminRecipients,
 			subject: `📧 New Contact Request - ${inquiry.subject} - ${inquiry.name}`,
 			html: adminEmailHTML
 		});
@@ -445,8 +446,8 @@ async function sendContactInquiryEmail(inquiry) {
  */
 async function sendContactInquiryConfirmationEmail(inquiry) {
 	try {
-		// Configure email transporter for FastHost SMTP - authenticate with enquiries@glisterlondon.com
-		const enquiriesEmail = process.env.EMAIL_FROM_ENQUIRIES || 'enquiries@glisterlondon.com';
+		// Configure email transporter for FastHost SMTP - authenticate with enquiries@glisterluxury.com
+		const enquiriesEmail = process.env.EMAIL_FROM_ENQUIRIES || 'enquiries@glisterluxury.com';
 		const transporter = nodemailer.createTransport({
 			host: process.env.EMAIL_HOST || 'smtp.livemail.co.uk',
 			port: parseInt(process.env.EMAIL_PORT) || 587,
@@ -654,8 +655,8 @@ async function sendContactInquiryConfirmationEmail(inquiry) {
 						<p>This is an automated confirmation email. Please do not reply to this email.</p>
 						<p>If you have any questions, feel free to reach out:</p>
 						<p>
-							<a href="mailto:enquiries@glisterlondon.com">enquiries@glisterlondon.com</a> (All purposes) | 
-							<a href="mailto:sales@glisterlondon.com">sales@glisterlondon.com</a> (Business purposes)
+							<a href="mailto:enquiries@glisterluxury.com">enquiries@glisterluxury.com</a> (All purposes) | 
+							<a href="mailto:sales@glisterluxury.com">sales@glisterluxury.com</a> (Business purposes)
 						</p>
 						<p style="margin-top: 15px;">&copy; ${new Date().getFullYear()} Glister Luxury. All rights reserved.</p>
 					</div>
@@ -664,7 +665,7 @@ async function sendContactInquiryConfirmationEmail(inquiry) {
 			</html>
 		`;
 
-		// Send customer confirmation from enquiries@glisterlondon.com (matches authentication)
+		// Send customer confirmation from enquiries@glisterluxury.com (matches authentication)
 		await transporter.sendMail({
 			from: `Glister Luxury <${enquiriesEmail}>`,
 			to: inquiry.email,
@@ -717,7 +718,7 @@ async function submitInquiry(req, res) {
 
 		try {
 			// Try to send auto-reply first (if enabled)
-			const enquiriesEmail = process.env.EMAIL_FROM_ENQUIRIES || 'enquiries@glisterlondon.com';
+			const enquiriesEmail = process.env.EMAIL_FROM_ENQUIRIES || 'enquiries@glisterluxury.com';
 			const autoReplySent = await autoReplyService.sendAutoReply(
 				enquiriesEmail,
 				inquiry.email,
