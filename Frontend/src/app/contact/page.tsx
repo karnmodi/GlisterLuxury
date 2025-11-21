@@ -54,7 +54,7 @@ export default function ContactPage() {
     rootMargin: '50px 0px'
   })
   const [formRef, formInView] = useInView({
-    triggerOnce: false,
+    triggerOnce: true,
     threshold: 0.05,
     rootMargin: '50px 0px'
   })
@@ -913,19 +913,22 @@ export default function ContactPage() {
               </p>
             </div>
 
-            {/* White Card Container for Better Readability - Sticky */}
-            <div className="bg-white rounded-2xl shadow-2xl border border-brass/10 p-8 lg:p-12 relative overflow-hidden sticky top-8">
+            {/* Luxury Card Container with Website Colors - Sticky */}
+            <div className="bg-gradient-to-br from-ivory via-ivory/95 to-ivory/90 rounded-2xl shadow-2xl border-2 border-brass/20 p-8 lg:p-12 relative overflow-hidden sticky top-8 backdrop-blur-sm">
               {/* Subtle background pattern overlay */}
-              <div className="absolute inset-0 opacity-[0.02] pointer-events-none" 
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
                 style={{
                   backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23C9A66B' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
                   backgroundSize: '60px 60px'
                 }}
               />
               
+              {/* Gradient overlay for depth */}
+              <div className="absolute inset-0 bg-gradient-to-br from-brass/5 via-transparent to-olive/5 pointer-events-none" />
+              
               {/* Decorative corner elements */}
-              <div className="absolute top-6 right-6 w-16 h-16 border-t-2 border-r-2 border-brass/20 rounded-tr-xl" />
-              <div className="absolute bottom-6 left-6 w-16 h-16 border-b-2 border-l-2 border-brass/20 rounded-bl-xl" />
+              <div className="absolute top-6 right-6 w-16 h-16 border-t-2 border-r-2 border-brass/30 rounded-tr-xl" />
+              <div className="absolute bottom-6 left-6 w-16 h-16 border-b-2 border-l-2 border-olive/30 rounded-bl-xl" />
 
               {/* Two-Sided Layout: Contact Methods (Left) + Google Maps (Right) */}
               <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 min-h-[600px] lg:min-h-[700px] relative z-10">
@@ -936,7 +939,7 @@ export default function ContactPage() {
                   <div className="group relative">
                     <div className="flex items-start gap-6 pb-8 border-b border-brass/20 group-hover:border-brass/40 transition-colors duration-500">
                 <motion.div
-                        className="flex-shrink-0 w-16 h-16 rounded-full bg-gradient-to-br from-brass/20 to-brass/10 flex items-center justify-center group-hover:from-brass/30 group-hover:to-brass/20 transition-all duration-500"
+                        className="flex-shrink-0 w-16 h-16 rounded-full bg-gradient-to-br from-brass/20 to-brass/10 flex items-center justify-center group-hover:from-brass/30 group-hover:to-brass/20 transition-all duration-500 shadow-lg shadow-brass/10"
                         whileHover={{ rotate: 360, scale: 1.1 }}
                         transition={{ duration: 0.6 }}
                       >
@@ -945,7 +948,7 @@ export default function ContactPage() {
                         </svg>
                       </motion.div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-serif text-2xl text-brass mb-4 tracking-wide">Email</h3>
+                        <h3 className="font-serif text-2xl text-charcoal mb-4 tracking-wide">Email</h3>
                         <div className="space-y-3">
                           {emails.map((item, idx) => (
                             <div
@@ -953,12 +956,12 @@ export default function ContactPage() {
                               className="group/item"
                             >
                             {item.label && (
-                                <p className="text-charcoal/70 font-medium mb-1 text-xs uppercase tracking-wide">{item.label}</p>
+                                <p className="text-charcoal/60 font-medium mb-1 text-xs uppercase tracking-wide">{item.label}</p>
                               )}
                               {item.value && (
                                 <a 
                                   href={`mailto:${item.value}`}
-                                  className="text-charcoal/90 hover:text-brass transition-colors duration-300 text-lg font-medium break-all block group-hover/item:translate-x-2 transition-transform"
+                                  className="text-charcoal hover:text-brass transition-colors duration-300 text-lg font-medium break-all block group-hover/item:translate-x-2 transition-transform"
                                 >
                                   {item.value}
                                 </a>
@@ -976,7 +979,7 @@ export default function ContactPage() {
                 <div className="group relative">
                     <div className="flex items-start gap-6 pb-8 border-b border-brass/20 group-hover:border-brass/40 transition-colors duration-500">
                 <motion.div
-                        className="flex-shrink-0 w-16 h-16 rounded-full bg-gradient-to-br from-brass/20 to-brass/10 flex items-center justify-center group-hover:from-brass/30 group-hover:to-brass/20 transition-all duration-500"
+                        className="flex-shrink-0 w-16 h-16 rounded-full bg-gradient-to-br from-brass/20 to-brass/10 flex items-center justify-center group-hover:from-brass/30 group-hover:to-brass/20 transition-all duration-500 shadow-lg shadow-brass/10"
                         whileHover={{ rotate: 15, scale: 1.1 }}
                         transition={{ duration: 0.3 }}
                       >
@@ -985,7 +988,7 @@ export default function ContactPage() {
                         </svg>
                       </motion.div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-serif text-2xl text-brass mb-4 tracking-wide">Phone</h3>
+                        <h3 className="font-serif text-2xl text-charcoal mb-4 tracking-wide">Phone</h3>
                         <div className="space-y-4">
                           {phones
                             .filter(item => (item.phones && Array.isArray(item.phones) && item.phones.length > 0) || item.value)
@@ -998,13 +1001,13 @@ export default function ContactPage() {
                                   className="group/item"
                                 >
                                   {(phone.label || phone.type) && (
-                                    <p className="text-charcoal/70 font-medium mb-2 text-xs uppercase tracking-wide">
+                                    <p className="text-charcoal/60 font-medium mb-2 text-xs uppercase tracking-wide">
                                       {phone.label || phone.type.charAt(0).toUpperCase() + phone.type.slice(1)}
                                     </p>
                                   )}
                                   <a 
                                     href={`tel:${phone.number.replace(/\s/g, '')}`}
-                                    className="text-charcoal/90 hover:text-brass transition-colors duration-300 text-lg font-medium block group-hover/item:translate-x-2 transition-transform"
+                                    className="text-charcoal hover:text-brass transition-colors duration-300 text-lg font-medium block group-hover/item:translate-x-2 transition-transform"
                                   >
                                     {phone.number}
                                   </a>
@@ -1019,11 +1022,11 @@ export default function ContactPage() {
                                   className="group/item"
                                 >
                                   {item.label && (
-                                    <p className="text-charcoal/70 font-medium mb-2 text-xs uppercase tracking-wide">{item.label}</p>
+                                    <p className="text-charcoal/60 font-medium mb-2 text-xs uppercase tracking-wide">{item.label}</p>
                                   )}
                                   <a 
                                     href={`tel:${item.value.replace(/\s/g, '')}`}
-                                    className="text-charcoal/90 hover:text-brass transition-colors duration-300 text-lg font-medium block group-hover/item:translate-x-2 transition-transform"
+                                    className="text-charcoal hover:text-brass transition-colors duration-300 text-lg font-medium block group-hover/item:translate-x-2 transition-transform"
                                   >
                                     {item.value}
                                   </a>
@@ -1043,7 +1046,7 @@ export default function ContactPage() {
                   <div className="group relative">
                     <div className="flex items-start gap-6 pb-8 border-b border-brass/20 group-hover:border-brass/40 transition-colors duration-500">
                 <motion.div
-                        className="flex-shrink-0 w-16 h-16 rounded-full bg-gradient-to-br from-brass/20 to-brass/10 flex items-center justify-center group-hover:from-brass/30 group-hover:to-brass/20 transition-all duration-500"
+                        className="flex-shrink-0 w-16 h-16 rounded-full bg-gradient-to-br from-brass/20 to-brass/10 flex items-center justify-center group-hover:from-brass/30 group-hover:to-brass/20 transition-all duration-500 shadow-lg shadow-brass/10"
                         whileHover={{ rotate: 360 }}
                         transition={{ duration: 0.6 }}
                       >
@@ -1052,12 +1055,12 @@ export default function ContactPage() {
                         </svg>
                       </motion.div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-serif text-2xl text-brass mb-3 tracking-wide">WhatsApp</h3>
+                        <h3 className="font-serif text-2xl text-charcoal mb-3 tracking-wide">WhatsApp</h3>
                         <a 
                           href={`https://wa.me/${whatsAppNumber.replace(/[^0-9]/g, '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-charcoal/90 hover:text-brass transition-colors duration-300 text-lg font-medium block group-hover:translate-x-2 transition-transform"
+                          className="text-charcoal hover:text-brass transition-colors duration-300 text-lg font-medium block group-hover:translate-x-2 transition-transform"
                         >
                           {whatsAppNumber}
                         </a>
@@ -1091,8 +1094,8 @@ export default function ContactPage() {
                             rel="noopener noreferrer"
                               className="group/item flex items-center gap-3 p-3 rounded-lg hover:bg-olive/10 transition-all duration-300"
                           >
-                              <SocialMediaIcon platform={platform.icon} className="w-6 h-6 text-charcoal/70 group-hover/item:text-olive transition-colors flex-shrink-0" />
-                              <span className="text-charcoal/90 group-hover/item:text-olive transition-colors text-base font-medium">{platform.name}</span>
+                              <SocialMediaIcon platform={platform.icon} className="w-6 h-6 text-charcoal/60 group-hover/item:text-olive transition-colors flex-shrink-0" />
+                              <span className="text-charcoal group-hover/item:text-olive transition-colors text-base font-medium">{platform.name}</span>
                           </a>
                         ))}
                       </div>
@@ -1132,7 +1135,7 @@ export default function ContactPage() {
                     </div>
 
                     {/* Google Maps Container */}
-                    <div className="relative w-full h-[400px] lg:h-[500px] rounded-2xl overflow-hidden border-2 border-brass/20 shadow-xl group hover:border-brass/40 transition-all duration-500">
+                    <div className="relative w-full h-[400px] lg:h-[500px] rounded-2xl overflow-hidden border-2 border-brass/30 shadow-2xl shadow-brass/10 group hover:border-brass/50 transition-all duration-500">
                       {/* Google Maps iframe - Ready for API integration */}
                       {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && addresses.length > 0 ? (
                         <iframe
@@ -1145,21 +1148,21 @@ export default function ContactPage() {
                         />
                       ) : (
                         /* Placeholder when API key is not configured */
-                        <div className="absolute inset-0 bg-gradient-to-br from-charcoal/10 via-charcoal/5 to-olive/5 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-gradient-to-br from-brass/5 via-ivory/50 to-olive/5 flex items-center justify-center">
                           <div className="text-center space-y-4 p-8">
                             <motion.div
                               animate={{ rotate: [0, 10, -10, 0] }}
                               transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
                             >
-                              <svg className="w-16 h-16 text-brass/40 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-16 h-16 text-brass/50 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                               </svg>
                             </motion.div>
                             <div className="space-y-2">
-                              <p className="text-charcoal/70 text-base font-medium">Google Maps Integration</p>
-                              <p className="text-charcoal/50 text-sm">Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env file</p>
-                              <p className="text-charcoal/40 text-xs mt-4 p-3 bg-charcoal/5 rounded border border-brass/10">
+                              <p className="text-charcoal/80 text-base font-medium">Google Maps Integration</p>
+                              <p className="text-charcoal/60 text-sm">Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env file</p>
+                              <p className="text-charcoal/50 text-xs mt-4 p-3 bg-brass/5 rounded border border-brass/20">
                                 The map will automatically display when the API key is configured
                               </p>
                             </div>
