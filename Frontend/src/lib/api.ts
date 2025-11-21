@@ -1284,11 +1284,12 @@ export const contactApi = {
       body: JSON.stringify(data),
     }),
 
-  listInquiries: (token: string, params?: { status?: string; q?: string; sortBy?: string }) => {
+  listInquiries: (token: string, params?: { status?: string; q?: string; sortBy?: string; category?: string }) => {
     const queryParams = new URLSearchParams()
     if (params?.status) queryParams.append('status', params.status)
     if (params?.q) queryParams.append('q', params.q)
     if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+    if (params?.category) queryParams.append('category', params.category)
     
     const query = queryParams.toString()
     return apiCall<ContactInquiry[]>(`/contact/inquiries${query ? `?${query}` : ''}`, {

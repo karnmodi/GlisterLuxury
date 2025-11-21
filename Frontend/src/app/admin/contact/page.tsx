@@ -20,6 +20,28 @@ export default function AdminContactPage() {
   const [adminNotes, setAdminNotes] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
+  const [categoryFilter, setCategoryFilter] = useState<string>('')
+  const [sortBy, setSortBy] = useState<string>('')
+
+  // Category options for the dropdown
+  const categoryOptions = [
+    { value: 'general_inquiry', label: 'General Inquiry' },
+    { value: 'product_inquiry', label: 'Product Inquiry' },
+    { value: 'order_status', label: 'Order Status' },
+    { value: 'refund_request', label: 'Refund Request' },
+    { value: 'bulk_order', label: 'Bulk Order' },
+    { value: 'technical_support', label: 'Technical Support' },
+    { value: 'shipping_delivery', label: 'Shipping & Delivery' },
+    { value: 'payment_issue', label: 'Payment Issue' },
+    { value: 'complaint', label: 'Complaint' },
+    { value: 'other', label: 'Other' }
+  ]
+
+  // Helper function to format category label
+  const formatCategoryLabel = (category: string) => {
+    const option = categoryOptions.find(opt => opt.value === category)
+    return option ? option.label : category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
 
   const [formData, setFormData] = useState({
     type: 'address' as 'address' | 'phone' | 'email' | 'social',
@@ -49,7 +71,7 @@ export default function AdminContactPage() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, activeTab, statusFilter])
+  }, [token, activeTab, statusFilter, categoryFilter, sortBy])
 
   const fetchContactInfo = async () => {
     if (!token) return
@@ -70,7 +92,12 @@ export default function AdminContactPage() {
     if (!token) return
     try {
       setLoading(true)
-      const data = await contactApi.listInquiries(token, { status: statusFilter || undefined, q: searchQuery || undefined })
+      const data = await contactApi.listInquiries(token, { 
+        status: statusFilter || undefined, 
+        q: searchQuery || undefined,
+        category: categoryFilter || undefined,
+        sortBy: sortBy || undefined
+      })
       setInquiries(data)
     } catch (error) {
       console.error('Failed to fetch inquiries:', error)
@@ -328,14 +355,14 @@ export default function AdminContactPage() {
 
       {/* Search Bar */}
       {activeTab === 'inquiries' && (
-        <div className="flex gap-2 bg-white rounded-lg px-3 py-2 shadow border border-brass/20">
+        <div className="flex flex-wrap gap-2 bg-white rounded-lg px-3 py-2 shadow border border-brass/20">
           <input
             type="text"
             placeholder="Search inquiries..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            className="flex-1 px-2 py-1 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+            className="flex-1 min-w-[150px] px-2 py-1 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
           />
           <select
             value={statusFilter}
@@ -347,6 +374,27 @@ export default function AdminContactPage() {
             <option value="read">Read</option>
             <option value="replied">Replied</option>
             <option value="closed">Closed</option>
+          </select>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="px-2 py-1 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+          >
+            <option value="">All Categories</option>
+            {categoryOptions.map(option => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="px-2 py-1 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+          >
+            <option value="">Sort By...</option>
+            <option value="category">Category</option>
+            <option value="status">Status</option>
+            <option value="name">Name</option>
+            <option value="oldest">Oldest First</option>
           </select>
           <button
             onClick={handleSearch}
@@ -494,7 +542,12 @@ export default function AdminContactPage() {
                           </span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-charcoal text-xs truncate">{inquiry.subject}</p>
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <p className="font-semibold text-charcoal text-xs truncate">{inquiry.subject}</p>
+                            <span className="px-1.5 py-0.5 bg-purple-100 text-purple-800 rounded text-[8px] font-semibold whitespace-nowrap">
+                              {formatCategoryLabel(inquiry.category)}
+                            </span>
+                          </div>
                           <p className="text-[10px] text-charcoal/60 mt-0.5 truncate">{inquiry.name}</p>
                           <p className="text-[10px] text-charcoal/50 mt-1 line-clamp-1">{inquiry.message.substring(0, 50)}...</p>
                           <p className="text-[9px] text-charcoal/40 mt-1">
@@ -546,6 +599,14 @@ export default function AdminContactPage() {
                         <option value="replied">Replied</option>
                         <option value="closed">Closed</option>
                       </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-charcoal/60 uppercase tracking-wide">Category</label>
+                    <div className="mt-1">
+                      <span className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-semibold">
+                        {formatCategoryLabel(selectedInquiry.category)}
+                      </span>
                     </div>
                   </div>
                   <div>

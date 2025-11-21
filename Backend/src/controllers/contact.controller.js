@@ -746,12 +746,17 @@ async function submitInquiry(req, res) {
 
 async function listInquiries(req, res) {
 	try {
-		const { status, q, sortBy } = req.query;
+		const { status, q, sortBy, category } = req.query;
 		const filter = {};
 		
 		// Status filter
 		if (status) {
 			filter.status = status;
+		}
+		
+		// Category filter
+		if (category) {
+			filter.category = category;
 		}
 		
 		// Search filter
@@ -776,6 +781,9 @@ async function listInquiries(req, res) {
 					break;
 				case 'name':
 					sort = { name: 1 };
+					break;
+				case 'category':
+					sort = { category: 1, createdAt: -1 };
 					break;
 			}
 		}
