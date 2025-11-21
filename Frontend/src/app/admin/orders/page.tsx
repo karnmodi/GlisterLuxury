@@ -278,8 +278,15 @@ export default function AdminOrdersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div>
-                        <p className="text-xs font-medium text-charcoal group-hover:text-charcoal/90">
+                        <p className="text-xs font-medium text-charcoal group-hover:text-charcoal/90 flex items-center gap-1.5">
                           {order.customerInfo.name}
+                          <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
+                            order.isGuestOrder 
+                              ? 'bg-gray-200 text-gray-700' 
+                              : 'bg-blue-200 text-blue-700'
+                          }`}>
+                            {order.isGuestOrder ? 'G' : 'R'}
+                          </span>
                         </p>
                         <p className="text-xs text-charcoal/60">
                           {order.customerInfo.email}

@@ -35,6 +35,7 @@ export default function AdminOrderDetailPage() {
   const [showOrderStatusHistory, setShowOrderStatusHistory] = useState(false)
   const [showPaymentStatusHistory, setShowPaymentStatusHistory] = useState(false)
   const [showVATBreakdown, setShowVATBreakdown] = useState(false)
+  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     if (token && user?.role === 'admin') {
@@ -172,6 +173,75 @@ export default function AdminOrderDetailPage() {
   const orderStatusConfig = getStatusConfig(order.status, 'order')
   const paymentStatusConfig = getStatusConfig(order.paymentInfo?.status || 'pending', 'payment')
 
+  const toggleItemExpansion = (index: number) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(index)) {
+        newSet.delete(index)
+      } else {
+        newSet.add(index)
+      }
+      return newSet
+    })
+  }
+
+  // Calculate per-item price breakdown using actual priceBreakdown data
+  // Note: All prices are VAT-inclusive, so we extract VAT from the total
+  const calculateItemBreakdown = (item: any, orderVATRate: number = 20) => {
+    const priceBreakdown = item.priceBreakdown || {
+      materialBase: toNumber(item.selectedMaterial.basePrice),
+      materialDiscount: item.selectedMaterial.materialDiscount ? toNumber(item.selectedMaterial.materialDiscount) : 0,
+      materialNet: item.selectedMaterial.netBasePrice ? toNumber(item.selectedMaterial.netBasePrice) : toNumber(item.selectedMaterial.basePrice),
+      size: item.selectedSize ? toNumber(item.selectedSize.sizeCost) : 0,
+      finishes: item.selectedFinish ? toNumber(item.selectedFinish.priceAdjustment) : 0,
+      packaging: toNumber(item.packagingPrice),
+      totalItemDiscount: 0
+    }
+    
+    const materialBasePrice = toNumber(priceBreakdown.materialBase)
+    const materialDiscount = toNumber(priceBreakdown.materialDiscount)
+    const materialNet = toNumber(priceBreakdown.materialNet)
+    const sizeCost = toNumber(priceBreakdown.size)
+    const finishCost = toNumber(priceBreakdown.finishes)
+    const packagingCost = toNumber(priceBreakdown.packaging)
+    
+    const materialCost = materialNet
+    
+    // All component prices are VAT-inclusive
+    // Unit price (VAT-inclusive) = material + size + finish + packaging
+    const unitPriceIncludingVAT = materialCost + sizeCost + finishCost + packagingCost
+    
+    const quantity = item.quantity
+    
+    // Total item price (VAT-inclusive)
+    const itemTotal = toNumber(item.totalPrice)
+    
+    // Extract VAT from the total price using the formula: VAT = price × (rate / (100 + rate))
+    const vatRate = orderVATRate || 20
+    const vatAmount = (itemTotal * vatRate) / (100 + vatRate)
+    
+    // Calculate price excluding VAT
+    const itemSubtotalBeforeVAT = itemTotal - vatAmount
+    const unitPriceBeforeVAT = itemSubtotalBeforeVAT / quantity
+
+    return {
+      materialBasePrice,
+      materialCost,
+      materialDiscount,
+      sizeCost,
+      finishCost,
+      packagingCost,
+      unitPriceBeforeVAT,
+      unitPriceIncludingVAT,
+      quantity,
+      itemSubtotalBeforeVAT,
+      vatAmount,
+      itemTotal,
+      hasDiscount: materialDiscount > 0,
+      discountPercentage: materialBasePrice > 0 ? Math.round((materialDiscount / materialBasePrice) * 100) : 0
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Header with Order Info and Status Badges */}
@@ -193,9 +263,18 @@ export default function AdminOrderDetailPage() {
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
           {/* Order Info */}
           <div className="flex-1">
-            <h1 className="text-3xl font-serif font-bold text-charcoal mb-2 tracking-tight">
-              Order #{order.orderNumber}
-            </h1>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-serif font-bold text-charcoal tracking-tight">
+                Order #{order.orderNumber}
+              </h1>
+              <span className={`inline-flex items-center rounded-full border px-3 py-1 text-sm font-medium ${
+                order.isGuestOrder 
+                  ? 'bg-gray-100 text-gray-700 border-gray-300' 
+                  : 'bg-blue-100 text-blue-700 border-blue-300'
+              }`}>
+                {order.isGuestOrder ? 'Guest User' : 'Registered User'}
+              </span>
+            </div>
             <div className="flex flex-wrap items-center gap-3 text-charcoal/60 text-sm">
               <div className="flex items-center gap-1.5">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -336,52 +415,211 @@ export default function AdminOrderDetailPage() {
               </h2>
             </div>
             <div className="space-y-3">
-              {order.items.map((item, index) => (
-                <motion.div 
-                  key={index}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + index * 0.1 }}
-                  className="bg-white/60 rounded-lg p-4 border border-brass/20 hover:border-brass/40 transition-colors"
-                >
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-charcoal text-sm mb-1">{item.productName}</h3>
-                      <p className="text-xs text-brass font-mono mb-2">{item.productCode}</p>
-                      <div className="grid grid-cols-2 gap-2 text-xs text-charcoal/70">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-brass">▪</span>
-                          <span>Material: <span className="font-medium text-charcoal">{item.selectedMaterial.name}</span></span>
+              {order.items.map((item, index) => {
+                const isExpanded = expandedItems.has(index)
+                const breakdown = calculateItemBreakdown(item, order.pricing.vatRate || 20)
+                
+                return (
+                  <motion.div 
+                    key={index}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 + index * 0.1 }}
+                    className="bg-white/60 rounded-lg border border-brass/20 hover:border-brass/40 transition-colors overflow-hidden"
+                  >
+                    <div className="p-4">
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-charcoal text-sm mb-1">{item.productName}</h3>
+                          <p className="text-xs text-brass font-mono mb-2">{item.productCode}</p>
+                          <div className="grid grid-cols-2 gap-2 text-xs text-charcoal/70">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-brass">▪</span>
+                              <span>Material: <span className="font-medium text-charcoal">{item.selectedMaterial.name}</span></span>
+                            </div>
+                            {item.selectedSize && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-brass">▪</span>
+                                <span>Size: <span className="font-medium text-charcoal">
+                                  {item.selectedSize.name && item.selectedSize.sizeMM 
+                                    ? `${item.selectedSize.name} ${item.selectedSize.sizeMM}mm`
+                                    : item.selectedSize.sizeMM 
+                                    ? `${item.selectedSize.sizeMM}mm`
+                                    : item.selectedSize.name || 'Standard'}
+                                </span></span>
+                              </div>
+                            )}
+                            {item.selectedFinish?.name && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-brass">▪</span>
+                                <span>Finish: <span className="font-medium text-charcoal">{item.selectedFinish.name}</span></span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-brass">▪</span>
+                              <span>Qty: <span className="font-medium text-charcoal">{item.quantity}</span></span>
+                            </div>
+                          </div>
                         </div>
-                        {item.selectedSize != null && (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-brass">▪</span>
-                            <span>Size: <span className="font-medium text-charcoal">{item.selectedSizeName ? `${item.selectedSizeName} ${item.selectedSize}mm` : `${item.selectedSize}mm`}</span></span>
-                          </div>
-                        )}
-                        {item.selectedFinish?.name && (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-brass">▪</span>
-                            <span>Finish: <span className="font-medium text-charcoal">{item.selectedFinish.name}</span></span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-brass">▪</span>
-                          <span>Qty: <span className="font-medium text-charcoal">{item.quantity}</span></span>
+                        <div className="text-right border-l border-brass/20 pl-4">
+                          <p className="font-bold text-brass text-lg">
+                            {formatCurrency(item.totalPrice)}
+                          </p>
+                          <p className="text-xs text-charcoal/60 mt-1">
+                            {formatCurrency(item.unitPrice)} each
+                          </p>
                         </div>
                       </div>
+
+                      {/* Toggle Price Breakdown Button */}
+                      <button
+                        onClick={() => toggleItemExpansion(index)}
+                        className="w-full mt-3 flex items-center justify-between bg-brass/10 border border-brass/30 rounded-lg px-3 py-2 hover:bg-brass/20 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-brass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                          <span className="text-xs font-semibold text-brass">Price Breakdown</span>
+                        </div>
+                        <svg
+                          className={`w-4 h-4 text-brass transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
                     </div>
-                    <div className="text-right border-l border-brass/20 pl-4">
-                      <p className="font-bold text-brass text-lg">
-                        {formatCurrency(item.totalPrice)}
-                      </p>
-                      <p className="text-xs text-charcoal/60 mt-1">
-                        {formatCurrency(item.unitPrice)} each
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+
+                    {/* Expandable Price Breakdown */}
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="bg-brass/5 border-t border-brass/20 p-4 space-y-3">
+                            <div>
+                              <div className="flex items-center gap-2 mb-3">
+                                <svg className="w-4 h-4 text-brass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <h4 className="text-brass font-bold text-sm">Price Breakdown</h4>
+                              </div>
+                              
+                              <div className="space-y-2.5">
+                                {/* Material with discount if applicable */}
+                                <div className="flex items-center justify-between">
+                                  <span className="text-charcoal/70 text-xs">
+                                    Material ({item.selectedMaterial.name})
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {breakdown.hasDiscount && (
+                                      <>
+                                        <span className="text-charcoal/50 text-xs line-through">
+                                          {formatCurrency(breakdown.materialBasePrice)}
+                                        </span>
+                                        <span className="bg-brass/20 text-brass text-[10px] font-semibold px-1.5 py-0.5 rounded">
+                                          -{breakdown.discountPercentage}%
+                                        </span>
+                                      </>
+                                    )}
+                                    <span className="text-charcoal font-medium text-xs">
+                                      {formatCurrency(breakdown.materialCost)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Size */}
+                                {breakdown.sizeCost > 0 && item.selectedSize && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-charcoal/70 text-xs">
+                                      Size {item.selectedSize.name && item.selectedSize.sizeMM 
+                                        ? `(${item.selectedSize.name} ${item.selectedSize.sizeMM}mm)`
+                                        : item.selectedSize.sizeMM 
+                                        ? `(${item.selectedSize.sizeMM}mm)`
+                                        : item.selectedSize.name 
+                                        ? `(${item.selectedSize.name})`
+                                        : ''}
+                                    </span>
+                                    <span className="text-charcoal font-medium text-xs">
+                                      +{formatCurrency(breakdown.sizeCost)}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Finish */}
+                                {breakdown.finishCost > 0 && item.selectedFinish && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-charcoal/70 text-xs">
+                                      Finish ({item.selectedFinish.name})
+                                    </span>
+                                    <span className="text-charcoal font-medium text-xs">
+                                      +{formatCurrency(breakdown.finishCost)}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Premium Packaging */}
+                                {breakdown.packagingCost > 0 && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-charcoal/70 text-xs">
+                                      Premium Packaging
+                                    </span>
+                                    <span className="text-charcoal font-medium text-xs">
+                                      +{formatCurrency(breakdown.packagingCost)}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Item Total Section */}
+                            <div className="border-t border-brass/20 pt-3">
+                              <div className="flex items-center gap-2 mb-3">
+                                <svg className="w-4 h-4 text-brass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <h4 className="text-brass font-bold text-sm">Item Total (VAT Included):</h4>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-charcoal/70 text-xs">Price excluding VAT:</span>
+                                  <span className="text-charcoal font-medium text-xs">
+                                    {formatCurrency(breakdown.itemSubtotalBeforeVAT)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-charcoal/70 text-xs">
+                                    VAT ({order.pricing.vatRate || 20}%):
+                                  </span>
+                                  <span className="text-charcoal font-medium text-xs">
+                                    +{formatCurrency(breakdown.vatAmount)}
+                                  </span>
+                                </div>
+                                <div className="border-t border-brass/20 pt-2 mt-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-brass font-bold text-xs">Total (inc. VAT):</span>
+                                    <span className="text-brass font-bold text-sm">
+                                      {formatCurrency(breakdown.itemTotal)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                )
+              })}
             </div>
 
             {/* Pricing Summary */}
@@ -450,13 +688,16 @@ export default function AdminOrderDetailPage() {
                   const discountNum = toNumber(order.pricing.discount)
                   const shippingNum = toNumber(order.pricing.shipping)
                   const totalAfterDiscount = Math.max(0, subtotalNum - discountNum)
-                  const taxableAmount = totalAfterDiscount + shippingNum
+                  // Total amount (VAT-inclusive) = subtotal - discount + shipping
+                  const totalIncludingVAT = totalAfterDiscount + shippingNum
                   const vatRate = order.pricing.vatRate || 20
-                  const itemTotalBeforeVAT = taxableAmount / (1 + vatRate / 100)
-                  const vatAmount = toNumber(order.pricing.tax)
                   
-                  // Show VAT breakdown if VAT is enabled (vatRate > 0) or if tax amount exists
-                  if (vatRate > 0 || vatAmount > 0) {
+                  // Extract VAT from VAT-inclusive total: VAT = total × (rate / (100 + rate))
+                  const vatAmount = (totalIncludingVAT * vatRate) / (100 + vatRate)
+                  // Calculate total before VAT
+                  const totalBeforeVAT = totalIncludingVAT - vatAmount
+
+                  if (vatRate > 0) {
                     return (
                       <div className="mt-3">
                         <button
@@ -490,15 +731,15 @@ export default function AdminOrderDetailPage() {
                               <div className="bg-brass/5 border border-brass/20 rounded-lg p-3 mt-2 space-y-2">
                                 <div className="flex justify-between text-charcoal text-xs">
                                   <span>Item Total Before VAT:</span>
-                                  <span className="font-semibold">{formatCurrency(itemTotalBeforeVAT)}</span>
+                                  <span className="font-semibold">{formatCurrency(totalBeforeVAT)}</span>
                                 </div>
                                 <div className="flex justify-between text-charcoal text-xs">
-                                  <span>VAT Added ({vatRate}%):</span>
-                                  <span className="font-semibold">{formatCurrency(vatAmount)}</span>
+                                  <span>VAT ({vatRate}%):</span>
+                                  <span className="font-semibold">+{formatCurrency(vatAmount)}</span>
                                 </div>
                                 <div className="flex justify-between text-charcoal text-xs font-bold border-t border-brass/20 pt-2 mt-2">
                                   <span>Total (inc. VAT):</span>
-                                  <span className="text-brass">{formatCurrency(taxableAmount)}</span>
+                                  <span className="text-brass">{formatCurrency(totalIncludingVAT)}</span>
                                 </div>
                               </div>
                             </motion.div>

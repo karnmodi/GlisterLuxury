@@ -26,7 +26,23 @@ export default function CheckoutPage() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
   const [termsAccepted, setTermsAccepted] = useState(false)
-  
+
+  // Guest checkout state
+  const [isGuestCheckout, setIsGuestCheckout] = useState(false)
+  const [guestInfo, setGuestInfo] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  })
+  const [guestAddress, setGuestAddress] = useState({
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    county: '',
+    postcode: '',
+    country: 'United Kingdom'
+  })
+
   // Address modal state
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [editingAddress, setEditingAddress] = useState<Address | null>(null)
@@ -42,11 +58,12 @@ export default function CheckoutPage() {
   })
   const [updatingAddress, setUpdatingAddress] = useState(false)
 
+  // Determine if user is checking out as guest
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push('/login?returnUrl=/checkout')
+      setIsGuestCheckout(true)
     }
-  }, [authLoading, isAuthenticated, router])
+  }, [authLoading, isAuthenticated])
 
   useEffect(() => {
     if (user && user.addresses.length > 0) {
@@ -141,45 +158,103 @@ export default function CheckoutPage() {
       return
     }
 
-    if (!selectedAddressId) {
-      toast.warning('Please select a delivery address')
-      return
-    }
-
     if (!termsAccepted) {
       toast.warning('Please confirm that you have read and agree to the Terms & Conditions')
-      return
-    }
-
-    if (!token) {
-      toast.error('Please login to continue')
-      router.push('/login?returnUrl=/checkout')
       return
     }
 
     try {
       setProcessing(true)
 
-      const response = await ordersApi.create({
-        sessionID,
-        deliveryAddressId: selectedAddressId,
-        orderNotes: orderNotes.trim() || undefined
-      }, token)
+      if (isGuestCheckout) {
+        // GUEST CHECKOUT FLOW
+        // Validate guest info
+        if (!guestInfo.name.trim() || !guestInfo.email.trim() || !guestInfo.phone.trim()) {
+          toast.error('Please provide your name, email address, and phone number')
+          setProcessing(false)
+          return
+        }
 
-      if (response.success) {
-        setOrderNumber(response.order.orderNumber)
-        setShowSuccess(true)
-        toast.success('Order placed successfully!')
+        // Validate email format
+        const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/
+        if (!emailRegex.test(guestInfo.email)) {
+          toast.error('Please provide a valid email address')
+          setProcessing(false)
+          return
+        }
+
+        // Validate guest address
+        if (!guestAddress.addressLine1.trim() || !guestAddress.city.trim() || !guestAddress.postcode.trim()) {
+          toast.error('Please provide complete delivery address (Address Line 1, City, and Postcode are required)')
+          setProcessing(false)
+          return
+        }
+
+        const response = await ordersApi.createGuest({
+          sessionID,
+          customerInfo: {
+            name: guestInfo.name.trim(),
+            email: guestInfo.email.trim(),
+            phone: guestInfo.phone.trim()
+          },
+          deliveryAddress: {
+            addressLine1: guestAddress.addressLine1.trim(),
+            addressLine2: guestAddress.addressLine2.trim() || undefined,
+            city: guestAddress.city.trim(),
+            county: guestAddress.county.trim() || undefined,
+            postcode: guestAddress.postcode.trim(),
+            country: guestAddress.country.trim() || 'United Kingdom'
+          },
+          orderNotes: orderNotes.trim() || undefined
+        })
+
+        if (response.success) {
+          setOrderNumber(response.order.orderNumber)
+          setShowSuccess(true)
+          toast.success('Order placed successfully!')
+          // Save email to localStorage for order tracking
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('guest_order_email', guestInfo.email)
+          }
+        } else {
+          toast.error(response.message || 'Failed to place order. Please try again.')
+        }
       } else {
-        toast.error(response.message || 'Failed to place order. Please try again.')
+        // AUTHENTICATED USER FLOW
+        if (!selectedAddressId) {
+          toast.warning('Please select a delivery address')
+          setProcessing(false)
+          return
+        }
+
+        if (!token) {
+          toast.error('Please login to continue')
+          router.push('/login?returnUrl=/checkout')
+          setProcessing(false)
+          return
+        }
+
+        const response = await ordersApi.create({
+          sessionID,
+          deliveryAddressId: selectedAddressId,
+          orderNotes: orderNotes.trim() || undefined
+        }, token)
+
+        if (response.success) {
+          setOrderNumber(response.order.orderNumber)
+          setShowSuccess(true)
+          toast.success('Order placed successfully!')
+        } else {
+          toast.error(response.message || 'Failed to place order. Please try again.')
+        }
       }
     } catch (error: any) {
       console.error('Failed to place order:', error)
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to place order. Please try again.'
       toast.error(errorMessage)
-      
-      // If error is about missing address, redirect to profile
-      if (errorMessage.includes('address') || errorMessage.includes('Address')) {
+
+      // If error is about missing address for authenticated users, redirect to profile
+      if (!isGuestCheckout && (errorMessage.includes('address') || errorMessage.includes('Address'))) {
         setTimeout(() => {
           router.push('/profile')
         }, 3000)
@@ -189,7 +264,7 @@ export default function CheckoutPage() {
     }
   }
 
-  if (authLoading || cartLoading) {
+  if (cartLoading) {
     return (
       <div className="min-h-screen bg-charcoal">
         <LuxuryNavigation />
@@ -198,10 +273,6 @@ export default function CheckoutPage() {
         </div>
       </div>
     )
-  }
-
-  if (!isAuthenticated || !user) {
-    return null
   }
 
   if (!cart || cart.items.length === 0) {
@@ -248,34 +319,183 @@ export default function CheckoutPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column - Checkout Form */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Guest Info Form (only shown for guest checkout) */}
+              {isGuestCheckout && (
+                <div className="bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg p-6">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-2xl font-serif font-bold text-ivory">Contact Information</h2>
+                    <Link
+                      href="/login?returnUrl=/checkout"
+                      className="text-sm text-brass hover:text-olive underline transition-colors"
+                    >
+                      Already have an account? Sign in
+                    </Link>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-ivory text-sm font-medium mb-2">
+                        Full Name <span className="text-brass">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={guestInfo.name}
+                        onChange={(e) => setGuestInfo({ ...guestInfo, name: e.target.value })}
+                        className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
+                        placeholder="John Doe"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-ivory text-sm font-medium mb-2">
+                        Email Address <span className="text-brass">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        value={guestInfo.email}
+                        onChange={(e) => setGuestInfo({ ...guestInfo, email: e.target.value })}
+                        className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
+                        placeholder="john@example.com"
+                        required
+                      />
+                      <p className="mt-1 text-xs text-ivory/50">We&apos;ll send your order confirmation to this email</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-ivory text-sm font-medium mb-2">
+                        Phone Number <span className="text-brass">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={guestInfo.phone}
+                        onChange={(e) => setGuestInfo({ ...guestInfo, phone: e.target.value })}
+                        className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
+                        placeholder="+44 1234 567890"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Delivery Address */}
               <div className="bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg p-6">
                 <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
                   <h2 className="text-2xl font-serif font-bold text-ivory">Delivery Address</h2>
-                  <div className="flex gap-2">
-                    {user.addresses.length > 0 && (
+                  {!isGuestCheckout && (
+                    <div className="flex gap-2">
+                      {user && user.addresses.length > 0 && (
+                        <button
+                          onClick={() => {
+                            const addressToEdit = user.addresses.find(addr => addr._id === selectedAddressId)
+                            if (addressToEdit) {
+                              openAddressModal(addressToEdit)
+                            }
+                          }}
+                          className="px-3 py-1.5 text-xs bg-ivory/10 text-ivory rounded border border-ivory/30 hover:bg-ivory/20 transition-colors"
+                        >
+                          Change Address
+                        </button>
+                      )}
                       <button
-                        onClick={() => {
-                          const addressToEdit = user.addresses.find(addr => addr._id === selectedAddressId)
-                          if (addressToEdit) {
-                            openAddressModal(addressToEdit)
-                          }
-                        }}
-                        className="px-3 py-1.5 text-xs bg-ivory/10 text-ivory rounded border border-ivory/30 hover:bg-ivory/20 transition-colors"
+                        onClick={() => openAddressModal()}
+                        className="px-3 py-1.5 text-xs bg-brass/20 text-brass rounded border border-brass/30 hover:bg-brass/30 transition-colors"
                       >
-                        Change Address
+                        Add New
                       </button>
-                    )}
-                    <button
-                      onClick={() => openAddressModal()}
-                      className="px-3 py-1.5 text-xs bg-brass/20 text-brass rounded border border-brass/30 hover:bg-brass/30 transition-colors"
-                    >
-                      Add New
-                    </button>
-                  </div>
+                    </div>
+                  )}
                 </div>
-                
-                {user.addresses.length === 0 ? (
+
+                {isGuestCheckout ? (
+                  // Guest Address Form
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-ivory text-sm font-medium mb-2">
+                        Address Line 1 <span className="text-brass">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={guestAddress.addressLine1}
+                        onChange={(e) => setGuestAddress({ ...guestAddress, addressLine1: e.target.value })}
+                        className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
+                        placeholder="123 Main Street"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-ivory text-sm font-medium mb-2">
+                        Address Line 2 (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={guestAddress.addressLine2}
+                        onChange={(e) => setGuestAddress({ ...guestAddress, addressLine2: e.target.value })}
+                        className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
+                        placeholder="Apartment, suite, etc."
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-ivory text-sm font-medium mb-2">
+                          City <span className="text-brass">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={guestAddress.city}
+                          onChange={(e) => setGuestAddress({ ...guestAddress, city: e.target.value })}
+                          className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
+                          placeholder="London"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-ivory text-sm font-medium mb-2">
+                          County (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={guestAddress.county}
+                          onChange={(e) => setGuestAddress({ ...guestAddress, county: e.target.value })}
+                          className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
+                          placeholder="Greater London"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-ivory text-sm font-medium mb-2">
+                          Postcode <span className="text-brass">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={guestAddress.postcode}
+                          onChange={(e) => setGuestAddress({ ...guestAddress, postcode: e.target.value.toUpperCase() })}
+                          className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass uppercase"
+                          placeholder="SW1A 1AA"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-ivory text-sm font-medium mb-2">
+                          Country
+                        </label>
+                        <input
+                          type="text"
+                          value={guestAddress.country}
+                          onChange={(e) => setGuestAddress({ ...guestAddress, country: e.target.value })}
+                          className="w-full px-4 py-3 bg-charcoal border border-brass/30 text-ivory rounded-md focus:outline-none focus:border-brass"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : user && user.addresses.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-ivory/70 mb-4">No delivery addresses found</p>
                     <button
@@ -285,7 +505,7 @@ export default function CheckoutPage() {
                       Add Address
                     </button>
                   </div>
-                ) : (
+                ) : user && user.addresses ? (
                   <div className="space-y-3">
                     {user.addresses.map((address) => (
                       <div
@@ -322,7 +542,7 @@ export default function CheckoutPage() {
                       </div>
                     ))}
                   </div>
-                )}
+                ) : null}
               </div>
 
               {/* Order Notes */}
@@ -390,7 +610,7 @@ export default function CheckoutPage() {
               
               <button
                 onClick={handlePlaceOrder}
-                disabled={processing || !selectedAddressId || !termsAccepted}
+                disabled={processing || (!isGuestCheckout && !selectedAddressId) || !termsAccepted}
                 className="w-full mt-6 px-6 py-4 bg-brass text-charcoal font-bold text-lg rounded-md hover:bg-olive transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {processing ? 'Processing...' : 'Place Order'}
@@ -418,24 +638,60 @@ export default function CheckoutPage() {
               Your order number is:
             </p>
             <p className="text-brass text-xl font-bold mb-6">{orderNumber}</p>
-            <p className="text-ivory/60 text-sm mb-6">
-              We&apos;ll send you an email with payment instructions shortly.
-              You can track your order status in your orders page.
-            </p>
-            <div className="flex gap-4">
-              <button
-                onClick={() => router.push(`/orders`)}
-                className="flex-1 px-6 py-3 bg-brass text-charcoal font-medium rounded-md hover:bg-olive transition-all duration-300"
-              >
-                View Orders
-              </button>
-              <button
-                onClick={() => router.push('/products')}
-                className="flex-1 px-6 py-3 border border-brass/50 text-ivory rounded-md hover:bg-brass/10 transition-all duration-300"
-              >
-                Continue Shopping
-              </button>
-            </div>
+
+            {isGuestCheckout ? (
+              <>
+                <div className="bg-brass/10 border border-brass/30 rounded-lg p-4 mb-6 text-left">
+                  <p className="text-ivory/80 text-sm mb-3">
+                    <strong className="text-brass">Important:</strong> Please save this order number and the email address you provided.
+                  </p>
+                  <p className="text-ivory/70 text-xs mb-2">
+                    • Order confirmation sent to: <span className="text-brass">{guestInfo.email}</span>
+                  </p>
+                  <p className="text-ivory/70 text-xs">
+                    • Track your order at any time using your order number and email
+                  </p>
+                </div>
+                <p className="text-ivory/60 text-sm mb-6">
+                  We&apos;ll send you an email with payment instructions shortly.
+                </p>
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={() => router.push(`/track`)}
+                    className="w-full px-6 py-3 bg-brass text-charcoal font-medium rounded-md hover:bg-olive transition-all duration-300"
+                  >
+                    Track My Order
+                  </button>
+                  <button
+                    onClick={() => router.push('/products')}
+                    className="w-full px-6 py-3 border border-brass/50 text-ivory rounded-md hover:bg-brass/10 transition-all duration-300"
+                  >
+                    Continue Shopping
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-ivory/60 text-sm mb-6">
+                  We&apos;ll send you an email with payment instructions shortly.
+                  You can track your order status in your orders page.
+                </p>
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => router.push(`/orders`)}
+                    className="flex-1 px-6 py-3 bg-brass text-charcoal font-medium rounded-md hover:bg-olive transition-all duration-300"
+                  >
+                    View Orders
+                  </button>
+                  <button
+                    onClick={() => router.push('/products')}
+                    className="flex-1 px-6 py-3 border border-brass/50 text-ivory rounded-md hover:bg-brass/10 transition-all duration-300"
+                  >
+                    Continue Shopping
+                  </button>
+                </div>
+              </>
+            )}
           </motion.div>
         </div>
       )}

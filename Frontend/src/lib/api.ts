@@ -536,7 +536,7 @@ export const cartApi = {
   add: (data: {
     sessionID: string
     productID: string
-    selectedMaterial: { materialID?: string; name: string; basePrice?: number }
+    selectedMaterial: { materialID?: string; name: string; basePrice?: number; materialDiscount?: number; netBasePrice?: number }
     selectedSize?: number
     selectedSizeName?: string
     selectedFinish?: string
@@ -903,6 +903,35 @@ export const ordersApi = {
       },
       body: JSON.stringify({ paymentStatus }),
     }),
+
+  // Guest order endpoints (no authentication required)
+  createGuest: (data: {
+    sessionID: string
+    customerInfo: {
+      name: string
+      email: string
+      phone?: string
+    }
+    deliveryAddress: {
+      label?: string
+      addressLine1: string
+      addressLine2?: string
+      city: string
+      county?: string
+      postcode: string
+      country?: string
+    }
+    orderNotes?: string
+  }) =>
+    apiCall<{ success: boolean; message: string; order: Order }>('/orders/guest', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  trackGuest: (orderNumber: string, email: string) =>
+    apiCall<{ success: boolean; order: Order }>(
+      `/orders/guest/track/${orderNumber}?email=${encodeURIComponent(email)}`
+    ),
 }
 
 // Wishlist API
@@ -1249,7 +1278,7 @@ export const contactApi = {
     }),
 
   // Contact Inquiries
-  submitInquiry: (data: { name: string; email: string; phone?: string; subject: string; message: string }) =>
+  submitInquiry: (data: { name: string; email: string; phone?: string; category: string; subject: string; message: string }) =>
     apiCall<{ message: string; inquiry: ContactInquiry }>('/contact/inquiry', {
       method: 'POST',
       body: JSON.stringify(data),

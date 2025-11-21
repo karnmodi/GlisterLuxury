@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const Finish = require('../models/Finish');
@@ -180,39 +181,109 @@ async function addToCart(req, res, next) {
 			cart = new Cart({ sessionID, items: [] });
 		}
 
-		// Get size name from product if not provided
-		let sizeName = selectedSizeName;
-		if (!sizeName && selectedSize != null) {
+		// Get size details from product if size is provided
+		let sizeDetail = null;
+		if (selectedSize != null) {
 			const materialMatch = priceData.resolved.materialMatch;
 			const sizeOption = (materialMatch.sizeOptions || []).find(s => Number(s.sizeMM) === Number(selectedSize));
-			if (sizeOption && sizeOption.name) {
-				sizeName = sizeOption.name;
+			if (sizeOption) {
+				sizeDetail = {
+					sizeID: null, // Size is embedded in product, no separate Size model
+					name: sizeOption.name || selectedSizeName || `${selectedSize}mm`,
+					sizeMM: Number(selectedSize),
+					sizeCost: breakdown.size,
+				};
 			}
 		}
 
-		// Create cart item
+		// Helper to convert to Decimal128 - explicitly handle the conversion
+		const toDecimal128 = (value) => {
+			if (value == null || value === undefined) {
+				return mongoose.Types.Decimal128.fromString('0.00');
+			}
+			const num = typeof value === 'number' ? value : parseFloat(value);
+			if (isNaN(num)) {
+				return mongoose.Types.Decimal128.fromString('0.00');
+			}
+			// Round to 2 decimal places
+			const rounded = Math.round(num * 100) / 100;
+			return mongoose.Types.Decimal128.fromString(rounded.toFixed(2));
+		};
+
+		// Calculate material discount and net price from breakdown (always use backend calculation for consistency)
+		const materialBase = parseFloat(breakdown.material || 0);
+		const materialDiscount = parseFloat(breakdown.discount || 0);
+		const materialNet = Math.max(0, materialBase - materialDiscount);
+
+		console.log('Price breakdown:', {
+			materialBase,
+			materialDiscount,
+			materialNet,
+			unitPrice,
+			totalAmount
+		});
+
+		// Convert materialID to ObjectId if needed
+		let materialIDObj = null;
+		if (selectedMaterial.materialID) {
+			try {
+				materialIDObj = typeof selectedMaterial.materialID === 'string'
+					? new mongoose.Types.ObjectId(selectedMaterial.materialID)
+					: selectedMaterial.materialID;
+			} catch (error) {
+				materialIDObj = priceData.resolved.materialMatch.materialID;
+			}
+		} else {
+			materialIDObj = priceData.resolved.materialMatch.materialID;
+		}
+
+		// Create cart item with proper nested structure
+		// Explicitly convert all Decimal128 fields
 		const cartItem = {
 			productID: product._id,
 			productName: product.name,
 			productCode: product.productID,
 			selectedMaterial: {
-				materialID: selectedMaterial.materialID || priceData.resolved.materialMatch.materialID,
+				materialID: materialIDObj,
 				name: selectedMaterial.name,
-				basePrice: breakdown.material,
+				basePrice: toDecimal128(materialBase),
+				materialDiscount: toDecimal128(materialDiscount),
+				netBasePrice: toDecimal128(materialNet),
 			},
-			selectedSize,
-			selectedSizeName: sizeName,
-			sizeCost: breakdown.size,
-			selectedFinish: finishDetail,
-			finishCost: breakdown.finishes,
-			packagingPrice: breakdown.packaging,
+			selectedSize: sizeDetail ? {
+				sizeID: sizeDetail.sizeID || null,
+				name: sizeDetail.name,
+				sizeMM: sizeDetail.sizeMM,
+				sizeCost: toDecimal128(sizeDetail.sizeCost || 0)
+			} : null,
+			selectedFinish: finishDetail ? {
+				finishID: finishDetail.finishID,
+				name: finishDetail.name,
+				priceAdjustment: toDecimal128(toNumber(finishDetail.priceAdjustment || 0))
+			} : null,
+			packagingPrice: toDecimal128(breakdown.packaging || 0),
 			quantity,
-			unitPrice,
-			totalPrice: totalAmount,
-			priceBreakdown: breakdown,
+			unitPrice: toDecimal128(unitPrice),
+			totalPrice: toDecimal128(totalAmount),
+			priceBreakdown: {
+				materialBase: toDecimal128(materialBase),
+				materialDiscount: toDecimal128(materialDiscount),
+				materialNet: toDecimal128(materialNet),
+				size: toDecimal128(breakdown.size || 0),
+				finishes: toDecimal128(breakdown.finishes || 0),
+				packaging: toDecimal128(breakdown.packaging || 0),
+				totalItemDiscount: toDecimal128(materialDiscount),
+			},
 		};
 
-		cart.items.push(cartItem);
+		console.log('Cart item before save:', JSON.stringify(cartItem, null, 2));
+
+		// Use Mongoose's create method for proper subdocument validation
+		const createdItem = cart.items.create(cartItem);
+		cart.items.push(createdItem);
+
+		console.log('After creating subdocument, netBasePrice:', cart.items[cart.items.length - 1].selectedMaterial.netBasePrice);
+
 		await cart.save();
 
 		// Validate and cleanup discount if cart no longer meets requirements
@@ -230,11 +301,13 @@ async function addToCart(req, res, next) {
 
 		res.status(201).json({
 			message: 'Item added to cart',
-			cart: await Cart.findById(cart._id).populate({
-				path: 'items.productID',
-				model: 'Product',
-				select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
-			}),
+			cart: await Cart.findById(cart._id)
+				.populate({
+					path: 'items.productID',
+					model: 'Product',
+					select: 'productID name description category packagingPrice packagingUnit materials finishes imageURLs createdAt updatedAt subcategoryId'
+				})
+				.populate('items.selectedFinish.finishID'),
 		});
 	} catch (error) {
 		next(error);
@@ -425,27 +498,41 @@ async function getCheckoutSummary(req, res, next) {
 		}
 
 		// Prepare detailed summary
-		const itemsSummary = cart.items.map(item => ({
-			itemID: item._id,
-			product: {
-				code: item.productCode,
-				name: item.productName,
-			},
-			selections: {
-				material: item.selectedMaterial.name,
-				size: item.selectedSizeName && item.selectedSize ? `${item.selectedSizeName} ${item.selectedSize}mm` : item.selectedSize ? `${item.selectedSize}mm` : 'Standard',
-				finish: item.selectedFinish ? item.selectedFinish.name : 'None',
-			},
-			pricing: {
-				materialCost: toNumber(item.priceBreakdown.material),
-				sizeCost: toNumber(item.priceBreakdown.size),
-				finishCost: toNumber(item.priceBreakdown.finishes),
-				packagingCost: toNumber(item.priceBreakdown.packaging),
-				unitPrice: toNumber(item.unitPrice),
-			},
-			quantity: item.quantity,
-			totalPrice: toNumber(item.totalPrice),
-		}));
+		const itemsSummary = cart.items.map(item => {
+			// Handle size display - read from nested selectedSize object
+			let sizeDisplay = 'Standard';
+			if (item.selectedSize) {
+				if (item.selectedSize.name && item.selectedSize.sizeMM) {
+					sizeDisplay = `${item.selectedSize.name} ${item.selectedSize.sizeMM}mm`;
+				} else if (item.selectedSize.sizeMM) {
+					sizeDisplay = `${item.selectedSize.sizeMM}mm`;
+				} else if (item.selectedSize.name) {
+					sizeDisplay = item.selectedSize.name;
+				}
+			}
+
+			return {
+				itemID: item._id,
+				product: {
+					code: item.productCode,
+					name: item.productName,
+				},
+				selections: {
+					material: item.selectedMaterial.name,
+					size: sizeDisplay,
+					finish: item.selectedFinish ? item.selectedFinish.name : 'None',
+				},
+				pricing: {
+					materialCost: toNumber(item.priceBreakdown.materialNet || item.priceBreakdown.materialBase || 0),
+					sizeCost: toNumber(item.priceBreakdown.size || 0),
+					finishCost: toNumber(item.priceBreakdown.finishes || 0),
+					packagingCost: toNumber(item.priceBreakdown.packaging || 0),
+					unitPrice: toNumber(item.unitPrice),
+				},
+				quantity: item.quantity,
+				totalPrice: toNumber(item.totalPrice),
+			};
+		});
 
 		const summary = {
 			sessionID: cart.sessionID,

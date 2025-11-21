@@ -115,26 +115,32 @@ export interface CartItem {
     materialID?: string
     name: string
     basePrice: number
+    materialDiscount?: number
+    netBasePrice?: number
   }
-  selectedSize?: number
-  selectedSizeName?: string
-  sizeCost: number
+  selectedSize?: {
+    sizeID?: string | null
+    name?: string
+    sizeMM?: number
+    sizeCost: number
+  }
   selectedFinish?: {
     finishID: string
     name: string
     priceAdjustment: number
   }
-  finishCost: number
   packagingPrice: number
   quantity: number
   unitPrice: number
   totalPrice: number
   priceBreakdown: {
-    material: number
+    materialBase: number
+    materialDiscount: number
+    materialNet: number
     size: number
     finishes: number
     packaging: number
-    discount?: number
+    totalItemDiscount: number
   }
 }
 
@@ -268,7 +274,12 @@ export interface ContactInfo {
   _id: string
   type: 'address' | 'phone' | 'email' | 'social'
   label: string
-  value: string
+  value?: string // Optional for backward compatibility
+  phones?: Array<{
+    type: 'landline' | 'contact'
+    number: string
+    label?: string
+  }>
   displayOrder: number
   isActive: boolean
   socialMedia?: {
@@ -290,6 +301,7 @@ export interface ContactInquiry {
   name: string
   email: string
   phone?: string
+  category: 'general_inquiry' | 'product_inquiry' | 'order_status' | 'refund_request' | 'bulk_order' | 'technical_support' | 'shipping_delivery' | 'payment_issue' | 'complaint' | 'other'
   subject: string
   message: string
   status: 'new' | 'read' | 'replied' | 'closed'
@@ -358,34 +370,41 @@ export interface OrderItem {
     materialID?: string
     name: string
     basePrice: number
+    materialDiscount?: number
+    netBasePrice?: number
   }
-  selectedSize?: number
-  selectedSizeName?: string
-  sizeCost: number
+  selectedSize?: {
+    sizeID?: string | null
+    name?: string
+    sizeMM?: number
+    sizeCost: number
+  }
   selectedFinish?: {
     finishID: string
     name: string
     priceAdjustment: number
   }
-  finishCost: number
   packagingPrice: number
   quantity: number
   unitPrice: number
   totalPrice: number
   priceBreakdown: {
-    material: number
+    materialBase: number
+    materialDiscount: number
+    materialNet: number
     size: number
     finishes: number
     packaging: number
-    discount?: number
+    totalItemDiscount: number
   }
 }
 
 export interface Order {
   _id: string
   orderNumber: string
-  userID: string
+  userID?: string | null
   sessionID?: string
+  isGuestOrder?: boolean
   items: OrderItem[]
   customerInfo: {
     name: string

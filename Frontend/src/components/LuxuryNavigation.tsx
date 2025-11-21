@@ -494,14 +494,24 @@ export default function LuxuryNavigation() {
               FAQs
             </Link>
 
-            <Link 
-              href="/contact" 
+            <Link
+              href="/contact"
               className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline"
             >
               Contact
             </Link>
+
+            {/* Track Order - Only for non-logged-in users */}
+            {!isAuthenticated && (
+              <Link
+                href="/track"
+                className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline"
+              >
+                Track Order
+              </Link>
+            )}
           </div>
-          
+
           {/* Action Icons - Visible on Desktop */}
           <div className="hidden lg:flex items-center gap-6">
             {/* Search Icon */}

@@ -34,10 +34,11 @@ export default function AdminCategoriesPage() {
     try {
       setLoading(true)
       const data = await categoriesApi.getAll()
-      setCategories(data)
+      setCategories(data || [])
     } catch (error) {
       console.error('Failed to fetch categories:', error)
       alert('Failed to load categories')
+      setCategories([])
     } finally {
       setLoading(false)
     }
@@ -156,10 +157,10 @@ export default function AdminCategoriesPage() {
     }
   }
 
-  const totalCategories = categories.length
-  const totalSubcategories = categories.reduce((sum, cat) => sum + (cat.subcategories?.length || 0), 0)
+  const totalCategories = categories?.length || 0
+  const totalSubcategories = categories?.reduce((sum, cat) => sum + (cat.subcategories?.length || 0), 0) || 0
 
-  if (loading && categories.length === 0) {
+  if (loading && (categories?.length || 0) === 0) {
     return (
       <div className="flex items-center justify-center h-40">
         <div className="text-center">
@@ -219,14 +220,14 @@ export default function AdminCategoriesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-brass/5">
-                {categories.length === 0 ? (
+                {!categories || categories.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="px-2 py-6 text-center text-charcoal/60 text-xs">
                       No categories
                     </td>
                   </tr>
                 ) : (
-                  categories.map((cat) => (
+                  (categories || []).map((cat) => (
                     <tr 
                       key={cat._id} 
                       className={`hover:bg-brass/5 transition-colors cursor-pointer ${selectedCategory?._id === cat._id ? 'bg-brass/10' : ''}`}

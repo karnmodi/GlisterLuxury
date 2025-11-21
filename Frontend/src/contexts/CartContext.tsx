@@ -11,7 +11,7 @@ interface CartContextType {
   sessionID: string
   addToCart: (data: {
     productID: string
-    selectedMaterial: { materialID?: string; name: string; basePrice?: number }
+    selectedMaterial: { materialID?: string; name: string; basePrice?: number; materialDiscount?: number; netBasePrice?: number }
     selectedSize?: number
     selectedSizeName?: string
     selectedFinish?: string
@@ -40,15 +40,11 @@ const getSessionID = (): string => {
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  // Initialize sessionID synchronously to ensure it's available immediately
+  const [sessionID] = useState(() => getSessionID())
   const [cart, setCart] = useState<Cart | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [sessionID, setSessionID] = useState('')
-
-  // Initialize session ID on mount
-  useEffect(() => {
-    setSessionID(getSessionID())
-  }, [])
 
   // Fetch cart when sessionID is available
   const refreshCart = useCallback(async () => {
@@ -71,15 +67,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [sessionID])
 
+  // Fetch cart on mount if sessionID is available
+  // sessionID is stable (initialized once), so this only runs on mount
   useEffect(() => {
     if (sessionID) {
       refreshCart()
     }
-  }, [sessionID, refreshCart])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run on mount - sessionID and refreshCart are stable
 
   const addToCart = async (data: {
     productID: string
-    selectedMaterial: { materialID?: string; name: string; basePrice?: number }
+    selectedMaterial: { materialID?: string; name: string; basePrice?: number; materialDiscount?: number; netBasePrice?: number }
     selectedSize?: number
     selectedSizeName?: string
     selectedFinish?: string

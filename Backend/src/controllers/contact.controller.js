@@ -47,16 +47,54 @@ function validateAndCleanSocialMedia(socialMedia) {
 	return cleaned;
 }
 
+// Helper function to validate phones array structure
+function validatePhonesArray(phones) {
+	if (!phones) return null;
+	if (!Array.isArray(phones)) {
+		throw new Error('phones must be an array');
+	}
+	
+	const validTypes = ['landline', 'contact'];
+	const cleaned = phones.map((phone, index) => {
+		if (!phone || typeof phone !== 'object') {
+			throw new Error(`Phone entry at index ${index} must be an object`);
+		}
+		if (!phone.type || !validTypes.includes(phone.type)) {
+			throw new Error(`Phone entry at index ${index} must have type "landline" or "contact"`);
+		}
+		if (!phone.number || typeof phone.number !== 'string' || phone.number.trim() === '') {
+			throw new Error(`Phone entry at index ${index} must have a non-empty number`);
+		}
+		return {
+			type: phone.type,
+			number: phone.number.trim(),
+			label: phone.label ? phone.label.trim() : undefined
+		};
+	});
+	
+	return cleaned;
+}
+
 // Contact Info CRUD operations
 async function createContactInfo(req, res) {
 	try {
-		const { socialMedia, businessWhatsApp, ...restData } = req.body;
+		const { socialMedia, businessWhatsApp, phones, ...restData } = req.body;
 
 		// Validate WhatsApp number if provided
 		if (businessWhatsApp !== undefined && !isValidWhatsAppNumber(businessWhatsApp)) {
 			return res.status(400).json({ 
 				message: 'WhatsApp number must be in E.164 format (e.g., +1234567890) with country code' 
 			});
+		}
+
+		// Validate and clean phones array if provided
+		let cleanedPhones = null;
+		if (phones !== undefined) {
+			try {
+				cleanedPhones = validatePhonesArray(phones);
+			} catch (err) {
+				return res.status(400).json({ message: err.message });
+			}
 		}
 
 		// Validate and clean social media URLs
@@ -73,7 +111,8 @@ async function createContactInfo(req, res) {
 		const contactData = {
 			...restData,
 			...(Object.keys(cleanedSocialMedia).length > 0 && { socialMedia: cleanedSocialMedia }),
-			...(businessWhatsApp !== undefined && { businessWhatsApp: businessWhatsApp.trim() })
+			...(businessWhatsApp !== undefined && { businessWhatsApp: businessWhatsApp.trim() }),
+			...(cleanedPhones !== null && { phones: cleanedPhones })
 		};
 
 		const contactInfo = await ContactInfo.create(contactData);
@@ -121,7 +160,7 @@ async function getContactInfo(req, res) {
 
 async function updateContactInfo(req, res) {
 	try {
-		const { socialMedia, businessWhatsApp, ...restData } = req.body;
+		const { socialMedia, businessWhatsApp, phones, ...restData } = req.body;
 
 		// Validate WhatsApp number if provided
 		if (businessWhatsApp !== undefined && !isValidWhatsAppNumber(businessWhatsApp)) {
@@ -130,22 +169,32 @@ async function updateContactInfo(req, res) {
 			});
 		}
 
+		// Get existing contact info for merging
+		const existing = await ContactInfo.findById(req.params.id).lean();
+		if (!existing) {
+			return res.status(404).json({ message: 'Contact info not found' });
+		}
+
 		// Validate and clean social media URLs if provided
 		let updateData = { ...restData };
 		
 		if (socialMedia !== undefined) {
 			try {
-				// Get existing contact info to merge with existing social media
-				const existing = await ContactInfo.findById(req.params.id).lean();
-				if (!existing) {
-					return res.status(404).json({ message: 'Contact info not found' });
-				}
-
 				// Merge existing social media with new updates
 				const existingSocialMedia = existing.socialMedia || {};
 				const mergedSocialMedia = { ...existingSocialMedia, ...socialMedia };
 				const cleanedSocialMedia = validateAndCleanSocialMedia(mergedSocialMedia);
 				updateData.socialMedia = cleanedSocialMedia;
+			} catch (err) {
+				return res.status(400).json({ message: err.message });
+			}
+		}
+
+		// Validate and clean phones array if provided
+		if (phones !== undefined) {
+			try {
+				const cleanedPhones = validatePhonesArray(phones);
+				updateData.phones = cleanedPhones;
 			} catch (err) {
 				return res.status(400).json({ message: err.message });
 			}
@@ -331,13 +380,14 @@ async function sendContactInquiryEmail(inquiry) {
 						
 						<div class="inquiry-details">
 							<h2>Inquiry Information</h2>
-							<p><strong>Submitted Date:</strong> ${new Date(inquiry.createdAt).toLocaleString('en-GB', { 
-								day: 'numeric', 
-								month: 'long', 
+							<p><strong>Submitted Date:</strong> ${new Date(inquiry.createdAt).toLocaleString('en-GB', {
+								day: 'numeric',
+								month: 'long',
 								year: 'numeric',
 								hour: '2-digit',
 								minute: '2-digit'
 							})}</p>
+							<p><strong>Category:</strong> <span style="background-color: #e7f3ff; padding: 4px 8px; border-radius: 4px; font-weight: bold;">${inquiry.category.replace(/_/g, ' ').toUpperCase()}</span></p>
 							<p><strong>Status:</strong> <span style="background-color: #fff3cd; padding: 4px 8px; border-radius: 4px;">NEW</span></p>
 							<p><strong>Inquiry ID:</strong> ${inquiry._id}</p>
 						</div>
@@ -571,10 +621,11 @@ async function sendContactInquiryConfirmationEmail(inquiry) {
 						<div class="inquiry-summary">
 							<h3 style="margin-top: 0; color: #2C2C2C;">Your Inquiry Summary</h3>
 							<p><strong>Inquiry ID:</strong> ${inquiry._id}</p>
+							<p><strong>Category:</strong> ${inquiry.category.replace(/_/g, ' ').charAt(0).toUpperCase() + inquiry.category.replace(/_/g, ' ').slice(1)}</p>
 							<p><strong>Subject:</strong> ${inquiry.subject}</p>
-							<p><strong>Submitted Date:</strong> ${new Date(inquiry.createdAt).toLocaleString('en-GB', { 
-								day: 'numeric', 
-								month: 'long', 
+							<p><strong>Submitted Date:</strong> ${new Date(inquiry.createdAt).toLocaleString('en-GB', {
+								day: 'numeric',
+								month: 'long',
 								year: 'numeric',
 								hour: '2-digit',
 								minute: '2-digit'
@@ -631,24 +682,25 @@ async function sendContactInquiryConfirmationEmail(inquiry) {
 // Contact Inquiry operations
 async function submitInquiry(req, res) {
 	try {
-		const { name, email, phone, subject, message } = req.body;
-		
+		const { name, email, phone, category, subject, message } = req.body;
+
 		if (!name || !email || !subject || !message) {
-			return res.status(400).json({ 
-				message: 'Name, email, subject, and message are required' 
+			return res.status(400).json({
+				message: 'Name, email, subject, and message are required'
 			});
 		}
-		
+
 		// Basic email validation
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 		if (!emailRegex.test(email)) {
 			return res.status(400).json({ message: 'Invalid email format' });
 		}
-		
+
 		const inquiry = await ContactInquiry.create({
 			name: name.trim(),
 			email: email.trim().toLowerCase(),
 			phone: phone ? phone.trim() : undefined,
+			category: category || 'general_inquiry',
 			subject: subject.trim(),
 			message: message.trim(),
 			status: 'new'
