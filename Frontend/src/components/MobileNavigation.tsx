@@ -260,13 +260,24 @@ export default function MobileNavigation() {
                     </Link>
                     
                     {/* Contact Link */}
-                    <Link 
-                      href="/contact" 
-                      className="block text-base font-medium text-ivory hover:text-brass hover:bg-brass/5 transition-all duration-300 py-3 px-4 rounded-sm border-b border-brass/10" 
+                    <Link
+                      href="/contact"
+                      className="block text-base font-medium text-ivory hover:text-brass hover:bg-brass/5 transition-all duration-300 py-3 px-4 rounded-sm border-b border-brass/10"
                       onClick={closeMenu}
                     >
                       Contact
                     </Link>
+
+                    {/* Track Order - Only for non-logged-in users */}
+                    {!isAuthenticated && (
+                      <Link
+                        href="/track"
+                        className="block text-base font-medium text-ivory hover:text-brass hover:bg-brass/5 transition-all duration-300 py-3 px-4 rounded-sm border-b border-brass/10"
+                        onClick={closeMenu}
+                      >
+                        Track Order
+                      </Link>
+                    )}
                   </nav>
 
                   {/* Explore Collections Section at Bottom */}

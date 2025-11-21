@@ -5,6 +5,23 @@ const nodemailer = require('nodemailer');
 const { getLogoUrl } = require('../utils/emailHelpers');
 
 /**
+ * Generate unique order number using timestamp and random suffix
+ * Format: GL{YYYY}{MM}{DD}{HHMMSS}{random4digits}
+ * @returns {string} Unique order number
+ */
+function generateOrderNumber() {
+	const now = new Date();
+	const year = now.getFullYear();
+	const month = String(now.getMonth() + 1).padStart(2, '0');
+	const day = String(now.getDate()).padStart(2, '0');
+	const hours = String(now.getHours()).padStart(2, '0');
+	const minutes = String(now.getMinutes()).padStart(2, '0');
+	const seconds = String(now.getSeconds()).padStart(2, '0');
+	const random = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+	return `GL${year}${month}${day}${hours}${minutes}${seconds}${random}`;
+}
+
+/**
  * Helper function to send order confirmation emails
  * @param {Object} order - The order document
  * @param {Object|null} user - The user document (null for guest orders)
@@ -18,20 +35,34 @@ async function sendOrderEmails(order, user) {
 	};
 
 	// Generate order items HTML
-	const orderItemsHTML = order.items.map(item => `
+	const orderItemsHTML = order.items.map(item => {
+		// Handle size display from nested selectedSize object
+		let sizeDisplay = '';
+		if (item.selectedSize) {
+			if (item.selectedSize.name && item.selectedSize.sizeMM) {
+				sizeDisplay = `<br><small style="color: #666;">Size: ${item.selectedSize.name} ${item.selectedSize.sizeMM}mm</small>`;
+			} else if (item.selectedSize.sizeMM) {
+				sizeDisplay = `<br><small style="color: #666;">Size: ${item.selectedSize.sizeMM}mm</small>`;
+			} else if (item.selectedSize.name) {
+				sizeDisplay = `<br><small style="color: #666;">Size: ${item.selectedSize.name}</small>`;
+			}
+		}
+		
+		return `
 		<tr>
 			<td style="padding: 12px; border-bottom: 1px solid #e5e5e5;">
 				<strong>${item.productName}</strong><br>
 				<small style="color: #666;">${item.productCode}</small><br>
 				<small style="color: #666;">Material: ${item.selectedMaterial.name}</small>
-				${item.selectedSize ? `<br><small style="color: #666;">Size: ${item.selectedSize}mm</small>` : ''}
+				${sizeDisplay}
 				${item.selectedFinish ? `<br><small style="color: #666;">Finish: ${item.selectedFinish.name}</small>` : ''}
 			</td>
 			<td style="padding: 12px; border-bottom: 1px solid #e5e5e5; text-align: center;">${item.quantity}</td>
 			<td style="padding: 12px; border-bottom: 1px solid #e5e5e5; text-align: right;">${formatPrice(item.unitPrice)}</td>
 			<td style="padding: 12px; border-bottom: 1px solid #e5e5e5; text-align: right;"><strong>${formatPrice(item.totalPrice)}</strong></td>
 		</tr>
-	`).join('');
+		`;
+	}).join('');
 
 	// Admin notification email
 	const logoUrl = getLogoUrl();
@@ -486,20 +517,34 @@ async function sendOrderEmails(order, user) {
 								</tr>
 							</thead>
 							<tbody>
-								${order.items.map(item => `
+								${order.items.map(item => {
+									// Handle size display from nested selectedSize object
+									let sizeDisplay = '';
+									if (item.selectedSize) {
+										if (item.selectedSize.name && item.selectedSize.sizeMM) {
+											sizeDisplay = `<br><small style="color: #666;">Size: ${item.selectedSize.name} ${item.selectedSize.sizeMM}mm</small>`;
+										} else if (item.selectedSize.sizeMM) {
+											sizeDisplay = `<br><small style="color: #666;">Size: ${item.selectedSize.sizeMM}mm</small>`;
+										} else if (item.selectedSize.name) {
+											sizeDisplay = `<br><small style="color: #666;">Size: ${item.selectedSize.name}</small>`;
+										}
+									}
+									
+									return `
 									<tr>
 										<td style="padding: 12px; border-bottom: 1px solid #e5e5e5;">
 											<strong>${item.productName}</strong><br>
 											<small style="color: #666;">Product Code: ${item.productCode}</small><br>
 											<small style="color: #666;">Material: ${item.selectedMaterial.name}</small>
-											${item.selectedSizeName ? `<br><small style="color: #666;">Size: ${item.selectedSizeName}</small>` : item.selectedSize ? `<br><small style="color: #666;">Size: ${item.selectedSize}mm</small>` : ''}
+											${sizeDisplay}
 											${item.selectedFinish && item.selectedFinish.name ? `<br><small style="color: #666;">Finish: ${item.selectedFinish.name}</small>` : ''}
 										</td>
 										<td style="padding: 12px; border-bottom: 1px solid #e5e5e5; text-align: center;">${item.quantity}</td>
 										<td style="padding: 12px; border-bottom: 1px solid #e5e5e5; text-align: right;">${formatPrice(item.unitPrice)}</td>
 										<td style="padding: 12px; border-bottom: 1px solid #e5e5e5; text-align: right;"><strong>${formatPrice(item.totalPrice)}</strong></td>
 									</tr>
-								`).join('')}
+									`;
+								}).join('')}
 
 								<!-- Pricing Summary -->
 								<tr>
@@ -740,8 +785,15 @@ exports.createGuestOrder = async (req, res, next) => {
 			});
 		}
 
-		// Get cart
-		let cart = await Cart.findOne({ sessionID }).populate('items.productID');
+		// Parallelize independent database queries
+		const Settings = require('../models/Settings');
+		const { calculateShippingFee, calculateVAT } = require('../utils/shipping');
+
+		const [cart, settings] = await Promise.all([
+			Cart.findOne({ sessionID }).populate('items.productID', 'name code'),
+			Settings.getSettings()
+		]);
+
 		if (!cart) {
 			console.error('[Create Guest Order] Cart not found for sessionID:', sessionID);
 			return res.status(400).json({
@@ -758,19 +810,12 @@ exports.createGuestOrder = async (req, res, next) => {
 			});
 		}
 
-		// Generate unique order number
-		const orderCount = await Order.countDocuments();
-		const orderNumber = `GL${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(orderCount + 1).padStart(5, '0')}`;
+		// Generate unique order number using timestamp-based approach
+		const orderNumber = generateOrderNumber();
 
 		// Calculate pricing
 		const subtotal = cart.subtotal.$numberDecimal ? parseFloat(cart.subtotal.$numberDecimal) : parseFloat(cart.subtotal);
 		const discount = cart.discountAmount?.$numberDecimal ? parseFloat(cart.discountAmount.$numberDecimal) : parseFloat(cart.discountAmount || 0);
-
-		// Get settings and calculate shipping & VAT
-		const Settings = require('../models/Settings');
-		const { calculateShippingFee, calculateVAT } = require('../utils/shipping');
-
-		const settings = await Settings.getSettings();
 
 		// Calculate shipping based on total after discount
 		const totalAfterDiscount = Math.max(0, subtotal - discount);
@@ -783,28 +828,43 @@ exports.createGuestOrder = async (req, res, next) => {
 		// Total = subtotal - discount + shipping (VAT already in prices)
 		const total = Math.max(0, subtotal - discount + shipping);
 
-		// Create order for guest
+		// Create order for guest - transform cart items to proper Order schema structure
 		const order = new Order({
 			orderNumber,
 			userID: null, // No user ID for guest orders
 			sessionID,
 			isGuestOrder: true, // Mark as guest order
-			items: cart.items.map(item => ({
-				productID: item.productID,
-				productName: item.productName,
-				productCode: item.productCode,
-				selectedMaterial: item.selectedMaterial,
-				selectedSize: item.selectedSize,
-				selectedSizeName: item.selectedSizeName,
-				sizeCost: item.sizeCost,
-				selectedFinish: item.selectedFinish,
-				finishCost: item.finishCost,
-				packagingPrice: item.packagingPrice,
-				quantity: item.quantity,
-				unitPrice: item.unitPrice,
-				totalPrice: item.totalPrice,
-				priceBreakdown: item.priceBreakdown
-			})),
+			items: cart.items.map(item => {
+				// Convert Mongoose document to plain object if needed
+				const plainItem = item.toObject ? item.toObject() : item;
+				
+				// Convert cart item to order item, handling null selectedSize
+				const orderItem = {
+					productID: plainItem.productID,
+					productName: plainItem.productName,
+					productCode: plainItem.productCode,
+					selectedMaterial: plainItem.selectedMaterial, // Already has correct structure: materialID, name, basePrice, materialDiscount, netBasePrice
+					selectedFinish: plainItem.selectedFinish, // Already has correct structure: finishID, name, priceAdjustment
+					packagingPrice: plainItem.packagingPrice,
+					quantity: plainItem.quantity,
+					unitPrice: plainItem.unitPrice,
+					totalPrice: plainItem.totalPrice,
+					priceBreakdown: plainItem.priceBreakdown // Already has correct structure
+				};
+				
+				// Only include selectedSize if it's a valid non-null object
+				// Note: typeof null === 'object' in JavaScript, so we must explicitly check for null first
+				const selectedSize = plainItem.selectedSize;
+				if (selectedSize !== null && 
+				    selectedSize !== undefined && 
+				    typeof selectedSize === 'object' &&
+				    !Array.isArray(selectedSize) &&
+				    selectedSize.constructor === Object) {
+					orderItem.selectedSize = selectedSize;
+				}
+				
+				return orderItem;
+			}),
 			customerInfo: {
 				name: customerInfo.name,
 				email: customerInfo.email,
@@ -812,6 +872,15 @@ exports.createGuestOrder = async (req, res, next) => {
 			},
 			deliveryAddress: {
 				label: deliveryAddress.label || 'Delivery Address',
+				addressLine1: deliveryAddress.addressLine1,
+				addressLine2: deliveryAddress.addressLine2 || '',
+				city: deliveryAddress.city,
+				county: deliveryAddress.county || '',
+				postcode: deliveryAddress.postcode,
+				country: deliveryAddress.country || 'United Kingdom'
+			},
+			billingAddress: {
+				label: deliveryAddress.label || 'Billing Address',
 				addressLine1: deliveryAddress.addressLine1,
 				addressLine2: deliveryAddress.addressLine2 || '',
 				city: deliveryAddress.city,
@@ -868,21 +937,26 @@ exports.createGuestOrder = async (req, res, next) => {
 		cart.offerID = undefined;
 		await cart.save();
 
-		// Send email notifications
-		try {
-			await sendOrderEmails(order, null); // Pass null for user since it's a guest order
-			console.log('[Create Guest Order] Order confirmation emails sent');
-		} catch (emailError) {
-			console.error('[Create Guest Order] Email sending failed:', emailError);
-			// Don't fail the order if email fails
-		}
+		// Send email notifications in background (non-blocking)
+		setTimeout(async () => {
+			try {
+				// Re-fetch order to ensure we have the latest data
+				const orderForEmail = await Order.findById(order._id);
+				if (orderForEmail) {
+					await sendOrderEmails(orderForEmail, null); // Pass null for user since it's a guest order
+					console.log('[Create Guest Order] Order confirmation emails sent');
+				}
+			} catch (emailError) {
+				console.error('[Create Guest Order] Email sending failed:', emailError);
+				// Don't fail the order if email fails
+			}
+		}, 0);
 
-		const populatedOrder = await Order.findById(order._id).populate('items.productID');
-
+		// Return order without unnecessary populate for faster response
 		res.status(201).json({
 			success: true,
 			message: 'Order placed successfully',
-			order: populatedOrder
+			order: order
 		});
 	} catch (error) {
 		console.error('[Create Guest Order] Error creating order:', {
@@ -899,8 +973,9 @@ exports.createGuestOrder = async (req, res, next) => {
 };
 
 /**
- * Get guest order details by order number and email (no authentication required)
- * GET /api/orders/guest/track/:orderNumber?email=guest@example.com
+ * Get order details by order number and email (no authentication required)
+ * Works for both guest orders and registered user orders
+ * GET /api/orders/guest/track/:orderNumber?email=user@example.com
  */
 exports.trackGuestOrder = async (req, res, next) => {
 	try {
@@ -914,11 +989,10 @@ exports.trackGuestOrder = async (req, res, next) => {
 			});
 		}
 
-		// Find guest order by order number and email
+		// Find order by order number and email (works for both guest and registered user orders)
 		const order = await Order.findOne({
 			orderNumber,
-			'customerInfo.email': email.toLowerCase(),
-			isGuestOrder: true
+			'customerInfo.email': email.toLowerCase()
 		}).populate('items.productID');
 
 		if (!order) {
@@ -960,8 +1034,16 @@ exports.createOrder = async (req, res, next) => {
 			});
 		}
 
-		// Get user details
-		const user = await User.findById(userId);
+		// Parallelize independent database queries
+		const Settings = require('../models/Settings');
+		const { calculateShippingFee, calculateVAT } = require('../utils/shipping');
+
+		const [user, cart, settings] = await Promise.all([
+			User.findById(userId),
+			Cart.findOne({ sessionID }).populate('items.productID', 'name code'),
+			Settings.getSettings()
+		]);
+
 		if (!user) {
 			console.error('[Create Order] User not found:', userId);
 			return res.status(404).json({
@@ -970,8 +1052,6 @@ exports.createOrder = async (req, res, next) => {
 			});
 		}
 
-		// Ensure cart is linked to user if it isn't already
-		let cart = await Cart.findOne({ sessionID }).populate('items.productID');
 		if (!cart) {
 			console.error('[Create Order] Cart not found for sessionID:', sessionID);
 			return res.status(400).json({
@@ -1031,19 +1111,12 @@ exports.createOrder = async (req, res, next) => {
 			}
 		}
 
-		// Generate unique order number
-		const orderCount = await Order.countDocuments();
-		const orderNumber = `GL${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(orderCount + 1).padStart(5, '0')}`;
+		// Generate unique order number using timestamp-based approach
+		const orderNumber = generateOrderNumber();
 
 		// Calculate pricing
 		const subtotal = cart.subtotal.$numberDecimal ? parseFloat(cart.subtotal.$numberDecimal) : parseFloat(cart.subtotal);
 		const discount = cart.discountAmount?.$numberDecimal ? parseFloat(cart.discountAmount.$numberDecimal) : parseFloat(cart.discountAmount || 0);
-
-		// Get settings and calculate shipping & VAT
-		const Settings = require('../models/Settings');
-		const { calculateShippingFee, calculateVAT } = require('../utils/shipping');
-
-		const settings = await Settings.getSettings();
 
 		// Calculate shipping based on total after discount
 		const totalAfterDiscount = Math.max(0, subtotal - discount);
@@ -1056,31 +1129,46 @@ exports.createOrder = async (req, res, next) => {
 		// Total = subtotal - discount + shipping (VAT already in prices)
 		const total = Math.max(0, subtotal - discount + shipping);
 
-		// Create order
+		// Create order - transform cart items to proper Order schema structure
 		const order = new Order({
 			orderNumber,
 			userID: userId,
 			sessionID,
-			items: cart.items.map(item => ({
-				productID: item.productID,
-				productName: item.productName,
-				productCode: item.productCode,
-				selectedMaterial: item.selectedMaterial,
-				selectedSize: item.selectedSize,
-				selectedSizeName: item.selectedSizeName,
-				sizeCost: item.sizeCost,
-				selectedFinish: item.selectedFinish,
-				finishCost: item.finishCost,
-				packagingPrice: item.packagingPrice,
-				quantity: item.quantity,
-				unitPrice: item.unitPrice,
-				totalPrice: item.totalPrice,
-				priceBreakdown: item.priceBreakdown
-			})),
+			items: cart.items.map(item => {
+				// Convert Mongoose document to plain object if needed
+				const plainItem = item.toObject ? item.toObject() : item;
+				
+				// Convert cart item to order item, handling null selectedSize
+				const orderItem = {
+					productID: plainItem.productID,
+					productName: plainItem.productName,
+					productCode: plainItem.productCode,
+					selectedMaterial: plainItem.selectedMaterial, // Already has correct structure: materialID, name, basePrice, materialDiscount, netBasePrice
+					selectedFinish: plainItem.selectedFinish, // Already has correct structure: finishID, name, priceAdjustment
+					packagingPrice: plainItem.packagingPrice,
+					quantity: plainItem.quantity,
+					unitPrice: plainItem.unitPrice,
+					totalPrice: plainItem.totalPrice,
+					priceBreakdown: plainItem.priceBreakdown // Already has correct structure
+				};
+				
+				// Only include selectedSize if it's a valid non-null object
+				// Note: typeof null === 'object' in JavaScript, so we must explicitly check for null first
+				const selectedSize = plainItem.selectedSize;
+				if (selectedSize !== null && 
+				    selectedSize !== undefined && 
+				    typeof selectedSize === 'object' &&
+				    !Array.isArray(selectedSize) &&
+				    selectedSize.constructor === Object) {
+					orderItem.selectedSize = selectedSize;
+				}
+				
+				return orderItem;
+			}),
 			customerInfo: {
 				name: user.name,
 				email: user.email,
-				phone: user.phone || ''
+				phone: user.phone || 'Not provided'
 			},
 			deliveryAddress: {
 				label: deliveryAddress.label,
@@ -1090,6 +1178,15 @@ exports.createOrder = async (req, res, next) => {
 				county: deliveryAddress.county,
 				postcode: deliveryAddress.postcode,
 				country: deliveryAddress.country
+			},
+			billingAddress: {
+				label: deliveryAddress.label,
+				addressLine1: deliveryAddress.addressLine1,
+				addressLine2: deliveryAddress.addressLine2 || '',
+				city: deliveryAddress.city,
+				county: deliveryAddress.county || '',
+				postcode: deliveryAddress.postcode,
+				country: deliveryAddress.country || 'United Kingdom'
 			},
 			orderNotes,
 			discountCode: cart.discountCode || undefined,
@@ -1140,21 +1237,26 @@ exports.createOrder = async (req, res, next) => {
 		cart.offerID = undefined;
 		await cart.save();
 
-		// Send email notifications
-		try {
-			await sendOrderEmails(order, user);
-			console.log('[Create Order] Order confirmation emails sent');
-		} catch (emailError) {
-			console.error('[Create Order] Email sending failed:', emailError);
-			// Don't fail the order if email fails
-		}
+		// Send email notifications in background (non-blocking)
+		setTimeout(async () => {
+			try {
+				// Re-fetch order to ensure we have the latest data
+				const orderForEmail = await Order.findById(order._id);
+				if (orderForEmail) {
+					await sendOrderEmails(orderForEmail, user);
+					console.log('[Create Order] Order confirmation emails sent');
+				}
+			} catch (emailError) {
+				console.error('[Create Order] Email sending failed:', emailError);
+				// Don't fail the order if email fails
+			}
+		}, 0);
 
-		const populatedOrder = await Order.findById(order._id).populate('items.productID');
-		
+		// Return order without unnecessary populate for faster response
 		res.status(201).json({
 			success: true,
 			message: 'Order placed successfully',
-			order: populatedOrder
+			order: order
 		});
 	} catch (error) {
 		console.error('[Create Order] Error creating order:', {

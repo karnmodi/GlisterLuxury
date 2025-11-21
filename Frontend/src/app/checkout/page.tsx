@@ -657,7 +657,7 @@ export default function CheckoutPage() {
                 </p>
                 <div className="flex flex-col gap-3">
                   <button
-                    onClick={() => router.push(`/orders/track`)}
+                    onClick={() => router.push(`/track`)}
                     className="w-full px-6 py-3 bg-brass text-charcoal font-medium rounded-md hover:bg-olive transition-all duration-300"
                   >
                     Track My Order

@@ -18,7 +18,7 @@ const {
 
 // Public routes (no authentication required)
 router.post('/guest', createGuestOrder); // Guest checkout endpoint
-router.get('/guest/track/:orderNumber', trackGuestOrder); // Guest order tracking endpoint
+router.get('/guest/track/:orderNumber', trackGuestOrder); // Order tracking endpoint (works for both guest and registered user orders)
 
 // Protected routes (require authentication)
 router.post('/', protect, createOrder);

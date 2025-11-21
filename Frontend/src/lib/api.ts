@@ -536,7 +536,7 @@ export const cartApi = {
   add: (data: {
     sessionID: string
     productID: string
-    selectedMaterial: { materialID?: string; name: string; basePrice?: number }
+    selectedMaterial: { materialID?: string; name: string; basePrice?: number; materialDiscount?: number; netBasePrice?: number }
     selectedSize?: number
     selectedSizeName?: string
     selectedFinish?: string

@@ -11,7 +11,17 @@ const ContactInfoSchema = new Schema(
 			index: true
 		},
 		label: { type: String, required: true, trim: true }, // e.g., "Head Office", "Sales", "Instagram"
-		value: { type: String, required: true, trim: true }, // The actual contact info
+		value: { type: String, trim: true }, // The actual contact info (optional for backward compatibility)
+		// Multiple phone numbers array (for type: 'phone')
+		phones: [{
+			type: {
+				type: String,
+				enum: ['landline', 'contact'],
+				required: true
+			},
+			number: { type: String, required: true, trim: true },
+			label: { type: String, trim: true } // Optional label like "Main Office", "Sales Department"
+		}],
 		displayOrder: { type: Number, default: 0, index: true },
 		isActive: { type: Boolean, default: true, index: true },
 		// Social Media URLs
@@ -44,6 +54,28 @@ const ContactInfoSchema = new Schema(
 
 // Add compound index for efficient querying
 ContactInfoSchema.index({ type: 1, displayOrder: 1, isActive: 1 });
+
+// Validation: phones array should only be used when type is 'phone'
+ContactInfoSchema.pre('validate', function(next) {
+	// If phones array is provided, it should only be for phone type
+	if (this.phones && this.phones.length > 0 && this.type !== 'phone') {
+		return next(new Error('phones array can only be used when type is "phone"'));
+	}
+	
+	// For phone type, either value or phones should be provided (for backward compatibility)
+	if (this.type === 'phone') {
+		if (!this.value && (!this.phones || this.phones.length === 0)) {
+			return next(new Error('Either value or phones array must be provided for phone type'));
+		}
+	} else {
+		// For non-phone types, value should be provided
+		if (!this.value) {
+			return next(new Error('value is required for non-phone types'));
+		}
+	}
+	
+	next();
+});
 
 module.exports = mongoose.model('ContactInfo', ContactInfoSchema);
 

@@ -2,16 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { ordersApi } from '@/lib/api'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, toNumber } from '@/lib/utils'
 import LuxuryNavigation from '@/components/LuxuryNavigation'
 import LuxuryFooter from '@/components/LuxuryFooter'
 import StatusBadge from '@/components/ui/StatusBadge'
 import OrderSummary from '@/components/OrderSummary'
-import type { Order } from '@/types'
+import type { Order, OrderItem } from '@/types'
 
 export default function OrderDetailsPage() {
   const params = useParams()
@@ -23,6 +23,7 @@ export default function OrderDetailsPage() {
   const [refundReason, setRefundReason] = useState('')
   const [showRefundModal, setShowRefundModal] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -67,6 +68,75 @@ export default function OrderDetailsPage() {
       toast.error('Failed to request refund')
     } finally {
       setProcessing(false)
+    }
+  }
+
+  const toggleItemExpansion = (index: number) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(index)) {
+        newSet.delete(index)
+      } else {
+        newSet.add(index)
+      }
+      return newSet
+    })
+  }
+
+  // Calculate per-item price breakdown using actual priceBreakdown data
+  // Note: All prices are VAT-inclusive, so we extract VAT from the total
+  const calculateItemBreakdown = (item: OrderItem, orderVATRate: number) => {
+    const priceBreakdown = item.priceBreakdown || {
+      materialBase: toNumber(item.selectedMaterial.basePrice),
+      materialDiscount: item.selectedMaterial.materialDiscount ? toNumber(item.selectedMaterial.materialDiscount) : 0,
+      materialNet: item.selectedMaterial.netBasePrice ? toNumber(item.selectedMaterial.netBasePrice) : toNumber(item.selectedMaterial.basePrice),
+      size: item.selectedSize ? toNumber(item.selectedSize.sizeCost) : 0,
+      finishes: item.selectedFinish ? toNumber(item.selectedFinish.priceAdjustment) : 0,
+      packaging: toNumber(item.packagingPrice),
+      totalItemDiscount: 0
+    }
+    
+    const materialBasePrice = toNumber(priceBreakdown.materialBase)
+    const materialDiscount = toNumber(priceBreakdown.materialDiscount)
+    const materialNet = toNumber(priceBreakdown.materialNet)
+    const sizeCost = toNumber(priceBreakdown.size)
+    const finishCost = toNumber(priceBreakdown.finishes)
+    const packagingCost = toNumber(priceBreakdown.packaging)
+    
+    const materialCost = materialNet
+    
+    // All component prices are VAT-inclusive
+    // Unit price (VAT-inclusive) = material + size + finish + packaging
+    const unitPriceIncludingVAT = materialCost + sizeCost + finishCost + packagingCost
+    
+    const quantity = item.quantity
+    
+    // Total item price (VAT-inclusive)
+    const itemTotal = toNumber(item.totalPrice)
+    
+    // Extract VAT from the total price using the formula: VAT = price × (rate / (100 + rate))
+    const vatRate = orderVATRate || 20
+    const vatAmount = (itemTotal * vatRate) / (100 + vatRate)
+    
+    // Calculate price excluding VAT
+    const itemSubtotalBeforeVAT = itemTotal - vatAmount
+    const unitPriceBeforeVAT = itemSubtotalBeforeVAT / quantity
+
+    return {
+      materialBasePrice,
+      materialCost,
+      materialDiscount,
+      sizeCost,
+      finishCost,
+      packagingCost,
+      unitPriceBeforeVAT,
+      unitPriceIncludingVAT,
+      quantity,
+      itemSubtotalBeforeVAT,
+      vatAmount,
+      itemTotal,
+      hasDiscount: materialDiscount > 0,
+      discountPercentage: materialBasePrice > 0 ? Math.round((materialDiscount / materialBasePrice) * 100) : 0
     }
   }
 
@@ -131,14 +201,27 @@ export default function OrderDetailsPage() {
               <div className="bg-charcoal/95 backdrop-blur-md border border-brass/20 rounded-lg p-4 sm:p-5 lg:p-6">
                 <h2 className="text-xl sm:text-2xl font-serif font-bold text-ivory mb-4 sm:mb-6">Order Items</h2>
                 <div className="space-y-4">
-                  {order.items.map((item) => (
-                    <div key={item._id} className="flex flex-col sm:flex-row gap-3 sm:gap-4 border-b border-brass/10 pb-4 last:border-0 last:pb-0">
+                  {order.items.map((item, index) => {
+                    const isExpanded = expandedItems.has(index)
+                    const breakdown = calculateItemBreakdown(item, order.pricing.vatRate || 20)
+                    
+                    return (
+                      <div key={item._id} className="border-b border-brass/10 pb-4 last:border-0 last:pb-0 overflow-hidden">
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                       <div className="flex-1 min-w-0">
                         <h3 className="text-ivory font-medium mb-1 text-sm sm:text-base">{item.productName}</h3>
                         <p className="text-brass/70 text-xs sm:text-sm mb-2">{item.productCode}</p>
                         <div className="text-ivory/60 text-xs sm:text-sm space-y-0.5 sm:space-y-1">
                           <p>Material: {item.selectedMaterial.name}</p>
-                          {item.selectedSize != null && <p>Size: {item.selectedSizeName ? `${item.selectedSizeName} ${item.selectedSize}mm` : `${item.selectedSize}mm`}</p>}
+                          {item.selectedSize && (
+                            <p>Size: {
+                              item.selectedSize.name && item.selectedSize.sizeMM 
+                                ? `${item.selectedSize.name} ${item.selectedSize.sizeMM}mm`
+                                : item.selectedSize.sizeMM 
+                                ? `${item.selectedSize.sizeMM}mm`
+                                : item.selectedSize.name || 'Standard'
+                            }</p>
+                          )}
                           {item.selectedFinish && <p>Finish: {item.selectedFinish.name}</p>}
                           <p>Quantity: {item.quantity}</p>
                         </div>
@@ -148,7 +231,155 @@ export default function OrderDetailsPage() {
                         <p className="text-ivory/50 text-xs sm:text-sm">{formatCurrency(item.unitPrice)} each</p>
                       </div>
                     </div>
-                  ))}
+
+                        {/* Toggle Price Breakdown Button */}
+                        <button
+                          onClick={() => toggleItemExpansion(index)}
+                          className="w-full mt-3 flex items-center justify-between bg-brass/10 border border-brass/30 rounded-md px-3 py-2 hover:bg-brass/20 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4 text-brass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-xs font-semibold text-brass">Price Breakdown</span>
+                          </div>
+                          <svg
+                            className={`w-4 h-4 text-brass transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+
+                        {/* Expandable Price Breakdown */}
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="bg-charcoal/80 border-t border-brass/20 p-4 mt-3 space-y-3">
+                                <div>
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <svg className="w-4 h-4 text-brass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <h4 className="text-brass font-bold text-sm">Price Breakdown</h4>
+                                  </div>
+                                  
+                                  <div className="space-y-2.5">
+                                    {/* Material with discount if applicable */}
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-ivory/70 text-xs">
+                                        Material ({item.selectedMaterial.name})
+                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        {breakdown.hasDiscount && (
+                                          <>
+                                            <span className="text-ivory/50 text-xs line-through">
+                                              {formatCurrency(breakdown.materialBasePrice)}
+                                            </span>
+                                            <span className="bg-brass/20 text-brass text-[10px] font-semibold px-1.5 py-0.5 rounded">
+                                              -{breakdown.discountPercentage}%
+                                            </span>
+                                          </>
+                                        )}
+                                        <span className="text-ivory font-medium text-xs">
+                                          {formatCurrency(breakdown.materialCost)}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Size */}
+                                    {breakdown.sizeCost > 0 && item.selectedSize && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-ivory/70 text-xs">
+                                          Size {item.selectedSize.name && item.selectedSize.sizeMM 
+                                            ? `(${item.selectedSize.name} ${item.selectedSize.sizeMM}mm)`
+                                            : item.selectedSize.sizeMM 
+                                            ? `(${item.selectedSize.sizeMM}mm)`
+                                            : item.selectedSize.name 
+                                            ? `(${item.selectedSize.name})`
+                                            : ''}
+                                        </span>
+                                        <span className="text-ivory font-medium text-xs">
+                                          +{formatCurrency(breakdown.sizeCost)}
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {/* Finish */}
+                                    {breakdown.finishCost > 0 && item.selectedFinish && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-ivory/70 text-xs">
+                                          Finish ({item.selectedFinish.name})
+                                        </span>
+                                        <span className="text-ivory font-medium text-xs">
+                                          +{formatCurrency(breakdown.finishCost)}
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {/* Premium Packaging */}
+                                    {breakdown.packagingCost > 0 && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-ivory/70 text-xs">
+                                          Premium Packaging
+                                        </span>
+                                        <span className="text-ivory font-medium text-xs">
+                                          +{formatCurrency(breakdown.packagingCost)}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Item Total Section */}
+                                <div className="border-t border-brass/20 pt-3">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <svg className="w-4 h-4 text-brass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <h4 className="text-brass font-bold text-sm">Item Total (VAT Included):</h4>
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-ivory/70 text-xs">Price excluding VAT:</span>
+                                      <span className="text-ivory font-medium text-xs">
+                                        {formatCurrency(breakdown.itemSubtotalBeforeVAT)}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-ivory/70 text-xs">
+                                        VAT ({order.pricing.vatRate || 20}%):
+                                      </span>
+                                      <span className="text-ivory font-medium text-xs">
+                                        +{formatCurrency(breakdown.vatAmount)}
+                                      </span>
+                                    </div>
+                                    <div className="border-t border-brass/20 pt-2 mt-2">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-brass font-bold text-xs">Total (inc. VAT):</span>
+                                        <span className="text-brass font-bold text-sm">
+                                          {formatCurrency(breakdown.itemTotal)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
 

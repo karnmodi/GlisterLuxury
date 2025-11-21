@@ -47,16 +47,54 @@ function validateAndCleanSocialMedia(socialMedia) {
 	return cleaned;
 }
 
+// Helper function to validate phones array structure
+function validatePhonesArray(phones) {
+	if (!phones) return null;
+	if (!Array.isArray(phones)) {
+		throw new Error('phones must be an array');
+	}
+	
+	const validTypes = ['landline', 'contact'];
+	const cleaned = phones.map((phone, index) => {
+		if (!phone || typeof phone !== 'object') {
+			throw new Error(`Phone entry at index ${index} must be an object`);
+		}
+		if (!phone.type || !validTypes.includes(phone.type)) {
+			throw new Error(`Phone entry at index ${index} must have type "landline" or "contact"`);
+		}
+		if (!phone.number || typeof phone.number !== 'string' || phone.number.trim() === '') {
+			throw new Error(`Phone entry at index ${index} must have a non-empty number`);
+		}
+		return {
+			type: phone.type,
+			number: phone.number.trim(),
+			label: phone.label ? phone.label.trim() : undefined
+		};
+	});
+	
+	return cleaned;
+}
+
 // Contact Info CRUD operations
 async function createContactInfo(req, res) {
 	try {
-		const { socialMedia, businessWhatsApp, ...restData } = req.body;
+		const { socialMedia, businessWhatsApp, phones, ...restData } = req.body;
 
 		// Validate WhatsApp number if provided
 		if (businessWhatsApp !== undefined && !isValidWhatsAppNumber(businessWhatsApp)) {
 			return res.status(400).json({ 
 				message: 'WhatsApp number must be in E.164 format (e.g., +1234567890) with country code' 
 			});
+		}
+
+		// Validate and clean phones array if provided
+		let cleanedPhones = null;
+		if (phones !== undefined) {
+			try {
+				cleanedPhones = validatePhonesArray(phones);
+			} catch (err) {
+				return res.status(400).json({ message: err.message });
+			}
 		}
 
 		// Validate and clean social media URLs
@@ -73,7 +111,8 @@ async function createContactInfo(req, res) {
 		const contactData = {
 			...restData,
 			...(Object.keys(cleanedSocialMedia).length > 0 && { socialMedia: cleanedSocialMedia }),
-			...(businessWhatsApp !== undefined && { businessWhatsApp: businessWhatsApp.trim() })
+			...(businessWhatsApp !== undefined && { businessWhatsApp: businessWhatsApp.trim() }),
+			...(cleanedPhones !== null && { phones: cleanedPhones })
 		};
 
 		const contactInfo = await ContactInfo.create(contactData);
@@ -121,7 +160,7 @@ async function getContactInfo(req, res) {
 
 async function updateContactInfo(req, res) {
 	try {
-		const { socialMedia, businessWhatsApp, ...restData } = req.body;
+		const { socialMedia, businessWhatsApp, phones, ...restData } = req.body;
 
 		// Validate WhatsApp number if provided
 		if (businessWhatsApp !== undefined && !isValidWhatsAppNumber(businessWhatsApp)) {
@@ -130,22 +169,32 @@ async function updateContactInfo(req, res) {
 			});
 		}
 
+		// Get existing contact info for merging
+		const existing = await ContactInfo.findById(req.params.id).lean();
+		if (!existing) {
+			return res.status(404).json({ message: 'Contact info not found' });
+		}
+
 		// Validate and clean social media URLs if provided
 		let updateData = { ...restData };
 		
 		if (socialMedia !== undefined) {
 			try {
-				// Get existing contact info to merge with existing social media
-				const existing = await ContactInfo.findById(req.params.id).lean();
-				if (!existing) {
-					return res.status(404).json({ message: 'Contact info not found' });
-				}
-
 				// Merge existing social media with new updates
 				const existingSocialMedia = existing.socialMedia || {};
 				const mergedSocialMedia = { ...existingSocialMedia, ...socialMedia };
 				const cleanedSocialMedia = validateAndCleanSocialMedia(mergedSocialMedia);
 				updateData.socialMedia = cleanedSocialMedia;
+			} catch (err) {
+				return res.status(400).json({ message: err.message });
+			}
+		}
+
+		// Validate and clean phones array if provided
+		if (phones !== undefined) {
+			try {
+				const cleanedPhones = validatePhonesArray(phones);
+				updateData.phones = cleanedPhones;
 			} catch (err) {
 				return res.status(400).json({ message: err.message });
 			}

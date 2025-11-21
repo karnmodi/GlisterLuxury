@@ -61,7 +61,7 @@ export default function ProductDetailPage() {
       setFinishes(finishesData)
 
       // Auto-select first material if available
-      if (productData.materials && Array.isArray(productData.materials) && productData.materials.length > 0) {
+      if (productData && productData.materials && Array.isArray(productData.materials) && productData.materials.length > 0) {
         setSelectedMaterial(productData.materials[0])
       }
     } catch (error) {
@@ -159,12 +159,21 @@ export default function ProductDetailPage() {
     }
 
     try {
+      // Calculate material discount and net price (matching backend logic)
+      const materialBase = toNumber(selectedMaterial.basePrice)
+      const discountPercentage = product.discountPercentage != null ? Number(product.discountPercentage) : null
+      const materialDiscount = discountPercentage ? (materialBase * (discountPercentage / 100)) : 0
+      const netBasePrice = materialBase - materialDiscount
+
       await addToCart({
         productID: product._id,
         selectedMaterial: {
           materialID: selectedMaterial.materialID,
           name: selectedMaterial.name,
-          basePrice: toNumber(selectedMaterial.basePrice),
+          basePrice: materialBase,
+          // Include discount fields for backend validation
+          materialDiscount: materialDiscount,
+          netBasePrice: netBasePrice,
         },
         selectedSize: selectedSize?.sizeMM,
         selectedSizeName: selectedSize?.name,
@@ -174,7 +183,30 @@ export default function ProductDetailPage() {
       })
       
       toast.success('Product added to cart!')
-      router.push('/products')
+      
+      // Extract category and subcategory IDs for redirect
+      let categoryId: string | undefined
+      let subcategoryId: string | undefined
+      
+      // Extract category ID
+      if (product.category) {
+        if (typeof product.category === 'object' && product.category._id) {
+          categoryId = product.category._id
+        } else if (typeof product.category === 'string') {
+          categoryId = product.category
+        }
+      }
+      
+      // Extract subcategory ID (prefer subcategory object over subcategoryId string)
+      if (product.subcategory && typeof product.subcategory === 'object' && product.subcategory._id) {
+        subcategoryId = product.subcategory._id
+      } else if (product.subcategoryId) {
+        subcategoryId = product.subcategoryId
+      }
+      
+      // Build redirect URL with category/subcategory filters
+      const redirectUrl = buildProductsUrl(categoryId, subcategoryId)
+      router.push(redirectUrl)
     } catch (error) {
       console.error('Failed to add to cart:', error)
       toast.error('Failed to add to cart. Please try again.')

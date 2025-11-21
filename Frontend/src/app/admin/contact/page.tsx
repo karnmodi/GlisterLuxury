@@ -25,6 +25,7 @@ export default function AdminContactPage() {
     type: 'address' as 'address' | 'phone' | 'email' | 'social',
     label: '',
     value: '',
+    phones: [] as Array<{ type: 'landline' | 'contact', number: string, label?: string }>,
     displayOrder: 0,
     isActive: true,
     socialMedia: {
@@ -91,6 +92,7 @@ export default function AdminContactPage() {
       type: 'address',
       label: '',
       value: '',
+      phones: [],
       displayOrder: 0,
       isActive: true,
       socialMedia: {
@@ -112,7 +114,8 @@ export default function AdminContactPage() {
     setFormData({
       type: item.type,
       label: item.label,
-      value: item.value,
+      value: item.value || '',
+      phones: item.phones || [],
       displayOrder: item.displayOrder,
       isActive: item.isActive,
       socialMedia: {
@@ -138,9 +141,23 @@ export default function AdminContactPage() {
       const payload: any = {
         type: formData.type,
         label: formData.label,
-        value: formData.value,
         displayOrder: formData.displayOrder,
         isActive: formData.isActive,
+      }
+      
+      // For phone type: use phones array if available, otherwise use value for backward compatibility
+      if (formData.type === 'phone') {
+        if (formData.phones && formData.phones.length > 0) {
+          payload.phones = formData.phones.filter(p => p.number.trim() !== '')
+        } else if (formData.value.trim() !== '') {
+          // Backward compatibility: if phones array is empty but value exists, use value
+          payload.value = formData.value.trim()
+        }
+      } else {
+        // For other types, value is required
+        if (formData.value.trim() !== '') {
+          payload.value = formData.value.trim()
+        }
       }
       
       if (hasSocialMedia) {
@@ -379,7 +396,17 @@ export default function AdminContactPage() {
                           </span>
                         </div>
                         <p className="font-semibold text-charcoal text-sm">{item.label}</p>
-                        <p className="text-xs text-charcoal/70 mt-1">{item.value}</p>
+                        {item.type === 'phone' && item.phones && item.phones.length > 0 ? (
+                          <div className="text-xs text-charcoal/70 mt-1 space-y-1">
+                            {item.phones.map((phone, idx) => (
+                              <p key={idx}>
+                                {phone.label || phone.type}: {phone.number}
+                              </p>
+                            ))}
+                          </div>
+                        ) : (
+                          item.value && <p className="text-xs text-charcoal/70 mt-1">{item.value}</p>
+                        )}
                       </div>
                       <div className="flex gap-1">
                         <button
@@ -624,19 +651,141 @@ export default function AdminContactPage() {
             placeholder="e.g., Head Office, Sales, Instagram"
           />
 
-          <div>
-            <label className="block text-xs font-medium text-charcoal mb-1">
-              Value *
-            </label>
-            <textarea
-              value={formData.value}
-              onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-              required
-              placeholder="Enter contact information"
-              className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
-              rows={3}
-            />
-          </div>
+          {/* Value field - shown for non-phone types or as fallback for phone type */}
+          {formData.type !== 'phone' && (
+            <div>
+              <label className="block text-xs font-medium text-charcoal mb-1">
+                Value *
+              </label>
+              <textarea
+                value={formData.value}
+                onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                required
+                placeholder="Enter contact information"
+                className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+                rows={3}
+              />
+            </div>
+          )}
+
+          {/* Phone Numbers Array - shown when type is 'phone' */}
+          {formData.type === 'phone' && (
+            <div className="space-y-2 border-t border-brass/20 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-medium text-charcoal">
+                  Phone Numbers *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData({
+                      ...formData,
+                      phones: [...formData.phones, { type: 'contact', number: '', label: '' }]
+                    })
+                  }}
+                  className="text-[10px] bg-brass text-white px-2 py-1 rounded hover:bg-brass/90 transition-colors font-semibold"
+                >
+                  + Add Phone
+                </button>
+              </div>
+              {formData.phones.length === 0 ? (
+                <div className="text-xs text-charcoal/60 p-2 bg-charcoal/5 rounded border border-brass/20">
+                  No phone numbers added. Click "Add Phone" to add one.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {formData.phones.map((phone, index) => (
+                    <div key={index} className="p-3 bg-charcoal/5 rounded border border-brass/20 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-charcoal">Phone #{index + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              phones: formData.phones.filter((_, i) => i !== index)
+                            })
+                          }}
+                          className="text-[10px] text-red-600 hover:text-red-800 font-semibold"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-medium text-charcoal/70 mb-1">
+                            Type *
+                          </label>
+                          <select
+                            value={phone.type}
+                            onChange={(e) => {
+                              const updatedPhones = [...formData.phones]
+                              updatedPhones[index].type = e.target.value as 'landline' | 'contact'
+                              setFormData({ ...formData, phones: updatedPhones })
+                            }}
+                            required
+                            className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+                          >
+                            <option value="landline">Landline</option>
+                            <option value="contact">Contact</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-medium text-charcoal/70 mb-1">
+                            Label (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={phone.label || ''}
+                            onChange={(e) => {
+                              const updatedPhones = [...formData.phones]
+                              updatedPhones[index].label = e.target.value
+                              setFormData({ ...formData, phones: updatedPhones })
+                            }}
+                            placeholder="e.g., Main Office"
+                            className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-medium text-charcoal/70 mb-1">
+                          Number *
+                        </label>
+                        <input
+                          type="tel"
+                          value={phone.number}
+                          onChange={(e) => {
+                            const updatedPhones = [...formData.phones]
+                            updatedPhones[index].number = e.target.value
+                            setFormData({ ...formData, phones: updatedPhones })
+                          }}
+                          required
+                          placeholder="e.g., +44 123 456 789"
+                          className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Backward compatibility: Value field for old phone entries */}
+              <div className="mt-3 pt-3 border-t border-brass/20">
+                <label className="block text-xs font-medium text-charcoal/70 mb-1">
+                  Value (Legacy - for backward compatibility)
+                </label>
+                <input
+                  type="text"
+                  value={formData.value}
+                  onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                  placeholder="Leave empty if using phone numbers above"
+                  className="w-full px-2 py-1.5 text-xs bg-white border border-brass/30 rounded focus:outline-none focus:ring-1 focus:ring-brass"
+                />
+                <p className="text-[10px] text-charcoal/50 mt-1">
+                  Only use this if migrating old data. New entries should use phone numbers above.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Social Media Fields - shown when type is 'social' */}
           {formData.type === 'social' && (
