@@ -16,6 +16,7 @@ export default function ContactPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [formHasBeenShown, setFormHasBeenShown] = useState(false)
   const toast = useToast()
 
   const [formData, setFormData] = useState({
@@ -58,6 +59,13 @@ export default function ContactPage() {
     threshold: 0.05,
     rootMargin: '50px 0px'
   })
+
+  // Track if form has been shown to prevent disappearing on mobile
+  useEffect(() => {
+    if (formInView && !formHasBeenShown) {
+      setFormHasBeenShown(true)
+    }
+  }, [formInView, formHasBeenShown])
 
   useEffect(() => {
     const fetchContactInfo = async () => {
@@ -662,7 +670,7 @@ export default function ContactPage() {
           <motion.div
             ref={formRef}
             initial={{ opacity: 0, y: 30 }}
-            animate={formInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+            animate={formHasBeenShown || formInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
             transition={{ duration: 0.8 }}
             className="text-center mb-16 lg:mb-20"
           >
@@ -678,7 +686,7 @@ export default function ContactPage() {
 
           <motion.form
             initial={{ opacity: 0, y: 30 }}
-            animate={formInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+            animate={formHasBeenShown || formInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
             transition={{ duration: 0.8, delay: 0.2 }}
             onSubmit={handleSubmit}
             className="space-y-6"
