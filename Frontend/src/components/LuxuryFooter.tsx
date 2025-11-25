@@ -148,6 +148,30 @@ export default function LuxuryFooter() {
                   Catalogue
                 </Link>
               </li>
+              <li>
+                <Link 
+                  href="/track"
+                  className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
+                >
+                  Track Order
+                </Link>
+              </li>
+              <li>
+                <Link 
+                  href="/contact?category=business_inquiry&subject=Business Inquiry from [Your Business Name]#contact-form"
+                  className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
+                >
+                  Business Inquiries
+                </Link>
+              </li>
+              <li>
+                <Link 
+                  href="/contact?category=bulk_order&subject=Bulk Order Inquiry from [Your Business Name]#contact-form"
+                  className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
+                >
+                  Bulk Order
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

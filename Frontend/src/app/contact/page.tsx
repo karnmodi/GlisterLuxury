@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { useInView } from 'react-intersection-observer'
 import LuxuryNavigation from '@/components/LuxuryNavigation'
@@ -12,6 +13,7 @@ import { useToast } from '@/contexts/ToastContext'
 import type { ContactInfo } from '@/types'
 
 export default function ContactPage() {
+  const searchParams = useSearchParams()
   const [contactInfo, setContactInfo] = useState<ContactInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -34,6 +36,7 @@ export default function ContactPage() {
     { value: 'order_status', label: 'Order Status' },
     { value: 'refund_request', label: 'Refund Request' },
     { value: 'bulk_order', label: 'Bulk Order' },
+    { value: 'business_inquiry', label: 'Business Inquiry' },
     { value: 'technical_support', label: 'Technical Support' },
     { value: 'shipping_delivery', label: 'Shipping & Delivery' },
     { value: 'payment_issue', label: 'Payment Issue' },
@@ -54,6 +57,31 @@ export default function ContactPage() {
     rootMargin: '50px 0px'
   })
   
+
+  // Read query parameters and pre-fill form, then scroll to form
+  useEffect(() => {
+    const category = searchParams.get('category')
+    const subject = searchParams.get('subject')
+    const hash = typeof window !== 'undefined' ? window.location.hash : ''
+    
+    if (category || subject) {
+      setFormData(prev => ({
+        ...prev,
+        category: category || prev.category,
+        subject: subject ? decodeURIComponent(subject) : prev.subject
+      }))
+    }
+    
+    // Scroll to form section if hash is present or query params are present
+    if (hash === '#contact-form' || category || subject) {
+      setTimeout(() => {
+        const formSection = document.getElementById('contact-form')
+        if (formSection) {
+          formSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 300)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     const fetchContactInfo = async () => {
@@ -584,7 +612,7 @@ export default function ContactPage() {
         </section>
 
       {/* Contact Form Section */}
-      <section className="py-24 lg:py-32 bg-charcoal relative overflow-hidden">
+      <section id="contact-form" className="py-24 lg:py-32 bg-charcoal relative overflow-hidden">
         {/* Top wave transition */}
         <div className="absolute top-0 left-0 right-0 overflow-hidden">
           <svg 

@@ -15,6 +15,7 @@ const ContactInquirySchema = new Schema(
 				'order_status',
 				'refund_request',
 				'bulk_order',
+				'business_inquiry',
 				'technical_support',
 				'shipping_delivery',
 				'payment_issue',

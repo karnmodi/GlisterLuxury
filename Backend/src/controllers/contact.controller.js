@@ -425,8 +425,17 @@ async function sendContactInquiryEmail(inquiry) {
 		`;
 
 		// Send admin notification from enquiries@glisterluxury.com (matches authentication)
-		const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USERNAME;
-		const adminRecipients = [adminEmail, 'londonglister@gmail.com'].filter(Boolean);
+		// Route bulk_order and business_inquiry to parth@glisterluxury.com
+		const isBusinessOrBulkOrder = inquiry.category === 'bulk_order' || inquiry.category === 'business_inquiry';
+		let adminRecipients;
+		
+		if (isBusinessOrBulkOrder) {
+			adminRecipients = ['parth@glisterluxury.com'];
+		} else {
+			const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USERNAME;
+			adminRecipients = [adminEmail, 'londonglister@gmail.com'].filter(Boolean);
+		}
+		
 		await transporter.sendMail({
 			from: `Glister Luxury <${enquiriesEmail}>`,
 			to: adminRecipients,

@@ -482,20 +482,6 @@ export default function LuxuryNavigation() {
               </AnimatePresence>
             </div>
 
-            <Link 
-              href="/finishes" 
-              className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline"
-            >
-              Finishes
-            </Link>
-
-            <Link 
-              href="/faqs" 
-              className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline"
-            >
-              FAQs
-            </Link>
-
             <Link
               href="/contact"
               className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline"
@@ -509,16 +495,6 @@ export default function LuxuryNavigation() {
             >
               Catalogue
             </Link>
-
-            {/* Track Order - Only for non-logged-in users */}
-            {!isAuthenticated && (
-              <Link
-                href="/track"
-                className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline"
-              >
-                Track Order
-              </Link>
-            )}
           </div>
 
           {/* Action Icons - Visible on Desktop */}
