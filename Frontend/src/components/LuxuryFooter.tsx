@@ -140,6 +140,14 @@ export default function LuxuryFooter() {
                   Finishes
                 </Link>
               </li>
+              <li>
+                <Link 
+                  href="/catalogue"
+                  className="text-ivory/70 hover:text-brass transition-colors duration-300 golden-underline text-sm"
+                >
+                  Catalogue
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

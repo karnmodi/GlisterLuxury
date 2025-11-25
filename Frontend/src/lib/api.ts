@@ -391,6 +391,40 @@ export const productsApi = {
       method: 'PATCH',
       body: JSON.stringify({ isVisible }),
     }),
+
+  // Search suggestions - optimized for autocomplete with limited results
+  getSuggestions: (query: string, signal?: AbortSignal) => {
+    if (!query || query.trim().length === 0) {
+      return Promise.resolve({ products: [], categories: [], subcategories: [] })
+    }
+
+    const queryParams = new URLSearchParams()
+    queryParams.append('q', query.trim())
+
+    return apiCall<{
+      products: Array<{
+        _id: string
+        productID: string
+        name: string
+        description: string
+        thumbnailImage: string | null
+      }>
+      categories: Array<{
+        _id: string
+        name: string
+        slug: string
+      }>
+      subcategories: Array<{
+        _id: string
+        name: string
+        slug: string
+        categoryName?: string
+        categoryId?: string
+      }>
+    }>(`/products/suggestions?${queryParams.toString()}`, {
+      signal,
+    })
+  },
 }
 
 // Categories API

@@ -1,5 +1,6 @@
 const Settings = require('../models/Settings');
 const mongoose = require('mongoose');
+const { processCatalogUrl } = require('../utils/catalogHelpers');
 
 /**
  * Get current settings
@@ -9,6 +10,29 @@ const mongoose = require('mongoose');
 const getSettings = async (req, res) => {
   try {
     const settings = await Settings.getSettings();
+
+    // Process catalogs: add previewUrl and downloadUrl, filter enabled ones for public
+    const isAdmin = req.user && req.user.role === 'admin';
+    let processedCatalogs = (settings.catalogs || []).map(catalog => {
+      const processed = processCatalogUrl(catalog.url);
+      return {
+        title: catalog.title || 'Product Catalogue',
+        url: catalog.url,
+        previewUrl: processed ? processed.previewUrl : catalog.url,
+        downloadUrl: processed ? processed.downloadUrl : catalog.url,
+        enabled: catalog.enabled !== undefined ? catalog.enabled : true,
+        order: catalog.order !== undefined ? catalog.order : 0,
+        lastUpdated: catalog.lastUpdated || null
+      };
+    });
+
+    // Sort by order
+    processedCatalogs.sort((a, b) => a.order - b.order);
+
+    // Filter to only enabled catalogs for public endpoint
+    if (!isAdmin) {
+      processedCatalogs = processedCatalogs.filter(catalog => catalog.enabled);
+    }
 
     // Return settings with Decimal128 converted to numbers for frontend
     const response = {
@@ -24,6 +48,7 @@ const getSettings = async (req, res) => {
       vatRate: settings.vatRate,
       vatEnabled: settings.vatEnabled,
       autoReplySettings: settings.autoReplySettings || [],
+      catalogs: processedCatalogs,
       lastUpdated: settings.lastUpdated,
       updatedBy: settings.updatedBy
     };
@@ -201,6 +226,66 @@ const updateSettings = async (req, res) => {
       }
     }
 
+    // Validate catalogs if provided
+    if (updates.catalogs !== undefined) {
+      if (!Array.isArray(updates.catalogs)) {
+        return res.status(400).json({
+          error: 'catalogs must be an array'
+        });
+      }
+
+      for (let i = 0; i < updates.catalogs.length; i++) {
+        const catalog = updates.catalogs[i];
+
+        // Validate title
+        if (catalog.title !== undefined && typeof catalog.title !== 'string') {
+          return res.status(400).json({
+            error: `Catalog ${i + 1}: title must be a string`
+          });
+        }
+
+        // Validate URL
+        if (!catalog.url || typeof catalog.url !== 'string' || catalog.url.trim() === '') {
+          return res.status(400).json({
+            error: `Catalog ${i + 1}: url is required and must be a non-empty string`
+          });
+        }
+
+        // Validate URL format
+        try {
+          new URL(catalog.url);
+        } catch (e) {
+          return res.status(400).json({
+            error: `Catalog ${i + 1}: url must be a valid URL`
+          });
+        }
+
+        // Validate enabled
+        if (catalog.enabled !== undefined && typeof catalog.enabled !== 'boolean') {
+          return res.status(400).json({
+            error: `Catalog ${i + 1}: enabled must be a boolean`
+          });
+        }
+
+        // Validate order
+        if (catalog.order !== undefined) {
+          const order = parseFloat(catalog.order);
+          if (isNaN(order)) {
+            return res.status(400).json({
+              error: `Catalog ${i + 1}: order must be a number`
+            });
+          }
+        }
+
+        // Process URL and add preview/download URLs (for response only, not stored)
+        const processed = processCatalogUrl(catalog.url);
+        if (processed) {
+          catalog.previewUrl = processed.previewUrl;
+          catalog.downloadUrl = processed.downloadUrl;
+        }
+      }
+    }
+
     // Add updatedBy from user info if available
     // TODO: Add proper authentication middleware to get user email/id
     if (req.user && req.user.email) {
@@ -239,6 +324,20 @@ const updateSettings = async (req, res) => {
       lastUpdated: updatedSettings.lastUpdated
     });
 
+    // Process catalogs for response
+    const processedCatalogs = (updatedSettings.catalogs || []).map(catalog => {
+      const processed = processCatalogUrl(catalog.url);
+      return {
+        title: catalog.title || 'Product Catalogue',
+        url: catalog.url,
+        previewUrl: processed ? processed.previewUrl : catalog.url,
+        downloadUrl: processed ? processed.downloadUrl : catalog.url,
+        enabled: catalog.enabled !== undefined ? catalog.enabled : true,
+        order: catalog.order !== undefined ? catalog.order : 0,
+        lastUpdated: catalog.lastUpdated || null
+      };
+    }).sort((a, b) => a.order - b.order);
+
     // Return updated settings with Decimal128 converted to numbers
     const response = {
       deliveryTiers: updatedSettings.deliveryTiers.map(tier => ({
@@ -253,6 +352,7 @@ const updateSettings = async (req, res) => {
       vatRate: updatedSettings.vatRate,
       vatEnabled: updatedSettings.vatEnabled,
       autoReplySettings: updatedSettings.autoReplySettings || [],
+      catalogs: processedCatalogs,
       lastUpdated: updatedSettings.lastUpdated,
       updatedBy: updatedSettings.updatedBy
     };
@@ -295,6 +395,20 @@ const resetSettings = async (req, res) => {
     // Create new default settings
     const defaultSettings = await Settings.getSettings();
 
+    // Process catalogs for response
+    const processedCatalogs = (defaultSettings.catalogs || []).map(catalog => {
+      const processed = processCatalogUrl(catalog.url);
+      return {
+        title: catalog.title || 'Product Catalogue',
+        url: catalog.url,
+        previewUrl: processed ? processed.previewUrl : catalog.url,
+        downloadUrl: processed ? processed.downloadUrl : catalog.url,
+        enabled: catalog.enabled !== undefined ? catalog.enabled : true,
+        order: catalog.order !== undefined ? catalog.order : 0,
+        lastUpdated: catalog.lastUpdated || null
+      };
+    }).sort((a, b) => a.order - b.order);
+
     // Return default settings
     const response = {
       deliveryTiers: defaultSettings.deliveryTiers.map(tier => ({
@@ -309,6 +423,7 @@ const resetSettings = async (req, res) => {
       vatRate: defaultSettings.vatRate,
       vatEnabled: defaultSettings.vatEnabled,
       autoReplySettings: defaultSettings.autoReplySettings || [],
+      catalogs: processedCatalogs,
       lastUpdated: defaultSettings.lastUpdated,
       updatedBy: defaultSettings.updatedBy
     };

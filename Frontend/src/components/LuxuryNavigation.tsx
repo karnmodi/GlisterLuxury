@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import MobileNavigation from './MobileNavigation'
+import SearchModal from './SearchModal'
 import { useCart } from '@/contexts/CartContext'
 import { useWishlist } from '@/contexts/WishlistContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -18,6 +19,7 @@ export default function LuxuryNavigation() {
   const [scrolled, setScrolled] = useState(false)
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const { categories, loading: categoriesLoading, hasAttemptedFetch, error: categoriesError } = useCategories()
   const { collections, collectionsWithProducts } = useCollections()
   const [bannerHeight, setBannerHeight] = useState(0)
@@ -501,6 +503,13 @@ export default function LuxuryNavigation() {
               Contact
             </Link>
 
+            <Link
+              href="/catalogue"
+              className="text-ivory hover:text-brass transition-colors duration-300 text-sm font-medium tracking-wide golden-underline"
+            >
+              Catalogue
+            </Link>
+
             {/* Track Order - Only for non-logged-in users */}
             {!isAuthenticated && (
               <Link
@@ -515,6 +524,15 @@ export default function LuxuryNavigation() {
           {/* Action Icons - Visible on Desktop */}
           <div className="hidden lg:flex items-center gap-6">
             {/* Search Icon */}
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              className="text-ivory hover:text-brass transition-colors duration-300"
+              aria-label="Search"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
 
             {/* Profile Icon with Dropdown */}
             <div 
@@ -707,8 +725,19 @@ export default function LuxuryNavigation() {
           {/* Mobile Icons & Menu */}
           <div className="flex lg:hidden items-center gap-4">
 
+            {/* Search Icon - Mobile */}
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              className="text-ivory hover:text-brass transition-colors duration-300"
+              aria-label="Search"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+
             {/* Profile Icon - Mobile */}
-            <Link 
+            <Link
               href={isAuthenticated ? "/profile" : "/login"}
               className="text-ivory hover:text-brass transition-colors duration-300"
               aria-label="Profile"
@@ -751,6 +780,9 @@ export default function LuxuryNavigation() {
           </div>
         </div>
       </div>
+
+      {/* Search Modal */}
+      <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
     </motion.nav>
   )
 }

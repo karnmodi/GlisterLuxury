@@ -677,13 +677,59 @@ export interface AutoReplyConfig {
   updatedBy?: string
 }
 
+export interface Catalog {
+  title: string
+  url: string
+  previewUrl?: string
+  downloadUrl?: string
+  enabled: boolean
+  order: number
+  lastUpdated: string | null
+}
+
 export interface Settings {
   deliveryTiers: DeliveryTier[]
   freeDeliveryThreshold: FreeDeliveryThreshold
   vatRate: number
   vatEnabled: boolean
   autoReplySettings?: AutoReplyConfig[]
+  catalogs?: Catalog[]
   lastUpdated?: string
   updatedBy?: string
+}
+
+// Search types
+export interface SearchSuggestion {
+  type: 'product' | 'category' | 'subcategory'
+  id: string
+  name: string
+  description?: string
+  thumbnail?: string | null
+  categoryName?: string // For subcategories, to show parent category
+  categoryId?: string
+}
+
+export interface SearchResults {
+  products: Array<{
+    _id: string
+    productID: string
+    name: string
+    description: string
+    thumbnailImage: string | null
+  }>
+  categories: Array<{
+    _id: string
+    name: string
+    slug: string
+  }>
+  subcategories: Array<{
+    _id: string
+    name: string
+    slug: string
+    categoryName?: string
+    categoryId?: string
+  }>
+  isLoading: boolean
+  error: string | null
 }
 

@@ -33,43 +33,75 @@ export default function InstallPrompt() {
     }
 
     // Listen for beforeinstallprompt event (Chrome, Edge, etc.)
+    // Note: Calling preventDefault() will show a console warning, but this is expected.
+    // We prevent the default browser prompt and show our custom UI instead.
+    // The prompt() method will be called when the user clicks the install button.
     const handleBeforeInstallPrompt = (e: Event) => {
+      // Prevent the default mini-infobar from appearing
+      // This will show a console warning, but it's expected behavior
       e.preventDefault()
-      setDeferredPrompt(e as BeforeInstallPromptEvent)
+      
+      // Store the event for later use (must be called within user gesture)
+      const promptEvent = e as BeforeInstallPromptEvent
+      setDeferredPrompt(promptEvent)
+      
+      // Show our custom install prompt UI
       setShowPrompt(true)
+      
+      console.log('[PWA] Install prompt event captured, custom UI will be shown')
+      console.log('[PWA] Note: Console warning about preventDefault() is expected - prompt() will be called on user click')
     }
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    // Only add listener if not already installed
+    if (!isAppInstalled()) {
+      window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    }
 
     // Listen for app installed event
-    window.addEventListener('appinstalled', () => {
+    const handleAppInstalled = () => {
       console.log('[PWA] App installed')
       setIsInstalled(true)
       setShowPrompt(false)
       setDeferredPrompt(null)
-    })
+    }
+    
+    window.addEventListener('appinstalled', handleAppInstalled)
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', handleAppInstalled)
     }
   }, [])
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
-      // Show the install prompt
-      deferredPrompt.prompt()
+      try {
+        // Show the install prompt
+        await deferredPrompt.prompt()
+        console.log('[PWA] Install prompt shown')
 
-      // Wait for user response
-      const { outcome } = await deferredPrompt.userChoice
-      console.log('[PWA] User choice:', outcome)
+        // Wait for user response
+        const { outcome } = await deferredPrompt.userChoice
+        console.log('[PWA] User choice:', outcome)
 
-      if (outcome === 'accepted') {
+        if (outcome === 'accepted') {
+          console.log('[PWA] User accepted install prompt')
+          setShowPrompt(false)
+        } else {
+          console.log('[PWA] User dismissed install prompt')
+        }
+
+        // Clear the deferred prompt so it can't be used again
+        setDeferredPrompt(null)
+      } catch (error) {
+        console.error('[PWA] Error showing install prompt:', error)
+        // If prompt fails, still clear it and hide the UI
+        setDeferredPrompt(null)
         setShowPrompt(false)
       }
-
-      setDeferredPrompt(null)
     } else {
-      // For iOS Safari, just close the prompt (instructions are shown)
+      // For iOS Safari or if prompt is not available, just close the prompt
+      console.log('[PWA] No deferred prompt available, closing UI')
       setShowPrompt(false)
     }
   }

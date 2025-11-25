@@ -6,9 +6,10 @@ import { useToast } from '@/contexts/ToastContext'
 import { useSettings as useGlobalSettings } from '@/contexts/SettingsContext'
 import { settingsApi } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
-import type { Settings, DeliveryTier, AutoReplyConfig } from '@/types'
+import type { Settings, DeliveryTier, AutoReplyConfig, Catalog } from '@/types'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import { processCatalogUrl } from '@/utils/catalogHelpers'
 
 export default function SettingsPage() {
   const { token } = useAuth()
@@ -26,6 +27,7 @@ export default function SettingsPage() {
   const [vatRate, setVatRate] = useState('20')
   const [vatEnabled, setVatEnabled] = useState(true)
   const [autoReplySettings, setAutoReplySettings] = useState<AutoReplyConfig[]>([])
+  const [catalogs, setCatalogs] = useState<Catalog[]>([])
 
   // Business emails
   const businessEmails = [
@@ -42,6 +44,15 @@ export default function SettingsPage() {
     maxAmount: '',
     fee: ''
   })
+
+  // New catalog form
+  const [newCatalog, setNewCatalog] = useState({
+    title: '',
+    url: '',
+    enabled: true,
+    order: 0
+  })
+  const [editingCatalogIndex, setEditingCatalogIndex] = useState<number | null>(null)
 
   useEffect(() => {
     fetchSettings()
@@ -90,6 +101,13 @@ https://www.glisterlondon.com/`
             : ''
         }))
         setAutoReplySettings(defaultConfigs)
+      }
+
+      // Initialize catalogs
+      if (data.catalogs && Array.isArray(data.catalogs)) {
+        setCatalogs(data.catalogs)
+      } else {
+        setCatalogs([])
       }
     } catch (error) {
       console.error('Failed to fetch settings:', error)
@@ -150,6 +168,129 @@ https://www.glisterlondon.com/`
     toast.success('Tier removed successfully')
   }
 
+  // Catalog management functions
+  const handleAddCatalog = () => {
+    if (!newCatalog.url.trim()) {
+      toast.error('Please enter a catalog URL')
+      return
+    }
+
+    // Validate URL format
+    try {
+      new URL(newCatalog.url)
+    } catch (e) {
+      toast.error('Please enter a valid URL')
+      return
+    }
+
+    const catalog: Catalog = {
+      title: newCatalog.title.trim() || 'Product Catalogue',
+      url: newCatalog.url.trim(),
+      enabled: newCatalog.enabled,
+      order: newCatalog.order || catalogs.length,
+      lastUpdated: null
+    }
+
+    const processed = processCatalogUrl(catalog.url)
+    if (processed) {
+      catalog.previewUrl = processed.previewUrl
+      catalog.downloadUrl = processed.downloadUrl
+    }
+
+    setCatalogs([...catalogs, catalog])
+    setNewCatalog({ title: '', url: '', enabled: true, order: catalogs.length + 1 })
+    toast.success('Catalog added successfully')
+  }
+
+  const handleEditCatalog = (index: number) => {
+    const catalog = catalogs[index]
+    setNewCatalog({
+      title: catalog.title,
+      url: catalog.url,
+      enabled: catalog.enabled,
+      order: catalog.order
+    })
+    setEditingCatalogIndex(index)
+  }
+
+  const handleUpdateCatalog = () => {
+    if (editingCatalogIndex === null) return
+
+    if (!newCatalog.url.trim()) {
+      toast.error('Please enter a catalog URL')
+      return
+    }
+
+    // Validate URL format
+    try {
+      new URL(newCatalog.url)
+    } catch (e) {
+      toast.error('Please enter a valid URL')
+      return
+    }
+
+    const updatedCatalogs = [...catalogs]
+    const catalog: Catalog = {
+      title: newCatalog.title.trim() || 'Product Catalogue',
+      url: newCatalog.url.trim(),
+      enabled: newCatalog.enabled,
+      order: newCatalog.order || editingCatalogIndex,
+      lastUpdated: null
+    }
+
+    const processed = processCatalogUrl(catalog.url)
+    if (processed) {
+      catalog.previewUrl = processed.previewUrl
+      catalog.downloadUrl = processed.downloadUrl
+    }
+
+    updatedCatalogs[editingCatalogIndex] = catalog
+    setCatalogs(updatedCatalogs)
+    setNewCatalog({ title: '', url: '', enabled: true, order: 0 })
+    setEditingCatalogIndex(null)
+    toast.success('Catalog updated successfully')
+  }
+
+  const handleDeleteCatalog = (index: number) => {
+    if (!confirm('Are you sure you want to delete this catalog?')) return
+
+    const updatedCatalogs = catalogs.filter((_, i) => i !== index)
+    setCatalogs(updatedCatalogs)
+    toast.success('Catalog deleted successfully')
+  }
+
+  const handleToggleCatalogEnabled = (index: number) => {
+    const updatedCatalogs = [...catalogs]
+    updatedCatalogs[index] = {
+      ...updatedCatalogs[index],
+      enabled: !updatedCatalogs[index].enabled
+    }
+    setCatalogs(updatedCatalogs)
+  }
+
+  const handleReorderCatalog = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return
+    if (direction === 'down' && index === catalogs.length - 1) return
+
+    const updatedCatalogs = [...catalogs]
+    const newIndex = direction === 'up' ? index - 1 : index + 1
+    const temp = updatedCatalogs[index]
+    updatedCatalogs[index] = updatedCatalogs[newIndex]
+    updatedCatalogs[newIndex] = temp
+
+    // Update order values
+    updatedCatalogs.forEach((catalog, i) => {
+      catalog.order = i
+    })
+
+    setCatalogs(updatedCatalogs)
+  }
+
+  const cancelEditCatalog = () => {
+    setNewCatalog({ title: '', url: '', enabled: true, order: 0 })
+    setEditingCatalogIndex(null)
+  }
+
   const handleSaveSettings = async () => {
     if (!token) {
       toast.error('You must be logged in to save settings')
@@ -186,6 +327,15 @@ https://www.glisterlondon.com/`
         updatedBy: 'admin'
       }))
 
+      // Prepare catalogs for save (remove previewUrl and downloadUrl as they're computed server-side)
+      const catalogsToSave = catalogs.map(catalog => ({
+        title: catalog.title,
+        url: catalog.url,
+        enabled: catalog.enabled,
+        order: catalog.order,
+        lastUpdated: catalog.lastUpdated || null
+      }))
+
       const updates: Partial<Settings> = {
         deliveryTiers,
         freeDeliveryThreshold: {
@@ -194,7 +344,8 @@ https://www.glisterlondon.com/`
         },
         vatRate: vatRateNum,
         vatEnabled,
-        autoReplySettings: updatedAutoReplySettings
+        autoReplySettings: updatedAutoReplySettings,
+        catalogs: catalogsToSave
       }
 
       console.log('=== FRONTEND: Sending settings update ===')
@@ -289,6 +440,9 @@ https://www.glisterlondon.com/`
       setVatEnabled(response.settings.vatEnabled)
       if (response.settings.autoReplySettings) {
         setAutoReplySettings(response.settings.autoReplySettings)
+      }
+      if (response.settings.catalogs) {
+        setCatalogs(response.settings.catalogs)
       }
 
       toast.success('Settings reset to default')
@@ -529,6 +683,169 @@ https://www.glisterlondon.com/`
                 </p>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Catalog Settings */}
+        <div className="bg-white rounded-lg shadow border border-brass/20 p-2">
+          <h2 className="text-xs font-bold text-charcoal mb-1">Catalog Settings</h2>
+          <p className="text-charcoal/60 mb-2 text-[10px]">
+            Manage product catalogues for customers to view and download. Paste Google Drive sharing URLs and they will be automatically converted to preview and download formats.
+          </p>
+
+          {/* Existing Catalogs */}
+          {catalogs.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {catalogs.map((catalog, index) => (
+                <div key={index} className="border border-charcoal/20 rounded p-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="flex flex-col gap-1">
+                        <button
+                          onClick={() => handleReorderCatalog(index, 'up')}
+                          disabled={index === 0}
+                          className="text-charcoal/50 hover:text-charcoal disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Move up"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleReorderCatalog(index, 'down')}
+                          disabled={index === catalogs.length - 1}
+                          className="text-charcoal/50 hover:text-charcoal disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Move down"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-[11px] font-semibold text-charcoal">{catalog.title}</h3>
+                        <p className="text-[9px] text-charcoal/60 truncate">{catalog.url}</p>
+                        {catalog.previewUrl && (
+                          <p className="text-[8px] text-charcoal/50 mt-0.5">
+                            Preview: {catalog.previewUrl.substring(0, 50)}...
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          checked={catalog.enabled}
+                          onChange={() => handleToggleCatalogEnabled(index)}
+                          className="w-3.5 h-3.5 text-brass border-charcoal/30 rounded focus:ring-brass"
+                        />
+                        <span className="text-[9px] text-charcoal">Enabled</span>
+                      </div>
+                      <button
+                        onClick={() => handleEditCatalog(index)}
+                        className="text-[9px] text-brass hover:text-brass/80 px-2 py-1 border border-brass/30 rounded"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCatalog(index)}
+                        className="text-[9px] text-red-600 hover:text-red-700 px-2 py-1 border border-red-300 rounded"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-[9px] text-charcoal/60">
+                    Order: {catalog.order} | {catalog.lastUpdated ? `Updated: ${new Date(catalog.lastUpdated).toLocaleDateString()}` : 'Not yet saved'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add/Edit Catalog Form */}
+          <div className="border-t border-charcoal/10 pt-2 space-y-2">
+            <h3 className="text-[10px] font-semibold text-charcoal mb-1">
+              {editingCatalogIndex !== null ? 'Edit Catalog' : 'Add New Catalog'}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <Input
+                label="Catalog Title"
+                value={newCatalog.title}
+                onChange={(e) => setNewCatalog({ ...newCatalog, title: e.target.value })}
+                placeholder="Product Catalogue (optional)"
+              />
+              <Input
+                label="Order"
+                type="number"
+                value={newCatalog.order.toString()}
+                onChange={(e) => setNewCatalog({ ...newCatalog, order: parseInt(e.target.value) || 0 })}
+                placeholder="0"
+              />
+            </div>
+            <Input
+              label="Google Drive URL"
+              value={newCatalog.url}
+              onChange={(e) => setNewCatalog({ ...newCatalog, url: e.target.value })}
+              placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
+              required
+            />
+            {newCatalog.url && (() => {
+              const processed = processCatalogUrl(newCatalog.url)
+              if (processed) {
+                return (
+                  <div className="text-[9px] text-charcoal/60 space-y-1 pl-2 border-l-2 border-brass/30">
+                    <p>Preview URL: <span className="text-charcoal/80">{processed.previewUrl.substring(0, 60)}...</span></p>
+                    <p>Download URL: <span className="text-charcoal/80">{processed.downloadUrl.substring(0, 60)}...</span></p>
+                  </div>
+                )
+              }
+              return null
+            })()}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="catalogEnabled"
+                checked={newCatalog.enabled}
+                onChange={(e) => setNewCatalog({ ...newCatalog, enabled: e.target.checked })}
+                className="w-3.5 h-3.5 text-brass border-charcoal/30 rounded focus:ring-brass"
+              />
+              <label htmlFor="catalogEnabled" className="text-[10px] text-charcoal font-medium">
+                Enable catalog (visible to customers)
+              </label>
+            </div>
+            <div className="flex gap-2">
+              {editingCatalogIndex !== null ? (
+                <>
+                  <Button
+                    onClick={handleUpdateCatalog}
+                    size="sm"
+                    className="text-[10px] bg-brass text-white hover:bg-brass/90 border border-brass font-medium"
+                  >
+                    Update Catalog
+                  </Button>
+                  <Button
+                    onClick={cancelEditCatalog}
+                    size="sm"
+                    className="text-[10px] bg-charcoal/10 text-charcoal hover:bg-charcoal/20 border border-charcoal/30 font-medium"
+                  >
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  onClick={handleAddCatalog}
+                  size="sm"
+                  className="text-[10px] bg-brass text-white hover:bg-brass/90 border border-brass font-medium"
+                >
+                  Add Catalog
+                </Button>
+              )}
+            </div>
+            <p className="text-[9px] text-charcoal/60">
+              Paste a Google Drive sharing URL. The system will automatically convert it to preview and download formats.
+            </p>
           </div>
         </div>
 

@@ -5,6 +5,7 @@ const { uploadMultiple, handleMulterError, validatePayloadSize } = require('../m
 const { handleOptionsRequest } = require('../utils/corsHelper');
 
 router.post('/', validateCreateProduct, ctrl.createProduct);
+router.get('/suggestions', ctrl.getSuggestions); // Optimized endpoint for search suggestions
 router.get('/listing', ctrl.listProductsMinimal); // Optimized endpoint for product listing
 router.get('/', ctrl.listProducts);
 router.get('/:id/finishes', ctrl.getProductFinishes);

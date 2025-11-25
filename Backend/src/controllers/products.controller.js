@@ -1160,10 +1160,130 @@ async function toggleProductVisibility(req, res) {
 	}
 }
 
+/**
+ * Get search suggestions for autocomplete
+ * Returns limited products, matching categories, and subcategories
+ */
+async function getSuggestions(req, res) {
+	try {
+		const { q } = req.query;
+
+		// Return empty results if no query
+		if (!q || q.trim().length === 0) {
+			return res.json({
+				products: [],
+				categories: [],
+				subcategories: [],
+			});
+		}
+
+		const Category = require('../models/Category');
+		const searchQuery = q.trim();
+		const mongoose = require('mongoose');
+
+		// Search for products (limit to 8 for suggestions)
+		const visibilityCondition = {
+			$or: [
+				{ isVisible: true },
+				{ isVisible: { $exists: false } },
+				{ isVisible: null }
+			]
+		};
+
+		const productFilter = {
+			$and: [
+				visibilityCondition,
+				{
+					$or: [
+						{ name: { $regex: searchQuery, $options: 'i' } },
+						{ productID: { $regex: searchQuery, $options: 'i' } },
+						{ productUID: { $regex: searchQuery, $options: 'i' } },
+					]
+				}
+			]
+		};
+
+		const products = await Product.find(productFilter)
+			.select('_id productID name description imageURLs')
+			.limit(8)
+			.lean();
+
+		// Transform product images to get thumbnailImage
+		const transformedProducts = products.map(product => {
+			let thumbnailImage = null;
+
+			if (product.imageURLs && typeof product.imageURLs === 'object') {
+				const images = Object.values(product.imageURLs);
+				if (images.length > 0 && images[0].url) {
+					thumbnailImage = images[0].url;
+				}
+			}
+
+			return {
+				_id: product._id.toString(),
+				productID: product.productID,
+				name: product.name,
+				description: product.description || '',
+				thumbnailImage,
+			};
+		});
+
+		// Search for matching categories
+		const categories = await Category.find({
+			name: { $regex: searchQuery, $options: 'i' }
+		})
+			.select('_id name slug')
+			.limit(5)
+			.lean();
+
+		// Search for matching subcategories
+		const categoriesWithSubcategories = await Category.find({
+			'subcategories.name': { $regex: searchQuery, $options: 'i' }
+		})
+			.select('_id name subcategories')
+			.lean();
+
+		const matchingSubcategories = [];
+		categoriesWithSubcategories.forEach(category => {
+			category.subcategories.forEach(subcategory => {
+				if (subcategory.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+					matchingSubcategories.push({
+						_id: subcategory._id.toString(),
+						name: subcategory.name,
+						slug: subcategory.slug,
+						categoryName: category.name,
+						categoryId: category._id.toString(),
+					});
+				}
+			});
+		});
+
+		// Limit subcategories to 5
+		const limitedSubcategories = matchingSubcategories.slice(0, 5);
+
+		return res.json({
+			products: transformedProducts,
+			categories: categories.map(cat => ({
+				_id: cat._id.toString(),
+				name: cat.name,
+				slug: cat.slug,
+			})),
+			subcategories: limitedSubcategories,
+		});
+	} catch (err) {
+		console.error('Get suggestions error:', err);
+		return res.status(500).json({
+			message: 'Failed to fetch suggestions',
+			error: err.message
+		});
+	}
+}
+
 module.exports = {
 	createProduct,
 	listProducts,
 	listProductsMinimal,
+	getSuggestions,
 	getProduct,
 	updateProduct,
 	deleteProduct,

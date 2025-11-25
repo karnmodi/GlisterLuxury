@@ -258,6 +258,15 @@ export default function MobileNavigation() {
                     >
                       Finishes
                     </Link>
+
+                    {/* Catalogue Link */}
+                    <Link 
+                      href="/catalogue" 
+                      className="block text-base font-medium text-ivory hover:text-brass hover:bg-brass/5 transition-all duration-300 py-3 px-4 rounded-sm border-b border-brass/10" 
+                      onClick={closeMenu}
+                    >
+                      Catalogue
+                    </Link>
                     
                     {/* Contact Link */}
                     <Link
@@ -276,6 +285,17 @@ export default function MobileNavigation() {
                         onClick={closeMenu}
                       >
                         Track Order
+                      </Link>
+                    )}
+
+                    {/* Login Button - Only for non-logged-in users */}
+                    {!isAuthenticated && (
+                      <Link
+                        href="/login"
+                        className="block w-full mt-4 px-6 py-3 bg-brass text-charcoal text-center font-semibold tracking-wide rounded-sm hover:bg-olive transition-all duration-300 shadow-lg hover:shadow-brass/50"
+                        onClick={closeMenu}
+                      >
+                        Login
                       </Link>
                     )}
                   </nav>

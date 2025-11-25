@@ -20,6 +20,32 @@ const DeliveryTierSchema = new Schema({
   }
 }, { _id: false });
 
+// Schema for individual catalog
+const CatalogSchema = new Schema({
+  title: {
+    type: String,
+    trim: true,
+    default: 'Product Catalogue'
+  },
+  url: {
+    type: String,
+    trim: true,
+    required: true
+  },
+  enabled: {
+    type: Boolean,
+    default: true
+  },
+  order: {
+    type: Number,
+    default: 0
+  },
+  lastUpdated: {
+    type: Date,
+    default: Date.now
+  }
+}, { _id: false });
+
 // Main Settings Schema
 const SettingsSchema = new Schema({
   // Delivery configuration
@@ -85,6 +111,12 @@ const SettingsSchema = new Schema({
         default: 'system'
       }
     }],
+    default: []
+  },
+
+  // Catalog configuration
+  catalogs: {
+    type: [CatalogSchema],
     default: []
   },
 
@@ -282,6 +314,16 @@ SettingsSchema.statics.updateSettings = async function(updates) {
     settings.autoReplySettings = updatedAutoReplySettings;
   }
 
+  if (updates.catalogs !== undefined) {
+    console.log('Updating catalogs:', updates.catalogs.length, 'catalogs');
+    // Update lastUpdated for each catalog
+    const updatedCatalogs = updates.catalogs.map(catalog => ({
+      ...catalog,
+      lastUpdated: catalog.lastUpdated ? new Date(catalog.lastUpdated) : new Date()
+    }));
+    settings.catalogs = updatedCatalogs;
+  }
+
   if (updates.updatedBy !== undefined) {
     settings.updatedBy = updates.updatedBy;
   }
@@ -292,6 +334,7 @@ SettingsSchema.statics.updateSettings = async function(updates) {
   settings.markModified('vatRate');
   settings.markModified('vatEnabled');
   settings.markModified('autoReplySettings');
+  settings.markModified('catalogs');
 
   // Validate tiers before saving
   const validation = settings.validateDeliveryTiers();
