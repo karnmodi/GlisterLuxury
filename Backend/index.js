@@ -25,7 +25,8 @@ const allowedOrigins = [
   // Vercel domain (fallback)
   'https://glister-londonn.vercel.app',
   // Local development
-  'http://localhost:3000'
+  'http://localhost:3000',
+  'http://localhost:3001'
 ]
   .filter(Boolean)
   .map(normalizeOrigin);

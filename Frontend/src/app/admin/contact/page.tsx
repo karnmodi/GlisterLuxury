@@ -37,10 +37,16 @@ export default function AdminContactPage() {
     { value: 'other', label: 'Other' }
   ]
 
-  // Helper function to format category label
-  const formatCategoryLabel = (category: string) => {
-    const option = categoryOptions.find(opt => opt.value === category)
-    return option ? option.label : category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  // Helper function to format category label safely for legacy records
+  const formatCategoryLabel = (category: string | null | undefined) => {
+    if (typeof category !== 'string' || category.trim() === '') {
+      return 'General Inquiry'
+    }
+    const normalized = category.trim()
+    const option = categoryOptions.find(opt => opt.value === normalized)
+    return option
+      ? option.label
+      : normalized.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
   const [formData, setFormData] = useState({
@@ -542,12 +548,15 @@ export default function AdminContactPage() {
                           </span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 mb-0.5">
+                          <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                             <p className="font-semibold text-charcoal text-xs truncate">{inquiry.subject}</p>
-                            <span className="px-1.5 py-0.5 bg-purple-100 text-purple-800 rounded text-[8px] font-semibold whitespace-nowrap">
+                            <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-[9px] font-semibold uppercase tracking-wide">
                               {formatCategoryLabel(inquiry.category)}
                             </span>
                           </div>
+                          <p className="text-[10px] text-purple-700 font-semibold">
+                            Category: {formatCategoryLabel(inquiry.category)}
+                          </p>
                           <p className="text-[10px] text-charcoal/60 mt-0.5 truncate">{inquiry.name}</p>
                           <p className="text-[10px] text-charcoal/50 mt-1 line-clamp-1">{inquiry.message.substring(0, 50)}...</p>
                           <p className="text-[9px] text-charcoal/40 mt-1">

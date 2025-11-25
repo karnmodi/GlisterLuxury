@@ -1228,15 +1228,34 @@ async function getSuggestions(req, res) {
 			};
 		});
 
-		// Search for matching categories
-		const categories = await Category.find({
+		// Search for matching categories that have products
+		const allMatchingCategories = await Category.find({
 			name: { $regex: searchQuery, $options: 'i' }
 		})
 			.select('_id name slug')
-			.limit(5)
 			.lean();
 
-		// Search for matching subcategories
+		// Filter categories to only include those with visible products
+		const categoriesWithProducts = [];
+		for (const category of allMatchingCategories) {
+			const productCount = await Product.countDocuments({
+				category: category._id,
+				$or: [
+					{ isVisible: true },
+					{ isVisible: { $exists: false } },
+					{ isVisible: null }
+				]
+			});
+
+			if (productCount > 0) {
+				categoriesWithProducts.push(category);
+			}
+
+			// Limit to 5 categories
+			if (categoriesWithProducts.length >= 5) break;
+		}
+
+		// Search for matching subcategories that have products
 		const categoriesWithSubcategories = await Category.find({
 			'subcategories.name': { $regex: searchQuery, $options: 'i' }
 		})
@@ -1244,31 +1263,44 @@ async function getSuggestions(req, res) {
 			.lean();
 
 		const matchingSubcategories = [];
-		categoriesWithSubcategories.forEach(category => {
-			category.subcategories.forEach(subcategory => {
+		for (const category of categoriesWithSubcategories) {
+			for (const subcategory of category.subcategories) {
 				if (subcategory.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-					matchingSubcategories.push({
-						_id: subcategory._id.toString(),
-						name: subcategory.name,
-						slug: subcategory.slug,
-						categoryName: category.name,
-						categoryId: category._id.toString(),
+					// Check if this subcategory has any visible products
+					const productCount = await Product.countDocuments({
+						subcategoryId: subcategory._id,
+						$or: [
+							{ isVisible: true },
+							{ isVisible: { $exists: false } },
+							{ isVisible: null }
+						]
 					});
-				}
-			});
-		});
 
-		// Limit subcategories to 5
-		const limitedSubcategories = matchingSubcategories.slice(0, 5);
+					if (productCount > 0) {
+						matchingSubcategories.push({
+							_id: subcategory._id.toString(),
+							name: subcategory.name,
+							slug: subcategory.slug,
+							categoryName: category.name,
+							categoryId: category._id.toString(),
+						});
+					}
+
+					// Limit to 5 subcategories
+					if (matchingSubcategories.length >= 5) break;
+				}
+			}
+			if (matchingSubcategories.length >= 5) break;
+		}
 
 		return res.json({
 			products: transformedProducts,
-			categories: categories.map(cat => ({
+			categories: categoriesWithProducts.map(cat => ({
 				_id: cat._id.toString(),
 				name: cat.name,
 				slug: cat.slug,
 			})),
-			subcategories: limitedSubcategories,
+			subcategories: matchingSubcategories,
 		});
 	} catch (err) {
 		console.error('Get suggestions error:', err);

@@ -747,27 +747,45 @@ async function submitInquiry(req, res) {
 async function listInquiries(req, res) {
 	try {
 		const { status, q, sortBy, category } = req.query;
-		const filter = {};
-		
+		const filters = [];
+
 		// Status filter
 		if (status) {
-			filter.status = status;
+			filters.push({ status });
 		}
-		
-		// Category filter
+
+		// Category filter (support legacy entries without category)
 		if (category) {
-			filter.category = category;
+			const normalizedCategory = typeof category === 'string' ? category.trim() : '';
+			if (normalizedCategory) {
+				if (normalizedCategory === 'general_inquiry') {
+					filters.push({
+						$or: [
+							{ category: 'general_inquiry' },
+							{ category: { $exists: false } },
+							{ category: null },
+							{ category: '' }
+						]
+					});
+				} else {
+					filters.push({ category: normalizedCategory });
+				}
+			}
 		}
-		
+
 		// Search filter
 		if (q) {
-			filter.$or = [
-				{ name: { $regex: q, $options: 'i' } },
-				{ email: { $regex: q, $options: 'i' } },
-				{ subject: { $regex: q, $options: 'i' } },
-				{ message: { $regex: q, $options: 'i' } },
-			];
+			filters.push({
+				$or: [
+					{ name: { $regex: q, $options: 'i' } },
+					{ email: { $regex: q, $options: 'i' } },
+					{ subject: { $regex: q, $options: 'i' } },
+					{ message: { $regex: q, $options: 'i' } },
+				]
+			});
 		}
+
+		const mongoFilter = filters.length > 0 ? { $and: filters } : {};
 		
 		// Build sort object
 		let sort = { createdAt: -1 }; // Default sort by newest first
@@ -788,7 +806,7 @@ async function listInquiries(req, res) {
 			}
 		}
 		
-		const inquiries = await ContactInquiry.find(filter).sort(sort).lean();
+		const inquiries = await ContactInquiry.find(mongoFilter).sort(sort).lean();
 		return res.json(inquiries);
 	} catch (err) {
 		return res.status(500).json({ message: err.message });

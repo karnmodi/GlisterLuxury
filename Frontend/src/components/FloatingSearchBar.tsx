@@ -8,10 +8,33 @@ import SearchModal from './SearchModal'
 export default function FloatingSearchBar() {
   const [isVisible, setIsVisible] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [bannerHeight, setBannerHeight] = useState(0)
   const pathname = usePathname()
 
   // Only show on home page
   const isHomePage = pathname === '/'
+
+  // Detect announcement banner height
+  useEffect(() => {
+    const checkBanner = () => {
+      const banner = document.querySelector('[data-announcement-banner]') as HTMLElement
+      if (banner) {
+        setBannerHeight(banner.offsetHeight)
+      } else {
+        setBannerHeight(0)
+      }
+    }
+
+    // Check immediately and after a delay for announcements to load
+    checkBanner()
+    const timeout = setTimeout(checkBanner, 1000)
+    const interval = setInterval(checkBanner, 2000)
+
+    return () => {
+      clearTimeout(timeout)
+      clearInterval(interval)
+    }
+  }, [])
 
   useEffect(() => {
     if (!isHomePage) {
@@ -31,6 +54,9 @@ export default function FloatingSearchBar() {
 
   if (!isHomePage) return null
 
+  // Calculate dynamic top position: banner height + navigation height (80px) + spacing (16px)
+  const topPosition = bannerHeight + 80 + 16
+
   return (
     <>
       <AnimatePresence>
@@ -40,7 +66,8 @@ export default function FloatingSearchBar() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="fixed top-24 left-1/2 -translate-x-1/2 z-40 px-4 w-full max-w-2xl"
+            className="fixed left-1/2 -translate-x-1/2 z-[9997] px-4 w-full max-w-2xl"
+            style={{ top: `${topPosition}px` }}
           >
             <button
               onClick={() => setIsSearchOpen(true)}

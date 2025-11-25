@@ -16,7 +16,6 @@ export default function ContactPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [formHasBeenShown, setFormHasBeenShown] = useState(false)
   const toast = useToast()
 
   const [formData, setFormData] = useState({
@@ -54,18 +53,7 @@ export default function ContactPage() {
     threshold: 0.05,
     rootMargin: '50px 0px'
   })
-  const [formRef, formInView] = useInView({
-    triggerOnce: true,
-    threshold: 0.05,
-    rootMargin: '50px 0px'
-  })
-
-  // Track if form has been shown to prevent disappearing on mobile
-  useEffect(() => {
-    if (formInView && !formHasBeenShown) {
-      setFormHasBeenShown(true)
-    }
-  }, [formInView, formHasBeenShown])
+  
 
   useEffect(() => {
     const fetchContactInfo = async () => {
@@ -667,13 +655,7 @@ export default function ContactPage() {
         </div>
         
         <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            ref={formRef}
-            initial={{ opacity: 0, y: 30 }}
-            animate={formHasBeenShown || formInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-            transition={{ duration: 0.8 }}
-            className="text-center mb-16 lg:mb-20"
-          >
+          <div className="text-center mb-16 lg:mb-20">
             <span className="text-brass text-sm font-medium tracking-luxury uppercase">Send a Message</span>
             <div className="w-16 h-0.5 bg-brass mx-auto mt-3 mb-8" />
             <h2 className="font-serif text-4xl lg:text-5xl text-ivory mb-4">
@@ -682,12 +664,9 @@ export default function ContactPage() {
             <p className="text-ivory/60 text-lg max-w-3xl mx-auto">
               Fill out the form below and we'll respond as soon as possible.
             </p>
-          </motion.div>
+          </div>
 
-          <motion.form
-            initial={{ opacity: 0, y: 30 }}
-            animate={formHasBeenShown || formInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
+          <form
             onSubmit={handleSubmit}
             className="space-y-6"
           >
@@ -789,16 +768,14 @@ export default function ContactPage() {
               />
             </div>
 
-            <motion.button
+            <button
               type="submit"
               disabled={submitting}
-              whileHover={{ scale: submitting ? 1 : 1.05 }}
-              whileTap={{ scale: submitting ? 1 : 0.95 }}
               className="w-full px-8 py-4 bg-brass text-charcoal font-medium rounded-sm hover:bg-olive transition-all duration-300 hover:shadow-lg hover:shadow-brass/50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? 'Sending...' : 'Send Message'}
-            </motion.button>
-          </motion.form>
+            </button>
+          </form>
         </div>
         {/* Bottom wave transition to Contact Information Section */}
         <div className="absolute bottom-0 left-0 right-0 overflow-hidden">

@@ -101,7 +101,7 @@ export default async function Image() {
               marginTop: '8px',
             }}
           >
-            www.glisterlondon.com
+            www.glisterluxury.com
           </div>
         </div>
       </div>

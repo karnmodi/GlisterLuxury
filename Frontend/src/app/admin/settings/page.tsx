@@ -97,7 +97,7 @@ Crafted for those who value distinction.
 
 +44 7767 198433 | enquiries@glisterluxury.com
 
-https://www.glisterlondon.com/`
+https://www.glisterluxury.com/`
             : ''
         }))
         setAutoReplySettings(defaultConfigs)

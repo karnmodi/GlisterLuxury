@@ -33,7 +33,7 @@ const crimson = Crimson_Text({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://glisterlondon.com'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://glisterluxury.com'),
   title: 'Glister Luxury - The Soul of Interior',
   description: 'Crafting the finest solid brass cabinet hardware and interior accessories since 2025. Premium hardware for discerning customers.',
   manifest: '/manifest.json',

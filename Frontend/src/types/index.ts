@@ -301,7 +301,7 @@ export interface ContactInquiry {
   name: string
   email: string
   phone?: string
-  category: 'general_inquiry' | 'product_inquiry' | 'order_status' | 'refund_request' | 'bulk_order' | 'technical_support' | 'shipping_delivery' | 'payment_issue' | 'complaint' | 'other'
+  category?: 'general_inquiry' | 'product_inquiry' | 'order_status' | 'refund_request' | 'bulk_order' | 'technical_support' | 'shipping_delivery' | 'payment_issue' | 'complaint' | 'other'
   subject: string
   message: string
   status: 'new' | 'read' | 'replied' | 'closed'
