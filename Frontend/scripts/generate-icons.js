@@ -34,13 +34,14 @@ async function generateIcons() {
       const outputPath = path.join(outputDir, `icon-${size}x${size}.png`);
       
       // Maskable icon safe zone: 80% of canvas (10% padding on all sides)
-      // This ensures the G is visible in all Android shapes (round, square, curved)
+      // This ensures the G is visible in all Android shapes (round, square, curved, squircle)
       // and iOS rounded square icons
       const safeZone = Math.floor(size * 0.8);
       const safeZonePadding = Math.floor((size - safeZone) / 2);
       
-      // Make the G larger within the safe zone (90% of safe zone) for maximum clarity
-      const gSize = Math.floor(safeZone * 0.9);
+      // Make the G larger within the safe zone (95% of safe zone) for maximum clarity
+      // This ensures the G is prominent even when Android applies circular or other masks
+      const gSize = Math.floor(safeZone * 0.95);
       const gPadding = Math.floor((safeZone - gSize) / 2);
 
       // Create a square canvas with black background for contrast
@@ -55,16 +56,22 @@ async function generateIcons() {
       });
 
       // Resize source image to fit within the G size area while maintaining aspect ratio
+      // Use 'inside' fit to ensure the G fits completely and is centered
       const resizedImage = await sharp(sourceIcon)
         .resize(gSize, gSize, {
-          fit: 'contain',
+          fit: 'inside',
           background: { r: 0, g: 0, b: 0, alpha: 0 }
         })
         .toBuffer();
 
-      // Calculate position to center the G within the safe zone
-      const gTop = safeZonePadding + gPadding;
-      const gLeft = safeZonePadding + gPadding;
+      // Get the actual dimensions of the resized image to ensure perfect centering
+      const resizedMetadata = await sharp(resizedImage).metadata();
+      const actualGWidth = resizedMetadata.width;
+      const actualGHeight = resizedMetadata.height;
+      
+      // Calculate position to perfectly center the G within the safe zone
+      const gTop = safeZonePadding + Math.floor((safeZone - actualGHeight) / 2);
+      const gLeft = safeZonePadding + Math.floor((safeZone - actualGWidth) / 2);
 
       // Composite the resized G image onto the canvas, centered in safe zone
       const icon = await canvas
@@ -78,9 +85,11 @@ async function generateIcons() {
         .png()
         .toBuffer();
 
-      // Apply rounded corners mask (22% border radius for modern, friendly look)
-      // This works well for Android curved/square icons and iOS rounded square
-      const borderRadius = Math.floor(size * 0.22);
+      // For maskable icons, we keep the full square icon
+      // Android will apply its own mask (circle, square, rounded, squircle)
+      // iOS will apply rounded corners automatically
+      // We still apply subtle rounded corners for better appearance in some contexts
+      const borderRadius = Math.floor(size * 0.18);
       
       // Create rounded rectangle mask using SVG
       const maskSvg = `
@@ -91,7 +100,8 @@ async function generateIcons() {
 
       const maskBuffer = Buffer.from(maskSvg);
 
-      // Apply the rounded mask to create final icon with curved edges
+      // Apply the rounded mask to create final icon with subtle curved edges
+      // The icon will work perfectly with Android's adaptive icon system
       await sharp(icon)
         .composite([
           {
