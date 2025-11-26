@@ -45,14 +45,13 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/images/business/G.png', sizes: 'any' },
-      { url: '/images/business/G.png', sizes: '192x192', type: 'image/png' },
-      { url: '/images/business/G.png', sizes: '512x512', type: 'image/png' },
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
-    shortcut: '/images/business/G.png',
+    shortcut: '/icons/icon-192x192.png',
     apple: [
-      { url: '/images/business/G.png', sizes: '180x180', type: 'image/png' },
-      { url: '/images/business/G.png', sizes: '152x152', type: 'image/png' },
+      { url: '/icons/icon-180x180.png', sizes: '180x180', type: 'image/png' },
+      { url: '/icons/icon-152x152.png', sizes: '152x152', type: 'image/png' },
     ],
   },
   openGraph: {
