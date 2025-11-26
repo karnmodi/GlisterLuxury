@@ -33,75 +33,76 @@ async function generateIcons() {
     for (const size of iconSizes) {
       const outputPath = path.join(outputDir, `icon-${size}x${size}.png`);
       
-      // Calculate safe area (80% of canvas) to ensure G is clearly visible
-      const safeArea = Math.floor(size * 0.8);
-      const padding = Math.floor((size - safeArea) / 2);
+      // Maskable icon safe zone: 80% of canvas (10% padding on all sides)
+      // This ensures the G is visible in all Android shapes (round, square, curved)
+      // and iOS rounded square icons
+      const safeZone = Math.floor(size * 0.8);
+      const safeZonePadding = Math.floor((size - safeZone) / 2);
+      
+      // Make the G larger within the safe zone (90% of safe zone) for maximum clarity
+      const gSize = Math.floor(safeZone * 0.9);
+      const gPadding = Math.floor((safeZone - gSize) / 2);
 
-      // Create a square canvas with transparent background
+      // Create a square canvas with black background for contrast
+      // This ensures the gold G stands out clearly
       const canvas = sharp({
         create: {
           width: size,
           height: size,
           channels: 4,
-          background: { r: 0, g: 0, b: 0, alpha: 0 }
+          background: { r: 0, g: 0, b: 0, alpha: 1 }
         }
       });
 
-      // Resize source image to fit within safe area while maintaining aspect ratio
+      // Resize source image to fit within the G size area while maintaining aspect ratio
       const resizedImage = await sharp(sourceIcon)
-        .resize(safeArea, safeArea, {
+        .resize(gSize, gSize, {
           fit: 'contain',
           background: { r: 0, g: 0, b: 0, alpha: 0 }
         })
         .toBuffer();
 
-      // Apply rounded corners mask (25% border radius for more pronounced rounded edges)
-      const borderRadius = Math.floor(size * 0.25);
+      // Calculate position to center the G within the safe zone
+      const gTop = safeZonePadding + gPadding;
+      const gLeft = safeZonePadding + gPadding;
+
+      // Composite the resized G image onto the canvas, centered in safe zone
+      const icon = await canvas
+        .composite([
+          {
+            input: resizedImage,
+            top: gTop,
+            left: gLeft
+          }
+        ])
+        .png()
+        .toBuffer();
+
+      // Apply rounded corners mask (22% border radius for modern, friendly look)
+      // This works well for Android curved/square icons and iOS rounded square
+      const borderRadius = Math.floor(size * 0.22);
       
       // Create rounded rectangle mask using SVG
       const maskSvg = `
         <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <clipPath id="rounded">
-              <rect x="0" y="0" width="${size}" height="${size}" rx="${borderRadius}" ry="${borderRadius}"/>
-            </clipPath>
-          </defs>
           <rect x="0" y="0" width="${size}" height="${size}" rx="${borderRadius}" ry="${borderRadius}" fill="white"/>
         </svg>
       `;
 
       const maskBuffer = Buffer.from(maskSvg);
 
-      // First, composite the resized image onto the canvas
-      const iconWithBackground = await canvas
+      // Apply the rounded mask to create final icon with curved edges
+      await sharp(icon)
         .composite([
           {
-            input: resizedImage,
-            top: padding,
-            left: padding
-          }
-        ])
-        .png()
-        .toBuffer();
-
-      // Create the rounded mask
-      const maskImage = await sharp(maskBuffer)
-        .resize(size, size)
-        .greyscale()
-        .toBuffer();
-
-      // Apply the rounded mask to clip the icon (dest-in blend mode creates the rounded edges)
-      await sharp(iconWithBackground)
-        .composite([
-          {
-            input: maskImage,
+            input: maskBuffer,
             blend: 'dest-in'
           }
         ])
         .png()
         .toFile(outputPath);
 
-      console.log(`✅ Generated: icon-${size}x${size}.png`);
+      console.log(`✅ Generated: icon-${size}x${size}.png (Safe zone: ${safeZone}px, G size: ${gSize}px)`);
     }
 
     console.log(`\n✨ Successfully generated ${iconSizes.length} icon sizes!`);
