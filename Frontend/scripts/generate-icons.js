@@ -39,10 +39,9 @@ async function generateIcons() {
       const safeZone = Math.floor(size * 0.8);
       const safeZonePadding = Math.floor((size - safeZone) / 2);
       
-      // Make the G larger within the safe zone (95% of safe zone) for maximum clarity
-      // This ensures the G is prominent even when Android applies circular or other masks
-      const gSize = Math.floor(safeZone * 0.95);
-      const gPadding = Math.floor((safeZone - gSize) / 2);
+      // Make the G much larger - use 100% of safe zone to maximize the G size
+      // This ensures the G is very prominent and clearly visible even when Android applies circular or other masks
+      const gSize = safeZone;
 
       // Create a square canvas with black background for contrast
       // This ensures the gold G stands out clearly
@@ -55,23 +54,19 @@ async function generateIcons() {
         }
       });
 
-      // Resize source image to fit within the G size area while maintaining aspect ratio
-      // Use 'inside' fit to ensure the G fits completely and is centered
+      // Resize source image to fill the G size area - use 'cover' to make the G as large as possible
+      // This ensures the G fills the available space and is maximally visible
       const resizedImage = await sharp(sourceIcon)
         .resize(gSize, gSize, {
-          fit: 'inside',
+          fit: 'cover',
+          position: 'center',
           background: { r: 0, g: 0, b: 0, alpha: 0 }
         })
         .toBuffer();
 
-      // Get the actual dimensions of the resized image to ensure perfect centering
-      const resizedMetadata = await sharp(resizedImage).metadata();
-      const actualGWidth = resizedMetadata.width;
-      const actualGHeight = resizedMetadata.height;
-      
-      // Calculate position to perfectly center the G within the safe zone
-      const gTop = safeZonePadding + Math.floor((safeZone - actualGHeight) / 2);
-      const gLeft = safeZonePadding + Math.floor((safeZone - actualGWidth) / 2);
+      // Center the G within the safe zone
+      const gTop = safeZonePadding;
+      const gLeft = safeZonePadding;
 
       // Composite the resized G image onto the canvas, centered in safe zone
       const icon = await canvas
