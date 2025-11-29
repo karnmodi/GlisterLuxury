@@ -110,7 +110,7 @@ export default function ProductImageGallery({
   }
 
   return (
-    <div className="w-full lg:w-[45%] shrink-0 hidden lg:block">
+    <div className="hidden lg:block">
       <div className="lg:sticky lg:top-24 lg:h-[calc(100vh-7rem)]">
         <motion.div
           initial={{ opacity: 0, x: -20 }}

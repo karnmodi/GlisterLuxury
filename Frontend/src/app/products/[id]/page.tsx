@@ -49,6 +49,8 @@ export default function ProductDetailPage() {
   const [showMobileHeader, setShowMobileHeader] = useState(false)
   const [showMobilePreview, setShowMobilePreview] = useState(true)
   const [imageRef, setImageRef] = useState<HTMLDivElement | null>(null)
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
+  const [isDesktopDescriptionExpanded, setIsDesktopDescriptionExpanded] = useState(false)
 
   const fetchProduct = useCallback(async () => {
     try {
@@ -464,13 +466,61 @@ export default function ProductDetailPage() {
           )}
 
           <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
-            {/* Sticky Product Images Section */}
-            <ProductImageGallery
-              product={product}
-              selectedFinish={selectedFinish}
-              availableFinishes={availableFinishes}
-              onImageChange={setCurrentImageIndex}
-            />
+            {/* Left Column - Images and Description */}
+            <div className="w-full lg:w-[45%] shrink-0">
+              {/* Sticky Product Images Section */}
+              <ProductImageGallery
+                product={product}
+                selectedFinish={selectedFinish}
+                availableFinishes={availableFinishes}
+                onImageChange={setCurrentImageIndex}
+              />
+              
+              {/* Description Section - Desktop */}
+              {product.description && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.3 }}
+                  className="hidden lg:block mt-4 bg-white/80 backdrop-blur-xl rounded-xl p-4 shadow-lg border border-brass/20"
+                >
+                  <h3 className="text-sm font-semibold text-charcoal mb-2">Description</h3>
+                  <div className="relative">
+                    <motion.p
+                      className={`text-charcoal/70 leading-relaxed text-sm whitespace-pre-wrap ${
+                        !isDesktopDescriptionExpanded ? 'line-clamp-[10]' : ''
+                      }`}
+                      initial={false}
+                      transition={{ duration: 0.3 }}
+                    >
+                      {product.description}
+                    </motion.p>
+                    {product.description.length > 400 && (
+                      <button
+                        onClick={() => setIsDesktopDescriptionExpanded(!isDesktopDescriptionExpanded)}
+                        className="mt-3 text-brass hover:text-olive text-sm font-medium transition-colors flex items-center gap-1"
+                      >
+                        {isDesktopDescriptionExpanded ? (
+                          <>
+                            <span>See less</span>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            </svg>
+                          </>
+                        ) : (
+                          <>
+                            <span>See more</span>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </div>
 
             {/* Mobile Product Images Section */}
             <div className="w-full lg:hidden mb-4">
@@ -551,6 +601,51 @@ export default function ProductDetailPage() {
                     </motion.div>
                   )}
               </motion.div>
+              
+              {/* Mobile Description Section with "See more" toggle */}
+              {product.description && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.3 }}
+                  className="lg:hidden mt-4 bg-white/80 backdrop-blur-xl rounded-xl p-4 shadow-lg border border-brass/20"
+                >
+                  <h3 className="text-sm font-semibold text-charcoal mb-2">Description</h3>
+                  <div className="relative">
+                    <motion.p
+                      className={`text-charcoal/70 leading-relaxed text-sm whitespace-pre-wrap ${
+                        !isDescriptionExpanded ? 'line-clamp-3' : ''
+                      }`}
+                      initial={false}
+                      transition={{ duration: 0.3 }}
+                    >
+                      {product.description}
+                    </motion.p>
+                    {product.description.length > 150 && (
+                      <button
+                        onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                        className="mt-2 text-brass hover:text-olive text-sm font-medium transition-colors flex items-center gap-1"
+                      >
+                        {isDescriptionExpanded ? (
+                          <>
+                            <span>See less</span>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            </svg>
+                          </>
+                        ) : (
+                          <>
+                            <span>See more</span>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              )}
             </div>
 
             {/* Product Details - Scrollable */}
@@ -560,77 +655,6 @@ export default function ProductDetailPage() {
               transition={{ duration: 0.6 }}
               className="w-full lg:w-[55%] space-y-3 min-w-0"
             >
-              {/* Breadcrumb Navigation */}
-              {product.category && typeof product.category === 'object' && (
-                <motion.nav
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                  className="flex items-center gap-2 text-sm text-charcoal/60 mb-4 flex-wrap"
-                >
-                  <Link href="/" className="hover:text-brass transition-colors">
-                    Home
-                  </Link>
-                  <span>/</span>
-                  <Link href={buildProductsUrl()} className="hover:text-brass transition-colors">
-                    Products
-                  </Link>
-                  <span>/</span>
-                  <Link
-                    href={buildProductsUrl(product.category._id)}
-                    className="hover:text-brass transition-colors"
-                  >
-                    {product.category.name}
-                  </Link>
-                  {product.subcategory && (
-                    <>
-                      <span>/</span>
-                      <Link
-                        href={buildProductsUrl(product.category._id, product.subcategory._id)}
-                        className="hover:text-brass transition-colors"
-                      >
-                        {product.subcategory.name}
-                      </Link>
-                    </>
-                  )}
-                  <span>/</span>
-                  <span className="text-charcoal font-medium">{product.name}</span>
-                </motion.nav>
-              )}
-
-              {/* Category & Subcategory Tags */}
-              {(product.category && typeof product.category === 'object') || product.subcategory ? (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.1 }}
-                  className="flex items-center gap-2 mb-3"
-                >
-                  {product.category && typeof product.category === 'object' && (
-                    <Link
-                      href={buildProductsUrl(product.category._id)}
-                      className="inline-flex items-center px-3 py-1.5 bg-brass/10 text-brass text-xs font-medium rounded-full border border-brass/30 hover:bg-brass/20 hover:shadow-md transition-all duration-300"
-                    >
-                      <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
-                      {product.category.name}
-                    </Link>
-                  )}
-                  {product.subcategory && product.category && typeof product.category === 'object' && (
-                    <Link
-                      href={buildProductsUrl(product.category._id, product.subcategory._id)}
-                      className="inline-flex items-center px-3 py-1.5 bg-olive/10 text-olive text-xs font-medium rounded-full border border-olive/30 hover:bg-olive/20 hover:shadow-md transition-all duration-300"
-                    >
-                      <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
-                      {product.subcategory.name}
-                    </Link>
-                  )}
-                </motion.div>
-              ) : null}
-
               {/* Product Header */}
               <ProductHeader
                 product={product}

@@ -237,7 +237,7 @@ function formatAutoReplyHTML(message, variables, req = null) {
       <div class="email-wrapper">
         <div class="header">
           <div class="logo-container">
-            <img src="${logoUrl}" alt="Glister Luxury" class="logo" />
+            <img src="${logoUrl}" alt="Glister Luxury" class="logo" style="max-width: 120px; height: auto; display: block; margin: 0 auto;" />
           </div>
           <div class="header-text">The Soul of Interior</div>
         </div>

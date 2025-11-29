@@ -90,15 +90,6 @@ export default function ProductHeader({
         {product.name}
       </motion.h1>
       
-      <motion.p
-        initial={isMobile ? { opacity: 1 } : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={isMobile ? { duration: 0 } : { delay: 0.5, duration: 0.3 }}
-        className="text-charcoal/70 leading-relaxed text-sm whitespace-pre-wrap"
-      >
-        {product.description || 'Premium quality product crafted with excellence and attention to detail'}
-      </motion.p>
-      
       {/* Material Information - Only show when there's a single material */}
       {showMaterialInfo && selectedMaterial && (
         <motion.div
