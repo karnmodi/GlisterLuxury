@@ -721,7 +721,7 @@ async function uploadProductImages(req, res) {
 
 		// If payload is close to or exceeds limit, compress server-side as fallback
 		if (totalSizeMB > safetyMarginMB) {
-			console.log(`[uploadProductImages] Payload size (${totalSizeMB.toFixed(2)}MB) exceeds safety margin (${safetyMarginMB}MB), applying server-side compression`);
+			console.log(`[uploadProductImages] Payload size (${totalSizeMB.toFixed(2)}MB) exceeds safety margin (${safetyMarginMB}MB), attempting server-side compression`);
 			
 			// Calculate target size per file to stay under limit
 			const availableSizeMB = (safetyMarginMB * 0.9) / req.files.length; // 90% of safety margin distributed across files
@@ -738,9 +738,21 @@ async function uploadProductImages(req, res) {
 
 				const compressedTotalSizeMB = calculateTotalSizeMB(filesToUpload);
 				const savedMB = totalSizeMB - compressedTotalSizeMB;
-				console.log(`[uploadProductImages] Server-side compression complete: ${compressedTotalSizeMB.toFixed(2)}MB (saved ${savedMB.toFixed(2)}MB)`);
+				
+				// Check if compression actually reduced the size
+				if (compressedTotalSizeMB < totalSizeMB) {
+					console.log(`[uploadProductImages] Server-side compression complete: ${compressedTotalSizeMB.toFixed(2)}MB (saved ${savedMB.toFixed(2)}MB)`);
+				} else {
+					console.warn(`[uploadProductImages] Compression did not reduce size (likely sharp unavailable). Original: ${totalSizeMB.toFixed(2)}MB, Result: ${compressedTotalSizeMB.toFixed(2)}MB`);
+				}
+
+				// Warn if still too large after compression attempt
+				if (compressedTotalSizeMB > maxPayloadMB) {
+					console.warn(`[uploadProductImages] WARNING: Payload size (${compressedTotalSizeMB.toFixed(2)}MB) still exceeds Vercel limit (${maxPayloadMB}MB) after compression attempt. Upload may fail.`);
+				}
 			} catch (compressionError) {
 				console.error(`[uploadProductImages] Server-side compression failed:`, compressionError);
+				console.warn(`[uploadProductImages] Continuing with original files. If upload fails due to size, please compress images on the frontend or upload fewer files.`);
 				// Continue with original files if compression fails
 				filesToUpload = req.files;
 			}
@@ -801,10 +813,17 @@ async function uploadProductImages(req, res) {
 			contentType: req.headers['content-type']
 		});
 		
+		// Handle sharp-related errors specifically
+		if (err.message && (err.message.includes('sharp') || err.message.includes('Could not load'))) {
+			console.warn(`[uploadProductImages] Sharp module error detected, but upload should continue with original files`);
+			// Don't fail the upload due to sharp errors - the compression utility should handle this gracefully
+			// If we reach here, it means there was an unexpected error, so we'll return a generic error
+		}
+		
 		// Handle 413 Payload Too Large errors specifically
 		if (err.status === 413 || (err.message && err.message.includes('413')) || err.message?.includes('Content Too Large')) {
 			return res.status(413).json({ 
-				message: 'File size too large. Maximum size is 3MB per file. Please upload one image at a time.',
+				message: 'File size too large. Maximum size is 3MB per file. Please compress images on the frontend or upload one image at a time.',
 				error: process.env.NODE_ENV === 'development' ? err.stack : undefined
 			});
 		}

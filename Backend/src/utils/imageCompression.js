@@ -1,4 +1,16 @@
-const sharp = require('sharp');
+// Try to load sharp, but make it optional for environments where it's not available (e.g., Vercel)
+let sharp = null;
+let sharpAvailable = false;
+
+try {
+	sharp = require('sharp');
+	sharpAvailable = true;
+	console.log('[imageCompression] Sharp module loaded successfully');
+} catch (error) {
+	console.warn('[imageCompression] Sharp module not available, compression will be skipped:', error.message);
+	console.warn('[imageCompression] Images will be uploaded without server-side compression');
+	sharpAvailable = false;
+}
 
 /**
  * Compress an image buffer using Sharp
@@ -10,6 +22,13 @@ const sharp = require('sharp');
  * @returns {Promise<Buffer>} - Compressed image buffer
  */
 async function compressImageBuffer(imageBuffer, options = {}) {
+	// If sharp is not available, return original buffer
+	if (!sharpAvailable || !sharp) {
+		const originalSize = imageBuffer.length;
+		console.log(`[compressImageBuffer] Sharp not available, skipping compression. Original size: ${(originalSize / 1024 / 1024).toFixed(2)}MB`);
+		return imageBuffer;
+	}
+
 	const {
 		maxSizeMB = 2,
 		maxWidthOrHeight = 2000,
@@ -113,6 +132,13 @@ async function compressImageBuffers(imageBuffers, options = {}) {
  */
 async function compressMulterFiles(files, options = {}) {
 	if (!files || files.length === 0) {
+		return files;
+	}
+
+	// If sharp is not available, return original files
+	if (!sharpAvailable || !sharp) {
+		const totalSizeMB = calculateTotalSizeMB(files);
+		console.log(`[compressMulterFiles] Sharp not available, skipping compression. Total size: ${totalSizeMB.toFixed(2)}MB`);
 		return files;
 	}
 
